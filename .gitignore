@@ -1,0 +1,26 @@
+# ─── Configuración sensible ───────────────────────────────────
+config/secrets.php
+.env
+*.env
+
+# ─── Logs y caché ─────────────────────────────────────────────
+logs/
+*.log
+
+# ─── Composer ─────────────────────────────────────────────────
+vendor/
+composer.lock
+
+# ─── Sistema operativo ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── IDEs ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── Claude Code ──────────────────────────────────────────────
+.claude/

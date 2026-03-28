@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -p 5432 -c \"CREATE DATABASE industria_mg;\" 2>&1)",
+      "Bash(PGPASSWORD=1234 \"/c/Program Files/PostgreSQL/17/bin/psql.exe\" -U postgres -h localhost -c \"CREATE DATABASE industria_mg;\" 2>&1)",
+      "Bash(PGPASSWORD=1234 \"/c/Program Files/PostgreSQL/17/bin/psql.exe\" -U postgres -h localhost -d industria_mg -c \"\\\\dt\" 2>&1)",
+      "Bash(/c/xampp/php/php.exe -m)",
+      "Bash(curl:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)"
+    ]
+  }
+}
