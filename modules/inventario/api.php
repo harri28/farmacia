@@ -6,6 +6,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
+requireApiAuth(['admin']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -50,9 +51,10 @@ switch ($action) {
 
         $sql = "
             SELECT p.id, p.codigo, p.nombre, p.laboratorio, p.presentacion,
-                   p.precio_compra, p.precio_venta, p.stock, p.stock_minimo,
+                   p.precio_compra, p.precio_venta, p.stock, p.stock_minimo, p.unidad,
                    p.requiere_receta, p.favorito, p.activo, p.total_vendido,
-                   p.categoria_id, c.nombre AS categoria
+                   p.categoria_id, c.nombre AS categoria,
+                   p.fecha_vencimiento
             FROM productos p
             LEFT JOIN categorias c ON c.id = p.categoria_id
             WHERE " . implode(' AND ', $where) . "
@@ -68,6 +70,56 @@ switch ($action) {
     case 'categorias':
         $rows = $db->query("SELECT id, nombre FROM categorias WHERE activo = TRUE ORDER BY nombre")->fetchAll();
         echo json_encode($rows);
+        break;
+
+    // ---- POST: Crear categoría ----
+    case 'crear_categoria':
+        $data   = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($data['nombre'] ?? '');
+        if (!$nombre) jsonResponse(['error' => true, 'message' => 'El nombre es requerido'], 400);
+
+        $check = $db->prepare("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER(:nombre)");
+        $check->execute([':nombre' => $nombre]);
+        if ($check->fetch()) jsonResponse(['error' => true, 'message' => 'Ya existe una categoría con ese nombre'], 409);
+
+        $stmt = $db->prepare("INSERT INTO categorias (nombre) VALUES (:nombre) RETURNING id, nombre");
+        $stmt->execute([':nombre' => $nombre]);
+        $cat = $stmt->fetch();
+        jsonResponse(['error' => false, 'message' => 'Categoría creada', 'id' => $cat['id'], 'nombre' => $cat['nombre']]);
+        break;
+
+    // ---- POST: Editar categoría ----
+    case 'editar_categoria':
+        $data   = json_decode(file_get_contents('php://input'), true);
+        $id     = intval($data['id'] ?? 0);
+        $nombre = trim($data['nombre'] ?? '');
+        if (!$id || !$nombre) jsonResponse(['error' => true, 'message' => 'Datos inválidos'], 400);
+
+        $check = $db->prepare("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER(:nombre) AND id != :id");
+        $check->execute([':nombre' => $nombre, ':id' => $id]);
+        if ($check->fetch()) jsonResponse(['error' => true, 'message' => 'Ya existe una categoría con ese nombre'], 409);
+
+        $db->prepare("UPDATE categorias SET nombre = :nombre WHERE id = :id")
+           ->execute([':nombre' => $nombre, ':id' => $id]);
+        jsonResponse(['error' => false, 'message' => 'Categoría actualizada', 'id' => $id, 'nombre' => $nombre]);
+        break;
+
+    // ---- POST: Eliminar categoría ----
+    case 'eliminar_categoria':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id   = intval($data['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+
+        // Verificar si hay productos usando esta categoría
+        $uso = $db->prepare("SELECT COUNT(*) AS total FROM productos WHERE categoria_id = :id AND activo = TRUE");
+        $uso->execute([':id' => $id]);
+        $total = intval($uso->fetch()['total']);
+        if ($total > 0) {
+            jsonResponse(['error' => true, 'message' => "No se puede eliminar: $total producto(s) usan esta categoría"], 409);
+        }
+
+        $db->prepare("DELETE FROM categorias WHERE id = :id")->execute([':id' => $id]);
+        jsonResponse(['error' => false, 'message' => 'Categoría eliminada']);
         break;
 
     // ---- POST: Crear producto ----
@@ -86,13 +138,13 @@ switch ($action) {
 
         $stmt = $db->prepare("
             INSERT INTO productos
-                (codigo, nombre, categoria_id, laboratorio, presentacion,
+                (codigo, nombre, categoria_id, laboratorio, presentacion, unidad,
                  precio_compra, precio_venta, stock, stock_minimo,
-                 requiere_receta, favorito, activo)
+                 requiere_receta, favorito, activo, fecha_vencimiento)
             VALUES
-                (:codigo, :nombre, :cat, :lab, :pres,
+                (:codigo, :nombre, :cat, :lab, :pres, :unidad,
                  :p_compra, :p_venta, :stock, :stock_min,
-                 :receta, :favorito, TRUE)
+                 :receta, :favorito, TRUE, :fvenc)
             RETURNING id
         ");
         $stmt->execute([
@@ -101,12 +153,14 @@ switch ($action) {
             ':cat'       => $data['categoria_id']  ?: null,
             ':lab'       => trim($data['laboratorio']  ?? ''),
             ':pres'      => trim($data['presentacion'] ?? ''),
+            ':unidad'    => trim($data['unidad'] ?? 'unidad'),
             ':p_compra'  => floatval($data['precio_compra'] ?? 0),
             ':p_venta'   => floatval($data['precio_venta']),
             ':stock'     => intval($data['stock'] ?? 0),
             ':stock_min' => intval($data['stock_minimo'] ?? 5),
             ':receta'    => isset($data['requiere_receta']) && $data['requiere_receta'] ? 'TRUE' : 'FALSE',
             ':favorito'  => isset($data['favorito']) && $data['favorito'] ? 'TRUE' : 'FALSE',
+            ':fvenc'     => $data['fecha_vencimiento'] ?: null,
         ]);
         $id = $stmt->fetch()['id'];
         jsonResponse(['error' => false, 'message' => 'Producto creado correctamente', 'id' => $id]);
@@ -133,12 +187,14 @@ switch ($action) {
                 categoria_id = :cat,
                 laboratorio  = :lab,
                 presentacion = :pres,
-                precio_compra  = :p_compra,
-                precio_venta   = :p_venta,
-                stock_minimo   = :stock_min,
-                requiere_receta = :receta,
-                favorito       = :favorito,
-                updated_at     = NOW()
+                unidad       = :unidad,
+                precio_compra     = :p_compra,
+                precio_venta      = :p_venta,
+                stock_minimo      = :stock_min,
+                requiere_receta   = :receta,
+                favorito          = :favorito,
+                fecha_vencimiento = :fvenc,
+                updated_at        = NOW()
             WHERE id = :id
         ");
         $stmt->execute([
@@ -148,11 +204,13 @@ switch ($action) {
             ':cat'       => $data['categoria_id']  ?: null,
             ':lab'       => trim($data['laboratorio']  ?? ''),
             ':pres'      => trim($data['presentacion'] ?? ''),
+            ':unidad'    => trim($data['unidad'] ?? 'unidad'),
             ':p_compra'  => floatval($data['precio_compra'] ?? 0),
             ':p_venta'   => floatval($data['precio_venta']),
             ':stock_min' => intval($data['stock_minimo'] ?? 5),
             ':receta'    => isset($data['requiere_receta']) && $data['requiere_receta'] ? 'TRUE' : 'FALSE',
             ':favorito'  => isset($data['favorito']) && $data['favorito'] ? 'TRUE' : 'FALSE',
+            ':fvenc'     => $data['fecha_vencimiento'] ?: null,
         ]);
         jsonResponse(['error' => false, 'message' => 'Producto actualizado correctamente']);
 

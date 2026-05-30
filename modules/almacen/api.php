@@ -7,6 +7,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
+requireApiAuth(['admin']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();

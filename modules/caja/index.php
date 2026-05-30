@@ -139,6 +139,9 @@ include '../../includes/header.php';
         </div>
     </div>
     <div class="page-actions">
+        <button class="btn btn-outline" onclick="openModal('modal-gasto')" style="border-color:var(--danger);color:var(--danger)">
+            <i class="fas fa-receipt"></i> Registrar Gasto
+        </button>
         <button class="btn btn-danger" onclick="openCerrarModal()">
             <i class="fas fa-lock"></i> Cerrar Caja
         </button>
@@ -175,9 +178,16 @@ include '../../includes/header.php';
             <div class="stat-label">Movimientos adicionales</div>
         </div>
     </div>
+    <div class="stat-card" style="cursor:pointer" onclick="document.getElementById('section-gastos').scrollIntoView({behavior:'smooth'})">
+        <div class="stat-icon red"><i class="fas fa-receipt"></i></div>
+        <div>
+            <div class="stat-value" id="stat-gastos-total">S/ 0.00</div>
+            <div class="stat-label">Gastos del turno</div>
+        </div>
+    </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+<div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start">
 
     <!-- Columna izquierda: movimientos -->
     <div>
@@ -240,46 +250,6 @@ include '../../includes/header.php';
                     <span>Total esperado</span>
                     <span style="color:var(--success)">S/ <?= number_format($saldo_esperado, 2) ?></span>
                 </div>
-            </div>
-        </div>
-
-        <!-- Nuevo movimiento -->
-        <div class="card">
-            <div class="card-header" style="padding-bottom:0">
-                <div class="card-title" style="font-size:.9rem">Registrar movimiento</div>
-            </div>
-            <div style="padding:0 16px 16px">
-                <div style="display:flex;gap:8px;margin-bottom:10px">
-                    <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;
-                                  border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;font-size:.83rem"
-                           id="label-ingreso">
-                        <input type="radio" name="mov-tipo" value="ingreso" id="mov-ingreso" checked
-                               style="accent-color:var(--success)" onchange="updateTipoStyle()">
-                        <span><i class="fas fa-arrow-down" style="color:var(--success)"></i> Ingreso</span>
-                    </label>
-                    <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;
-                                  border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;font-size:.83rem"
-                           id="label-egreso">
-                        <input type="radio" name="mov-tipo" value="egreso" id="mov-egreso"
-                               style="accent-color:var(--danger)" onchange="updateTipoStyle()">
-                        <span><i class="fas fa-arrow-up" style="color:var(--danger)"></i> Egreso</span>
-                    </label>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" style="font-size:.8rem">Concepto <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="mov-concepto" class="form-control" style="font-size:.85rem"
-                        placeholder="Ej: Gasto de limpieza, Fondo de cambio...">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" style="font-size:.8rem">Monto (S/) <span style="color:var(--danger)">*</span></label>
-                    <input type="number" id="mov-monto" class="form-control" placeholder="0.00"
-                        min="0.01" step="0.01" style="font-size:.85rem">
-                </div>
-
-                <button class="btn btn-primary w-100" onclick="registrarMovimiento()" id="btn-mov" style="font-size:.85rem">
-                    <i class="fas fa-plus"></i> Registrar
-                </button>
             </div>
         </div>
 
@@ -347,7 +317,106 @@ include '../../includes/header.php';
 
 <?php endif; ?>
 
-<!-- ======== HISTORIAL DE SESIONES (siempre visible abajo) ======== -->
+<!-- ---- MODAL: Registrar Gasto ---- -->
+<div class="modal-overlay" id="modal-gasto">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-receipt" style="color:var(--danger);margin-right:8px"></i>Registrar Gasto
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-gasto')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+                <div class="form-group" style="grid-column:1/-1">
+                    <label class="form-label">Descripción <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="g-descripcion" class="form-control"
+                           placeholder="Ej: Escoba y recogedor, Factura de agua marzo...">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Proveedor / Emisor</label>
+                    <input type="text" id="g-proveedor" class="form-control"
+                           placeholder="Nombre de quien emite la factura">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">N° Comprobante (factura / boleta)</label>
+                    <input type="text" id="g-comprobante" class="form-control"
+                           placeholder="Ej: F001-00123">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Monto (S/) <span style="color:var(--danger)">*</span></label>
+                    <input type="number" id="g-monto" class="form-control"
+                           placeholder="0.00" min="0.01" step="0.01" style="font-size:1.05rem;font-weight:600">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Método de pago</label>
+                    <select id="g-metodo" class="form-control">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="yape">Yape</option>
+                        <option value="plin">Plin</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+
+            </div>
+            <?php if ($caja): ?>
+            <div style="background:#fef3c7;border-radius:var(--radius);padding:10px 14px;margin-top:4px;font-size:.83rem;color:#92400e">
+                <i class="fas fa-info-circle"></i>
+                Este gasto se descontará automáticamente del saldo de caja del turno actual.
+            </div>
+            <?php endif; ?>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-gasto')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-guardar-gasto" onclick="registrarGasto()">
+                <i class="fas fa-save"></i> Registrar Gasto
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ======== GASTOS OPERATIVOS ======== -->
+<div class="card" style="margin-top:28px" id="section-gastos">
+    <div class="card-header">
+        <div class="card-title"><i class="fas fa-receipt" style="color:var(--danger);margin-right:6px"></i>Gastos Operativos</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+            <input type="date" id="g-filtro-desde" class="form-control" style="width:140px;font-size:.82rem" value="<?= date('Y-m-d') ?>">
+            <input type="date" id="g-filtro-hasta" class="form-control" style="width:140px;font-size:.82rem" value="<?= date('Y-m-d') ?>">
+            <button class="btn btn-ghost btn-sm" onclick="loadGastos()"><i class="fas fa-search"></i></button>
+            <button class="btn btn-outline btn-sm" onclick="openModal('modal-gasto')"
+                    style="border-color:var(--danger);color:var(--danger)">
+                <i class="fas fa-plus"></i> Nuevo gasto
+            </button>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Descripción</th>
+                    <th>Proveedor</th>
+                    <th>Comprobante</th>
+                    <th>Método</th>
+                    <th class="text-right">Monto</th>
+                </tr>
+            </thead>
+            <tbody id="gastos-body">
+                <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </td></tr>
+            </tbody>
+            <tfoot id="gastos-tfoot"></tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- ======== HISTORIAL DE SESIONES (siempre visible abajo) ========
+-->
 <div class="card" style="margin-top:28px">
     <div class="card-header">
         <div class="card-title">Historial de sesiones</div>
@@ -383,9 +452,9 @@ const USUARIO = <?= $caja ? json_encode(htmlspecialchars($caja['usuario_apertura
 
 document.addEventListener('DOMContentLoaded', () => {
     loadHistorial();
+    loadGastos();
     <?php if ($caja): ?>
     loadMovimientos();
-    updateTipoStyle();
     <?php endif; ?>
 });
 
@@ -512,47 +581,6 @@ function loadMovimientos() {
         });
 }
 
-function updateTipoStyle() {
-    const esIngreso = document.getElementById('mov-ingreso')?.checked;
-    const lbI = document.getElementById('label-ingreso');
-    const lbE = document.getElementById('label-egreso');
-    if (lbI) lbI.style.borderColor = esIngreso  ? 'var(--success)' : 'var(--border)';
-    if (lbE) lbE.style.borderColor = !esIngreso ? 'var(--danger)'  : 'var(--border)';
-}
-
-function registrarMovimiento() {
-    const tipo     = document.querySelector('input[name="mov-tipo"]:checked')?.value;
-    const concepto = document.getElementById('mov-concepto').value.trim();
-    const monto    = parseFloat(document.getElementById('mov-monto').value);
-
-    if (!concepto)           { showToast('El concepto es requerido', 'error'); return; }
-    if (!monto || monto <= 0){ showToast('Ingresa un monto válido', 'error'); return; }
-
-    const btn = document.getElementById('btn-mov');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-    fetch(BASE + 'modules/caja/api.php?action=registrar_movimiento', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ caja_id: CAJA_ID, tipo, monto, concepto, usuario: USUARIO }),
-    })
-    .then(r => r.json())
-    .then(d => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-plus"></i> Registrar';
-        if (d.error) { showToast(d.message, 'error'); return; }
-        showToast('Movimiento registrado', 'success');
-        document.getElementById('mov-concepto').value = '';
-        document.getElementById('mov-monto').value    = '';
-        loadMovimientos();
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-plus"></i> Registrar';
-        showToast('Error al registrar movimiento', 'error');
-    });
-}
 
 // ---- Historial de sesiones ----
 function loadHistorial() {
@@ -581,6 +609,119 @@ function loadHistorial() {
                 </tr>`;
             }).join('');
         });
+}
+
+// ---- Gastos operativos ----
+const CATS_GASTO = {
+    limpieza:      '🧹 Limpieza',
+    papeleria:     '📋 Papelería',
+    servicios:     '💡 Servicios',
+    alquiler:      '🏠 Alquiler',
+    mantenimiento: '🔧 Mantenimiento',
+    transporte:    '🚗 Transporte',
+    publicidad:    '📢 Publicidad',
+    personal:      '👤 Personal',
+    otros:         '📦 Otros',
+};
+
+function loadGastos() {
+    const desde = document.getElementById('g-filtro-desde').value;
+    const hasta = document.getElementById('g-filtro-hasta').value;
+    const params = new URLSearchParams({ action: 'gastos_listar', desde, hasta });
+    if (CAJA_ID) params.set('caja_id', CAJA_ID);
+
+    fetch(BASE + 'modules/caja/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('gastos-body');
+            const tfoot = document.getElementById('gastos-tfoot');
+
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-light)">Sin gastos registrados en este período</td></tr>';
+                tfoot.innerHTML = '';
+                const stat = document.getElementById('stat-gastos-total');
+                if (stat) stat.textContent = 'S/ 0.00';
+                return;
+            }
+
+            let totalGastos = 0;
+            tbody.innerHTML = data.map(g => {
+                totalGastos += parseFloat(g.monto);
+                const dt  = new Date(g.created_at);
+                const fh  = dt.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+                return `<tr>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${fh}</td>
+                    <td style="font-weight:500">${g.descripcion}</td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${g.proveedor || '—'}</td>
+                    <td style="font-size:.82rem;font-family:monospace">${g.numero_comprobante || '—'}</td>
+                    <td style="font-size:.82rem">${g.metodo_pago}</td>
+                    <td class="text-right" style="font-weight:700;color:var(--danger)">
+                        - S/ ${parseFloat(g.monto).toFixed(2)}
+                    </td>
+                </tr>`;
+            }).join('');
+
+            tfoot.innerHTML = `
+                <tr style="background:var(--surface-2)">
+                    <td colspan="5" style="text-align:right;font-weight:600;font-size:.88rem;padding:10px 16px">
+                        Total gastos del período:
+                    </td>
+                    <td class="text-right" style="font-weight:700;color:var(--danger);padding:10px 16px">
+                        - S/ ${totalGastos.toFixed(2)}
+                    </td>
+                </tr>`;
+
+            const stat = document.getElementById('stat-gastos-total');
+            if (stat) stat.textContent = 'S/ ' + totalGastos.toFixed(2);
+        });
+}
+
+function registrarGasto() {
+    const descripcion = document.getElementById('g-descripcion').value.trim();
+    const monto       = parseFloat(document.getElementById('g-monto').value);
+
+    if (!descripcion)         { showToast('La descripción es requerida', 'error'); return; }
+    if (!monto || monto <= 0) { showToast('Ingresa un monto válido', 'error'); return; }
+
+    const btn = document.getElementById('btn-guardar-gasto');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+    fetch(BASE + 'modules/caja/api.php?action=registrar_gasto', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            caja_id: CAJA_ID,
+            descripcion,
+            proveedor:          document.getElementById('g-proveedor').value.trim(),
+            numero_comprobante: document.getElementById('g-comprobante').value.trim(),
+            monto,
+            metodo_pago:        document.getElementById('g-metodo').value,
+        }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Registrar Gasto';
+        if (d.error) { showToast(d.message, 'error'); return; }
+
+        showToast('Gasto registrado correctamente', 'success');
+        closeModal('modal-gasto');
+
+        // Limpiar formulario
+        document.getElementById('g-descripcion').value = '';
+        document.getElementById('g-proveedor').value   = '';
+        document.getElementById('g-comprobante').value = '';
+        document.getElementById('g-monto').value       = '';
+
+        loadGastos();
+        if (CAJA_ID) loadMovimientos();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Registrar Gasto';
+        showToast('Error al registrar gasto', 'error');
+    });
 }
 
 // ---- Helpers ----

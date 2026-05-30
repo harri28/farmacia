@@ -7,6 +7,7 @@
 require_once '../../config/database.php';
 
 $base_path      = '../../';
+$required_roles = ['admin'];
 $current_module = 'inventario';
 $current_page   = 'inventario';
 $page_title     = 'Inventario — FarmaSystem';
@@ -86,13 +87,15 @@ include '../../includes/header.php';
                     <th class="text-right">P. Compra</th>
                     <th class="text-right">P. Venta</th>
                     <th class="text-right">Stock</th>
+                    <th>Unidad</th>
                     <th class="text-right">Mín.</th>
+                    <th>Vencimiento</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody id="tabla-body">
-                <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)">
+                <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)">
                     <i class="fas fa-spinner fa-spin"></i>
                 </td></tr>
             </tbody>
@@ -114,13 +117,46 @@ include '../../includes/header.php';
 
                 <div class="form-group">
                     <label class="form-label">Código <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="p-codigo" class="form-control" placeholder="MED001">
+                    <div class="input-group">
+                        <span class="input-group-icon" title="Escanea el código de barras o escríbelo manualmente">
+                            <i class="fas fa-barcode" style="color:var(--primary)"></i>
+                        </span>
+                        <input type="text" id="p-codigo" class="form-control" placeholder="MED001 o escanea el código">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Categoría</label>
+                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                        Categoría
+                        <span style="display:flex;gap:10px">
+                            <button type="button" onclick="toggleNuevaCategoria()"
+                                    style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                <i class="fas fa-plus-circle"></i> Nueva
+                            </button>
+                            <button type="button" onclick="abrirGestionCategorias()"
+                                    style="font-size:.75rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                <i class="fas fa-cog"></i> Gestionar
+                            </button>
+                        </span>
+                    </label>
                     <select id="p-categoria" class="form-control">
                         <option value="">Sin categoría</option>
                     </select>
+                    <!-- Mini-form nueva categoría -->
+                    <div id="nueva-cat-form" style="display:none;margin-top:8px">
+                        <div style="display:flex;gap:6px">
+                            <input type="text" id="nueva-cat-nombre" class="form-control"
+                                   placeholder="Nombre de la categoría"
+                                   style="flex:1;font-size:.85rem"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoria();}
+                                              if(event.key==='Escape'){toggleNuevaCategoria();}">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="guardarCategoria()" title="Guardar">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaCategoria()" title="Cancelar">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group" style="grid-column:1/-1">
@@ -128,13 +164,19 @@ include '../../includes/header.php';
                     <input type="text" id="p-nombre" class="form-control" placeholder="Paracetamol 500mg x 10 tab">
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Laboratorio</label>
-                    <input type="text" id="p-laboratorio" class="form-control" placeholder="Bayer">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Presentación</label>
-                    <input type="text" id="p-presentacion" class="form-control" placeholder="Tabletas x 10">
+                <div style="grid-column:1/-1;display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Laboratorio</label>
+                        <input type="text" id="p-laboratorio" class="form-control" placeholder="Bayer">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Presentación</label>
+                        <input type="text" id="p-presentacion" class="form-control" placeholder="Tabletas x 10">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Fecha de Vencimiento <span style="font-size:.78rem;color:var(--text-muted)">(opcional)</span></label>
+                        <input type="date" id="p-fecha-vencimiento" class="form-control">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -146,13 +188,49 @@ include '../../includes/header.php';
                     <input type="number" id="p-precio-venta" class="form-control" placeholder="0.00" step="0.01" min="0">
                 </div>
 
-                <div class="form-group" id="stock-inicial-group">
-                    <label class="form-label">Stock Inicial</label>
-                    <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Stock Mínimo</label>
-                    <input type="number" id="p-stock-minimo" class="form-control" placeholder="5" min="0">
+                <!-- Stock Inicial · Unidad · Stock Mínimo en una fila -->
+                <div style="grid-column:1/-1;display:flex;gap:14px">
+                    <div class="form-group" id="stock-inicial-group" style="flex:1">
+                        <label class="form-label">Stock Inicial</label>
+                        <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
+                    </div>
+                    <div class="form-group" style="flex:1.6">
+                        <label class="form-label">Unidad de medida <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="p-unidad" class="form-control"
+                               list="unidades-list" placeholder="Ej: unidad, caja x 10, frasco 100ml"
+                               autocomplete="off">
+                        <datalist id="unidades-list">
+                            <option value="unidad">
+                            <option value="caja">
+                            <option value="caja x 10">
+                            <option value="caja x 20">
+                            <option value="caja x 30">
+                            <option value="caja x 100">
+                            <option value="blíster x 10">
+                            <option value="blíster x 14">
+                            <option value="blíster x 20">
+                            <option value="blíster x 30">
+                            <option value="paquete">
+                            <option value="frasco">
+                            <option value="frasco 60ml">
+                            <option value="frasco 100ml">
+                            <option value="frasco 120ml">
+                            <option value="frasco 250ml">
+                            <option value="ampolla">
+                            <option value="sobre">
+                            <option value="sachet">
+                            <option value="tubo">
+                            <option value="parche">
+                            <option value="kilogramo">
+                            <option value="gramo">
+                            <option value="litro">
+                            <option value="mililitro">
+                        </datalist>
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" id="p-stock-minimo" class="form-control" placeholder="5" min="0">
+                    </div>
                 </div>
 
                 <div class="form-group" style="grid-column:1/-1;display:flex;gap:24px;align-items:center;padding:10px 0">
@@ -223,6 +301,38 @@ include '../../includes/header.php';
             <button class="btn btn-primary" id="btn-guardar-ajuste" onclick="saveAjuste()">
                 <i class="fas fa-check"></i> Aplicar Ajuste
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: Gestionar Categorías ===================== -->
+<div class="modal-overlay" id="modal-categorias">
+    <div class="modal" style="max-width:480px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-tags" style="color:var(--primary);margin-right:8px"></i>Gestionar Categorías
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-categorias')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:0">
+
+            <!-- Formulario nueva categoría dentro del modal -->
+            <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px">
+                <input type="text" id="gcat-nueva-nombre" class="form-control" placeholder="Nueva categoría..."
+                       style="flex:1"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoriaModal();}">
+                <button class="btn btn-primary btn-sm" onclick="guardarCategoriaModal()">
+                    <i class="fas fa-plus"></i> Agregar
+                </button>
+            </div>
+
+            <!-- Lista de categorías -->
+            <div id="gcat-lista" style="max-height:340px;overflow-y:auto">
+                <div style="padding:30px;text-align:center;color:var(--text-light)">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -299,7 +409,7 @@ function loadProductos() {
     });
 
     document.getElementById('tabla-body').innerHTML =
-        '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
 
     fetch(BASE + 'modules/inventario/api.php?' + params)
         .then(r => r.json())
@@ -307,10 +417,11 @@ function loadProductos() {
             document.getElementById('result-count').textContent = data.length + ' producto(s)';
             if (!data.length) {
                 document.getElementById('tabla-body').innerHTML =
-                    '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-box-open" style="font-size:1.3rem"></i><br><br>No se encontraron productos</td></tr>';
+                    '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-box-open" style="font-size:1.3rem"></i><br><br>No se encontraron productos</td></tr>';
                 return;
             }
 
+            const hoy = new Date(); hoy.setHours(0,0,0,0);
             document.getElementById('tabla-body').innerHTML = data.map(p => {
                 const agotado  = parseInt(p.stock) === 0;
                 const stockBajo = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
@@ -326,6 +437,19 @@ function loadProductos() {
                 const recetaIcon = (p.requiere_receta == 't' || p.requiere_receta === true)
                     ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
 
+                let vencCell = '<td style="font-size:.82rem;color:var(--text-light)">—</td>';
+                if (p.fecha_vencimiento) {
+                    const fv   = new Date(p.fecha_vencimiento + 'T00:00:00');
+                    const dias = Math.floor((fv - hoy) / 86400000);
+                    if (dias < 0) {
+                        vencCell = `<td><span class="badge badge-danger" style="font-size:.72rem" title="${p.fecha_vencimiento}">Vencido</span></td>`;
+                    } else if (dias <= 30) {
+                        vencCell = `<td><span class="badge badge-warning" style="font-size:.72rem;background:#fef3c7;color:#92400e" title="${p.fecha_vencimiento}">Vence ${dias}d</span></td>`;
+                    } else {
+                        vencCell = `<td style="font-size:.82rem;color:var(--text-muted)">${p.fecha_vencimiento}</td>`;
+                    }
+                }
+
                 return `<tr>
                     <td style="font-family:monospace;font-size:.82rem;color:var(--text-muted)">${p.codigo}</td>
                     <td style="font-weight:500">${p.nombre}${favIcon}${recetaIcon}</td>
@@ -337,7 +461,9 @@ function loadProductos() {
                         <span style="${stockCls}">${p.stock}</span>
                         ${stockBadge}
                     </td>
+                    <td style="font-size:.78rem;color:var(--text-muted)">${p.unidad || 'unidad'}</td>
                     <td class="text-right" style="font-size:.85rem;color:var(--text-muted)">${p.stock_minimo}</td>
+                    ${vencCell}
                     <td>${activoBadge}</td>
                     <td>
                         <div style="display:flex;gap:4px">
@@ -400,8 +526,10 @@ function openProductoModal(producto = null) {
     document.getElementById('p-precio-venta').value  = producto ? parseFloat(producto.precio_venta).toFixed(2)  : '';
     document.getElementById('p-stock').value         = producto?.stock         ?? '';
     document.getElementById('p-stock-minimo').value  = producto?.stock_minimo  ?? '5';
-    document.getElementById('p-receta').checked      = producto?.requiere_receta == 't' || producto?.requiere_receta === true;
-    document.getElementById('p-favorito').checked    = producto?.favorito == 't'        || producto?.favorito === true;
+    document.getElementById('p-unidad').value        = producto?.unidad        ?? 'unidad';
+    document.getElementById('p-receta').checked           = producto?.requiere_receta == 't' || producto?.requiere_receta === true;
+    document.getElementById('p-favorito').checked         = producto?.favorito == 't'        || producto?.favorito === true;
+    document.getElementById('p-fecha-vencimiento').value  = producto?.fecha_vencimiento ?? '';
 
     openModal('modal-producto');
     setTimeout(() => document.getElementById('p-codigo').focus(), 100);
@@ -427,8 +555,10 @@ function saveProducto() {
         precio_venta,
         stock:           parseInt(document.getElementById('p-stock').value)        || 0,
         stock_minimo:    parseInt(document.getElementById('p-stock-minimo').value) || 5,
-        requiere_receta: document.getElementById('p-receta').checked,
-        favorito:        document.getElementById('p-favorito').checked,
+        unidad:          document.getElementById('p-unidad').value.trim() || 'unidad',
+        requiere_receta:    document.getElementById('p-receta').checked,
+        favorito:           document.getElementById('p-favorito').checked,
+        fecha_vencimiento:  document.getElementById('p-fecha-vencimiento').value || null,
     };
 
     const action = editingId ? 'actualizar' : 'crear';
@@ -533,22 +663,209 @@ function toggleActivo(id) {
     .catch(() => showToast('Error al cambiar estado', 'error'));
 }
 
+// ---- Gestionar categorías (modal) ----
+function abrirGestionCategorias() {
+    openModal('modal-categorias');
+    document.getElementById('gcat-nueva-nombre').value = '';
+    renderListaCategorias();
+}
+
+function renderListaCategorias() {
+    const lista = document.getElementById('gcat-lista');
+    if (!categorias.length) {
+        lista.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Sin categorías aún</div>';
+        return;
+    }
+    lista.innerHTML = categorias.map(c => `
+        <div id="gcat-row-${c.id}" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border)">
+            <i class="fas fa-tag" style="color:var(--primary);font-size:.8rem;flex-shrink:0"></i>
+            <span class="gcat-label" style="flex:1;font-size:.9rem">${c.nombre}</span>
+            <input class="form-control gcat-input" style="flex:1;display:none;font-size:.85rem" value="${c.nombre}"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarEdicion(${c.id});}
+                              if(event.key==='Escape'){cancelarEdicion(${c.id});}">
+            <div class="gcat-actions" style="display:flex;gap:4px;flex-shrink:0">
+                <button class="btn btn-ghost btn-sm" title="Editar" onclick="iniciarEdicion(${c.id})">
+                    <i class="fas fa-pencil-alt" style="color:var(--primary)"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" title="Eliminar" onclick="eliminarCategoria(${c.id},'${c.nombre.replace(/'/g,"\\'")}')">
+                    <i class="fas fa-trash" style="color:var(--danger)"></i>
+                </button>
+            </div>
+            <div class="gcat-edit-actions" style="display:none;gap:4px;flex-shrink:0">
+                <button class="btn btn-primary btn-sm" onclick="confirmarEdicion(${c.id})">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="cancelarEdicion(${c.id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function iniciarEdicion(id) {
+    const row = document.getElementById('gcat-row-' + id);
+    row.querySelector('.gcat-label').style.display        = 'none';
+    row.querySelector('.gcat-input').style.display        = 'block';
+    row.querySelector('.gcat-actions').style.display      = 'none';
+    row.querySelector('.gcat-edit-actions').style.display = 'flex';
+    row.querySelector('.gcat-input').focus();
+    row.querySelector('.gcat-input').select();
+}
+
+function cancelarEdicion(id) {
+    const row = document.getElementById('gcat-row-' + id);
+    const cat = categorias.find(c => c.id == id);
+    row.querySelector('.gcat-input').value                = cat.nombre;
+    row.querySelector('.gcat-label').style.display        = '';
+    row.querySelector('.gcat-input').style.display        = 'none';
+    row.querySelector('.gcat-actions').style.display      = 'flex';
+    row.querySelector('.gcat-edit-actions').style.display = 'none';
+}
+
+function confirmarEdicion(id) {
+    const row    = document.getElementById('gcat-row-' + id);
+    const nombre = row.querySelector('.gcat-input').value.trim();
+    if (!nombre) { showToast('El nombre no puede estar vacío', 'error'); return; }
+
+    fetch(BASE + 'modules/inventario/api.php?action=editar_categoria', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, nombre }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        // Actualizar array local
+        const cat = categorias.find(c => c.id == id);
+        cat.nombre = nombre;
+        // Actualizar ambos selectores
+        actualizarSelectoresCategorias();
+        renderListaCategorias();
+        showToast('Categoría actualizada', 'success');
+    })
+    .catch(() => showToast('Error al editar', 'error'));
+}
+
+function eliminarCategoria(id, nombre) {
+    if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return;
+
+    fetch(BASE + 'modules/inventario/api.php?action=eliminar_categoria', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        categorias = categorias.filter(c => c.id != id);
+        actualizarSelectoresCategorias();
+        renderListaCategorias();
+        showToast('Categoría eliminada', 'success');
+    })
+    .catch(() => showToast('Error al eliminar', 'error'));
+}
+
+function guardarCategoriaModal() {
+    const nombre = document.getElementById('gcat-nueva-nombre').value.trim();
+    if (!nombre) { showToast('Escribe un nombre para la categoría', 'error'); return; }
+
+    fetch(BASE + 'modules/inventario/api.php?action=crear_categoria', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        categorias.push({ id: data.id, nombre: data.nombre });
+        categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        actualizarSelectoresCategorias();
+        renderListaCategorias();
+        document.getElementById('gcat-nueva-nombre').value = '';
+        document.getElementById('gcat-nueva-nombre').focus();
+        showToast('Categoría "' + data.nombre + '" creada', 'success');
+    })
+    .catch(() => showToast('Error al crear categoría', 'error'));
+}
+
+function actualizarSelectoresCategorias() {
+    // Selector en el formulario de producto
+    const selProd = document.getElementById('p-categoria');
+    const valActual = selProd.value;
+    selProd.innerHTML = '<option value="">Sin categoría</option>';
+    categorias.forEach(c => selProd.add(new Option(c.nombre, c.id)));
+    selProd.value = valActual;
+
+    // Selector de filtro en la tabla
+    const selFiltro = document.getElementById('f-categoria');
+    const valFiltro = selFiltro.value;
+    selFiltro.innerHTML = '<option value="0">Todas</option>';
+    categorias.forEach(c => selFiltro.add(new Option(c.nombre, c.id)));
+    selFiltro.value = valFiltro;
+}
+
+// ---- Nueva categoría inline ----
+function toggleNuevaCategoria() {
+    const form = document.getElementById('nueva-cat-form');
+    const visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'flex';
+    form.style.flexDirection = 'column';
+    if (!visible) {
+        document.getElementById('nueva-cat-nombre').value = '';
+        document.getElementById('nueva-cat-nombre').focus();
+    }
+}
+
+function guardarCategoria() {
+    const nombre = document.getElementById('nueva-cat-nombre').value.trim();
+    if (!nombre) { showToast('Escribe un nombre para la categoría', 'error'); return; }
+
+    fetch(BASE + 'modules/inventario/api.php?action=crear_categoria', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ nombre }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+
+        categorias.push({ id: data.id, nombre: data.nombre });
+        categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        actualizarSelectoresCategorias();
+        document.getElementById('p-categoria').value = data.id;
+        toggleNuevaCategoria();
+        showToast('Categoría "' + data.nombre + '" creada', 'success');
+    })
+    .catch(() => showToast('Error al crear categoría', 'error'));
+}
+
 // ---- Lector de código de barras ----
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function (e) {
-        const code      = e.detail.code.trim();
-        const modalOpen = document.getElementById('modal-producto').classList.contains('open');
+        const code       = e.detail.code.trim();
+        const modalProd  = document.getElementById('modal-producto').classList.contains('open');
+        const modalAjuste = document.getElementById('modal-ajuste').classList.contains('open');
 
-        if (modalOpen) {
-            // Rellenar el campo código en el formulario
-            document.getElementById('p-codigo').value = code;
+        if (modalProd) {
+            const campo = document.getElementById('p-codigo');
+            campo.value = code;
+            campo.style.transition = 'background .2s';
+            campo.style.background = 'rgba(var(--primary-rgb,79,70,229),.08)';
+            setTimeout(() => { campo.style.background = ''; }, 800);
             document.getElementById('p-nombre').focus();
             showToast('<i class="fas fa-barcode"></i> Código escaneado: ' + code, 'success');
-        } else {
-            // Buscar el producto en la tabla
+        } else if (!modalAjuste) {
+            // Buscar el producto en la tabla (solo si no hay otro modal abierto)
             document.getElementById('f-q').value = code;
             loadProductos();
             showToast('<i class="fas fa-barcode"></i> Buscando: ' + code, 'info');
+        }
+    });
+
+    // También permitir escribir manualmente en el campo código del modal
+    // y que el campo luzca activo cuando el modal está abierto
+    document.getElementById('modal-producto').addEventListener('click', function () {
+        // Re-enfocar p-codigo si se hace clic dentro del modal sin enfocar otro input
+        if (document.activeElement === document.body || document.activeElement === this) {
+            document.getElementById('p-codigo').focus();
         }
     });
 }

@@ -159,7 +159,7 @@ function loadHistorial() {
                     '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron ventas</td></tr>';
                 return;
             }
-            const pagoIcon = { efectivo:'💵', yape:'📱', plin:'📱', tarjeta:'💳', transferencia:'🏦' };
+            const pagoIcon = { efectivo:'💵', yape:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Yape" style="height:18px;vertical-align:middle;border-radius:3px">`, plin:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Plin" style="height:18px;vertical-align:middle;border-radius:3px">`, tarjeta:'💳', transferencia:'🏦' };
             document.getElementById('tabla-body').innerHTML = data.map(v => {
                 const esCls = v.estado === 'completada' ? 'badge-success' : 'badge-danger';
                 const dt = new Date(v.created_at);

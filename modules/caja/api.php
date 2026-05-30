@@ -6,6 +6,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
+requireApiAuth();
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -183,6 +184,107 @@ switch ($action) {
             LIMIT 30
         ")->fetchAll();
         echo json_encode($rows);
+        break;
+
+    // ---- POST: Registrar gasto operativo ----
+    case 'registrar_gasto':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $descripcion = trim($data['descripcion'] ?? '');
+        $monto       = floatval($data['monto'] ?? 0);
+
+        if (!$descripcion) jsonResponse(['error' => true, 'message' => 'La descripción es requerida'], 400);
+        if ($monto <= 0)   jsonResponse(['error' => true, 'message' => 'El monto debe ser mayor a 0'], 400);
+
+        $caja_id = intval($data['caja_id'] ?? 0) ?: null;
+
+        $db->beginTransaction();
+        try {
+            // Insertar gasto
+            $stmt = $db->prepare("
+                INSERT INTO gastos
+                    (caja_id, descripcion, proveedor, numero_comprobante, monto, metodo_pago, usuario_id)
+                VALUES (:cid, :desc, :prov, :ncomp, :monto, :mp, :uid)
+                RETURNING id
+            ");
+            $stmt->execute([
+                ':cid'   => $caja_id,
+                ':desc'  => $descripcion,
+                ':prov'  => trim($data['proveedor']          ?? ''),
+                ':ncomp' => trim($data['numero_comprobante'] ?? ''),
+                ':monto' => $monto,
+                ':mp'    => trim($data['metodo_pago'] ?? 'efectivo'),
+                ':uid'   => sesionId(),
+            ]);
+            $gasto_id = $stmt->fetch()['id'];
+
+            // Si hay caja abierta, registrar como egreso en caja_movimientos
+            if ($caja_id) {
+                $ck = $db->prepare("SELECT id FROM cajas WHERE id = :id AND estado = 'abierta'");
+                $ck->execute([':id' => $caja_id]);
+                if ($ck->fetch()) {
+                    $concepto = "[Gasto] {$descripcion}";
+                    if (!empty($data['numero_comprobante'])) {
+                        $concepto .= ' · ' . $data['numero_comprobante'];
+                    }
+                    $db->prepare("
+                        INSERT INTO caja_movimientos (caja_id, tipo, monto, concepto, usuario_id)
+                        VALUES (:cid, 'egreso', :monto, :concepto, :uid)
+                    ")->execute([
+                        ':cid'     => $caja_id,
+                        ':monto'   => $monto,
+                        ':concepto'=> $concepto,
+                        ':uid'     => sesionId(),
+                    ]);
+                    $db->prepare("UPDATE cajas SET saldo_actual = saldo_actual - :monto WHERE id = :id")
+                       ->execute([':monto' => $monto, ':id' => $caja_id]);
+                }
+            }
+
+            $db->commit();
+            jsonResponse(['error' => false, 'message' => 'Gasto registrado correctamente', 'id' => $gasto_id]);
+        } catch (Exception $e) {
+            $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+
+    // ---- GET: Listar gastos ----
+    case 'gastos_listar':
+        $desde   = $_GET['desde']   ?? date('Y-m-d');
+        $hasta   = $_GET['hasta']   ?? date('Y-m-d');
+        $caja_id = intval($_GET['caja_id'] ?? 0);
+
+        $where  = ['DATE(g.created_at) BETWEEN :desde AND :hasta'];
+        $params = [':desde' => $desde, ':hasta' => $hasta];
+
+        if ($caja_id) {
+            $where[] = 'g.caja_id = :cid';
+            $params[':cid'] = $caja_id;
+        }
+
+        $stmt = $db->prepare("
+            SELECT g.id, g.descripcion, g.proveedor,
+                   g.numero_comprobante, g.monto, g.metodo_pago, g.created_at
+            FROM gastos g
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY g.created_at DESC
+        ");
+        $stmt->execute($params);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    // ---- GET: Resumen de gastos por categoría ----
+    case 'gastos_resumen':
+        $desde   = $_GET['desde']   ?? date('Y-m-01');
+        $hasta   = $_GET['hasta']   ?? date('Y-m-d');
+
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS cantidad,
+                   SUM(monto) AS total
+            FROM gastos
+            WHERE DATE(created_at) BETWEEN :desde AND :hasta
+        ");
+        $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
+        echo json_encode($stmt->fetchAll());
         break;
 
     default:

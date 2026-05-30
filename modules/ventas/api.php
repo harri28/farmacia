@@ -6,6 +6,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
+requireApiAuth();
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -24,6 +25,32 @@ switch ($action) {
             ORDER BY p.favorito DESC, p.nombre ASC
         ");
         echo json_encode($stmt->fetchAll());
+        break;
+
+    // ---- POST: Crear nuevo cliente ----
+    case 'crear_cliente':
+        $raw  = file_get_contents('php://input');
+        $data = json_decode($raw, true);
+
+        $nombres = trim($data['nombres'] ?? '');
+        if (!$nombres) jsonResponse(['error' => true, 'message' => 'El nombre es obligatorio'], 400);
+
+        $stmt = $db->prepare("
+            INSERT INTO clientes (nombres, apellidos, dni, ruc, telefono, email, direccion, activo)
+            VALUES (:nombres, :apellidos, NULLIF(:dni,''), NULLIF(:ruc,''), NULLIF(:telefono,''), NULLIF(:email,''), NULLIF(:direccion,''), TRUE)
+            RETURNING id, nombres, apellidos, dni, ruc, telefono, email, direccion
+        ");
+        $stmt->execute([
+            ':nombres'   => $nombres,
+            ':apellidos' => trim($data['apellidos'] ?? ''),
+            ':dni'       => trim($data['dni']       ?? ''),
+            ':ruc'       => trim($data['ruc']       ?? ''),
+            ':telefono'  => trim($data['telefono']  ?? ''),
+            ':email'     => trim($data['email']     ?? ''),
+            ':direccion' => trim($data['direccion'] ?? ''),
+        ]);
+        $cliente = $stmt->fetch();
+        echo json_encode(['error' => false, 'cliente' => $cliente]);
         break;
 
     // ---- GET: Buscar cliente por DNI, RUC o nombre ----
@@ -59,10 +86,13 @@ switch ($action) {
         $total     = $subtotal - $descuento;
         $igv       = round($total * 0.18, 2);
 
-        // Verificar caja abierta
+        // Verificar caja abierta — obligatorio para registrar ventas
         $cajaStmt = $db->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1");
         $caja = $cajaStmt->fetch();
-        $cajaId = $caja ? $caja['id'] : null;
+        if (!$caja) {
+            jsonResponse(['error' => true, 'message' => 'No hay una caja abierta. Debes aperturar la caja antes de registrar ventas.', 'caja_cerrada' => true], 422);
+        }
+        $cajaId = $caja['id'];
 
         $tipo_comp = $data['tipo_comprobante'] ?? 'ticket';
 
