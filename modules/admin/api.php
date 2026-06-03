@@ -14,6 +14,46 @@ $db     = getDB();
 
 switch ($action) {
 
+    case 'ubigeo_resolver':
+        $codigo = trim($_GET['codigo'] ?? '');
+        if (!preg_match('/^\d{6}$/', $codigo)) {
+            jsonResponse(['error' => true, 'message' => 'El ubigeo debe tener 6 digitos'], 400);
+        }
+
+        $tablaUbigeo = $db->query("SELECT to_regclass('public.ubigeo_distritos') AS tabla")->fetch();
+        if (empty($tablaUbigeo['tabla'])) {
+            jsonResponse(['error' => true, 'message' => 'El catalogo de ubigeo aun no esta cargado'], 404);
+        }
+
+        $stmt = $db->prepare("
+            SELECT
+                d.codigo,
+                d.nombre AS distrito,
+                p.nombre AS provincia,
+                dep.nombre AS departamento
+            FROM public.ubigeo_distritos d
+            INNER JOIN public.ubigeo_provincias p
+                ON p.codigo = d.provincia_codigo
+            INNER JOIN public.ubigeo_departamentos dep
+                ON dep.codigo = d.departamento_codigo
+            WHERE d.codigo = :codigo
+            LIMIT 1
+        ");
+        $stmt->execute([':codigo' => $codigo]);
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            jsonResponse(['error' => true, 'message' => 'No se encontro el ubigeo solicitado'], 404);
+        }
+
+        jsonResponse([
+            'error' => false,
+            'codigo' => $row['codigo'],
+            'departamento' => $row['departamento'],
+            'provincia' => $row['provincia'],
+            'distrito' => $row['distrito'],
+        ]);
+
     // ================================================================
     // USUARIOS
     // ================================================================
@@ -179,6 +219,7 @@ switch ($action) {
         }
 
         $sql_file = __DIR__ . '/../../database/schema_sucursal.sql';
+        $facturacion_file = __DIR__ . '/../../database/migration_09_facturacion_campos_operativos.sql';
         if (!file_exists($sql_file)) {
             jsonResponse(['error' => true, 'message' => 'No se encontró schema_sucursal.sql'], 500);
         }
@@ -195,6 +236,12 @@ switch ($action) {
             }
 
             // Restaurar search_path de la sesión actual
+            $sql_facturacion = file_get_contents($facturacion_file);
+            $sql_facturacion = preg_replace('/--[^\n]*/', '', $sql_facturacion);
+            foreach (array_filter(array_map('trim', explode(';', $sql_facturacion))) as $stmt_sql) {
+                $db->exec($stmt_sql);
+            }
+
             $mySchema = preg_replace('/[^a-z0-9_]/', '', strtolower($_SESSION['sucursal_schema'] ?? ''));
             $db->exec($mySchema ? "SET search_path TO \"{$mySchema}\", public" : "SET search_path TO public");
 
@@ -250,29 +297,232 @@ switch ($action) {
     // ================================================================
 
     case 'config_get':
-        $stmt = $db->prepare(
-            "SELECT nombre_sistema, logo_path FROM public.tenant_config WHERE tenant_id = :tid"
-        );
+        $stmt = $db->prepare("
+            SELECT
+                t.nombre,
+                t.ruc,
+                t.business_name,
+                t.trade_name,
+                t.email,
+                t.telefono,
+                t.direccion,
+                t.country_code,
+                t.ubigeo,
+                t.departamento,
+                t.provincia,
+                t.distrito,
+                t.api_url,
+                t.whatsapp_instance,
+                COALESCE(t.tax_enabled, TRUE) AS tax_enabled,
+                t.sunat_username,
+                t.sunat_password,
+                t.gre_client_id,
+                t.gre_client_secret,
+                t.certificate_path,
+                t.certificate_password,
+                t.certificate_expires_at,
+                t.sunat_server,
+                COALESCE(tc.nombre_sistema, 'FarmaSystem') AS nombre_sistema,
+                tc.logo_path
+            FROM public.tenants t
+            LEFT JOIN public.tenant_config tc ON tc.tenant_id = t.id
+            WHERE t.id = :tid
+        ");
         $stmt->execute([':tid' => sesionTenantId()]);
-        $row = $stmt->fetch() ?: ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null];
+        $row = $stmt->fetch() ?: [
+            'nombre' => '',
+            'ruc' => '',
+            'business_name' => '',
+            'trade_name' => '',
+            'email' => '',
+            'telefono' => '',
+            'direccion' => '',
+            'country_code' => 'PE',
+            'ubigeo' => '',
+            'departamento' => '',
+            'provincia' => '',
+            'distrito' => '',
+            'api_url' => '',
+            'whatsapp_instance' => '',
+            'tax_enabled' => true,
+            'sunat_username' => '',
+            'sunat_password' => '',
+            'gre_client_id' => '',
+            'gre_client_secret' => '',
+            'certificate_path' => '',
+            'certificate_password' => '',
+            'certificate_expires_at' => '',
+            'sunat_server' => '3',
+            'nombre_sistema' => 'FarmaSystem',
+            'logo_path' => null,
+        ];
         echo json_encode($row);
         break;
 
     case 'config_guardar':
-        $d      = json_decode(file_get_contents('php://input'), true);
-        $nombre = trim($d['nombre_sistema'] ?? '');
-        if ($nombre === '') {
+        $d = json_decode(file_get_contents('php://input'), true);
+
+        $nombreSistema = trim($d['nombre_sistema'] ?? '');
+        $businessName  = trim($d['business_name'] ?? '');
+        $tradeName     = trim($d['trade_name'] ?? '');
+        $ruc           = trim($d['ruc'] ?? '');
+        $email         = trim($d['email'] ?? '');
+        $telefono      = trim($d['telefono'] ?? '');
+        $direccion     = trim($d['direccion'] ?? '');
+        $countryCode   = strtoupper(trim($d['country_code'] ?? 'PE'));
+        $ubigeo        = trim($d['ubigeo'] ?? '');
+        $departamento  = trim($d['departamento'] ?? '');
+        $provincia     = trim($d['provincia'] ?? '');
+        $distrito      = trim($d['distrito'] ?? '');
+        $apiUrl        = trim($d['api_url'] ?? '');
+        $whatsapp      = trim($d['whatsapp_instance'] ?? '');
+        $taxEnabled    = !array_key_exists('tax_enabled', $d) || (bool) $d['tax_enabled'];
+        $sunatUsername = trim($d['sunat_username'] ?? '');
+        $sunatPassword = trim($d['sunat_password'] ?? '');
+        $greClientId   = trim($d['gre_client_id'] ?? '');
+        $greSecret     = trim($d['gre_client_secret'] ?? '');
+        $certPath      = trim($d['certificate_path'] ?? '');
+        $certPassword  = trim($d['certificate_password'] ?? '');
+        $certExpiresAt = trim($d['certificate_expires_at'] ?? '');
+        $sunatServer   = trim($d['sunat_server'] ?? '3');
+
+        if ($nombreSistema === '') {
             jsonResponse(['error' => true, 'message' => 'El nombre del sistema es requerido'], 400);
         }
-        if (mb_strlen($nombre) > 100) {
+        if (mb_strlen($nombreSistema) > 100) {
             jsonResponse(['error' => true, 'message' => 'El nombre no puede superar 100 caracteres'], 400);
         }
-        $db->prepare("
-            INSERT INTO public.tenant_config (tenant_id, nombre_sistema, updated_at)
-            VALUES (:tid, :n, NOW())
-            ON CONFLICT (tenant_id) DO UPDATE SET nombre_sistema = EXCLUDED.nombre_sistema, updated_at = NOW()
-        ")->execute([':tid' => sesionTenantId(), ':n' => $nombre]);
-        jsonResponse(['error' => false, 'message' => 'Nombre guardado correctamente']);
+        if ($businessName === '') {
+            jsonResponse(['error' => true, 'message' => 'La razon social es requerida para facturacion'], 400);
+        }
+        if ($ruc !== '' && !preg_match('/^\d{11}$/', $ruc)) {
+            jsonResponse(['error' => true, 'message' => 'El RUC debe tener 11 digitos'], 400);
+        }
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(['error' => true, 'message' => 'El correo de la empresa no es valido'], 400);
+        }
+        if ($countryCode === '') {
+            $countryCode = 'PE';
+        }
+        if (!preg_match('/^[A-Z]{2}$/', $countryCode)) {
+            jsonResponse(['error' => true, 'message' => 'El codigo de pais debe tener 2 letras'], 400);
+        }
+        if ($ubigeo !== '' && !preg_match('/^\d{6}$/', $ubigeo)) {
+            jsonResponse(['error' => true, 'message' => 'El ubigeo debe tener 6 digitos'], 400);
+        }
+        if ($apiUrl !== '' && !filter_var($apiUrl, FILTER_VALIDATE_URL)) {
+            jsonResponse(['error' => true, 'message' => 'La URL API no es valida'], 400);
+        }
+        if ($certExpiresAt !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $certExpiresAt)) {
+            jsonResponse(['error' => true, 'message' => 'La fecha de vencimiento del certificado no es valida'], 400);
+        }
+        if (!in_array($sunatServer, ['1', '3'], true)) {
+            jsonResponse(['error' => true, 'message' => 'El entorno SUNAT debe ser 1 o 3'], 400);
+        }
+
+        if ($ubigeo !== '') {
+            $tablaUbigeo = $db->query("SELECT to_regclass('public.ubigeo_distritos') AS tabla")->fetch();
+            if (!empty($tablaUbigeo['tabla'])) {
+                $ubigeoStmt = $db->prepare("
+                    SELECT
+                        d.nombre AS distrito,
+                        p.nombre AS provincia,
+                        dep.nombre AS departamento
+                    FROM public.ubigeo_distritos d
+                    INNER JOIN public.ubigeo_provincias p
+                        ON p.codigo = d.provincia_codigo
+                    INNER JOIN public.ubigeo_departamentos dep
+                        ON dep.codigo = d.departamento_codigo
+                    WHERE d.codigo = :codigo
+                    LIMIT 1
+                ");
+                $ubigeoStmt->execute([':codigo' => $ubigeo]);
+                $ubigeoInfo = $ubigeoStmt->fetch();
+
+                if (!$ubigeoInfo) {
+                    jsonResponse(['error' => true, 'message' => 'El ubigeo no existe en el catalogo cargado'], 400);
+                }
+
+                $departamento = $ubigeoInfo['departamento'];
+                $provincia = $ubigeoInfo['provincia'];
+                $distrito = $ubigeoInfo['distrito'];
+            }
+        }
+
+        try {
+            $db->beginTransaction();
+
+            $db->prepare("
+                UPDATE public.tenants
+                SET ruc = :ruc,
+                    business_name = :business_name,
+                    trade_name = :trade_name,
+                    email = :email,
+                    telefono = :telefono,
+                    direccion = :direccion,
+                    country_code = :country_code,
+                    ubigeo = :ubigeo,
+                    departamento = :departamento,
+                    provincia = :provincia,
+                    distrito = :distrito,
+                    api_url = :api_url,
+                    whatsapp_instance = :whatsapp_instance,
+                    tax_enabled = :tax_enabled,
+                    sunat_username = :sunat_username,
+                    sunat_password = :sunat_password,
+                    gre_client_id = :gre_client_id,
+                    gre_client_secret = :gre_client_secret,
+                    certificate_path = :certificate_path,
+                    certificate_password = :certificate_password,
+                    certificate_expires_at = :certificate_expires_at,
+                    sunat_server = :sunat_server
+                WHERE id = :tid
+            ")->execute([
+                ':tid' => sesionTenantId(),
+                ':ruc' => $ruc ?: null,
+                ':business_name' => $businessName,
+                ':trade_name' => $tradeName ?: null,
+                ':email' => $email ?: null,
+                ':telefono' => $telefono ?: null,
+                ':direccion' => $direccion ?: null,
+                ':country_code' => $countryCode,
+                ':ubigeo' => $ubigeo ?: null,
+                ':departamento' => $departamento ?: null,
+                ':provincia' => $provincia ?: null,
+                ':distrito' => $distrito ?: null,
+                ':api_url' => $apiUrl ?: null,
+                ':whatsapp_instance' => $whatsapp ?: null,
+                ':tax_enabled' => $taxEnabled,
+                ':sunat_username' => $sunatUsername ?: null,
+                ':sunat_password' => $sunatPassword ?: null,
+                ':gre_client_id' => $greClientId ?: null,
+                ':gre_client_secret' => $greSecret ?: null,
+                ':certificate_path' => $certPath ?: null,
+                ':certificate_password' => $certPassword ?: null,
+                ':certificate_expires_at' => $certExpiresAt ?: null,
+                ':sunat_server' => $sunatServer,
+            ]);
+
+            $db->prepare("
+                INSERT INTO public.tenant_config (tenant_id, nombre_sistema, updated_at)
+                VALUES (:tid, :n, NOW())
+                ON CONFLICT (tenant_id) DO UPDATE
+                SET nombre_sistema = EXCLUDED.nombre_sistema,
+                    updated_at = NOW()
+            ")->execute([
+                ':tid' => sesionTenantId(),
+                ':n' => $nombreSistema,
+            ]);
+
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            jsonResponse(['error' => true, 'message' => 'No se pudo guardar la configuracion: ' . $e->getMessage()], 500);
+        }
+
+        jsonResponse(['error' => false, 'message' => 'Configuracion guardada correctamente']);
 
     case 'logo_subir':
         if (empty($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
@@ -325,6 +575,74 @@ switch ($action) {
             ON CONFLICT (tenant_id) DO UPDATE SET logo_path = EXCLUDED.logo_path, updated_at = NOW()
         ")->execute([':tid' => $tid, ':p' => $logo_path]);
         jsonResponse(['error' => false, 'message' => 'Logo actualizado correctamente', 'logo_path' => $logo_path]);
+
+    case 'certificate_subir':
+        if (empty($_FILES['certificate']) || $_FILES['certificate']['error'] !== UPLOAD_ERR_OK) {
+            $err = $_FILES['certificate']['error'] ?? -1;
+            $msg = $err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE
+                ? 'El certificado supera el tamano maximo permitido (5 MB)'
+                : 'No se recibio ningun certificado';
+            jsonResponse(['error' => true, 'message' => $msg], 400);
+        }
+
+        $file = $_FILES['certificate'];
+        $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+        if ($ext !== 'pfx') {
+            jsonResponse(['error' => true, 'message' => 'Solo se permite subir archivos .pfx'], 400);
+        }
+        if ($file['size'] > 5 * 1024 * 1024) {
+            jsonResponse(['error' => true, 'message' => 'El certificado no puede superar 5 MB'], 400);
+        }
+
+        $tid = sesionTenantId();
+        $stmtTenant = $db->prepare("SELECT slug, ruc FROM public.tenants WHERE id = :tid LIMIT 1");
+        $stmtTenant->execute([':tid' => $tid]);
+        $tenant = $stmtTenant->fetch();
+        if (!$tenant) {
+            jsonResponse(['error' => true, 'message' => 'No se encontro la empresa activa'], 404);
+        }
+
+        $dir = __DIR__ . '/../../facturacion/certs/';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $baseName = preg_replace('/[^0-9A-Za-z_-]/', '', (string) ($tenant['ruc'] ?: $tenant['slug'] ?: ('tenant_' . $tid)));
+        if ($baseName === '') {
+            $baseName = 'tenant_' . $tid;
+        }
+
+        $certificatePath = 'facturacion/certs/' . $baseName . '.pfx';
+        $destAbsolute = __DIR__ . '/../../' . $certificatePath;
+
+        $old_stmt = $db->prepare("SELECT certificate_path FROM public.tenants WHERE id = :tid");
+        $old_stmt->execute([':tid' => $tid]);
+        $old = $old_stmt->fetch();
+        if ($old && !empty($old['certificate_path'])) {
+            $oldFile = __DIR__ . '/../../' . ltrim($old['certificate_path'], '/\\');
+            if (file_exists($oldFile) && realpath($oldFile) !== realpath($destAbsolute)) {
+                unlink($oldFile);
+            }
+        }
+
+        if (!move_uploaded_file($file['tmp_name'], $destAbsolute)) {
+            jsonResponse(['error' => true, 'message' => 'No se pudo guardar el certificado en el servidor'], 500);
+        }
+
+        $db->prepare("
+            UPDATE public.tenants
+            SET certificate_path = :path
+            WHERE id = :tid
+        ")->execute([
+            ':tid' => $tid,
+            ':path' => $certificatePath,
+        ]);
+
+        jsonResponse([
+            'error' => false,
+            'message' => 'Certificado actualizado correctamente',
+            'certificate_path' => $certificatePath,
+        ]);
 
     case 'logo_eliminar':
         $tid      = sesionTenantId();

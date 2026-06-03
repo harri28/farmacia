@@ -50,13 +50,20 @@ function sesionId(): int           { return (int)($_SESSION['usuario_id']      ?
 function sesionNombre(): string    { return $_SESSION['nombre']                 ?? 'Usuario'; }
 function sesionUsername(): string  { return $_SESSION['username']               ?? ''; }
 function sesionRol(): string       { return $_SESSION['rol']                    ?? ''; }
-function sesionRolLabel(): string  {
-    return match($_SESSION['rol'] ?? '') {
-        'admin'      => 'Administrador',
-        'cajero'     => 'Cajero',
-        'superadmin' => 'Superadmin',
-        default      => 'Usuario',
-    };
+function sesionRolLabel(): string
+{
+    $rol = $_SESSION['rol'] ?? '';
+
+    switch ($rol) {
+        case 'admin':
+            return 'Administrador';
+        case 'cajero':
+            return 'Cajero';
+        case 'superadmin':
+            return 'Superadmin';
+        default:
+            return 'Usuario';
+    }
 }
 function sesionSucursal(): string  { return $_SESSION['sucursal_nombre']        ?? ''; }
 function sesionSucursalId(): int   { return (int)($_SESSION['sucursal_id']      ?? 0); }

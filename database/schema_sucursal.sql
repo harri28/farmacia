@@ -149,6 +149,16 @@ CREATE TABLE IF NOT EXISTS comprobantes_electronicos (
     enlace_del_cdr        TEXT,
     cadena_para_codigo_qr TEXT,
     nubefact_response     TEXT,
+    referencia_comprobante_id INTEGER REFERENCES comprobantes_electronicos(id),
+    tipo_nota_credito_id  INTEGER REFERENCES public.fe_tipos_nota_credito(id),
+    codigo_tipo_nota_credito VARCHAR(2),
+    motivo_nota_credito   TEXT,
+    descripcion_nota_credito TEXT,
+    documento_modificado_tipo_documento_codigo VARCHAR(2),
+    documento_modificado_serie VARCHAR(10),
+    documento_modificado_numero VARCHAR(20),
+    documento_modificado_numero_completo VARCHAR(30),
+    documento_modificado_fecha DATE,
     created_at            TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -240,5 +250,6 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO series_comprobantes (tipo, serie, ultimo_numero) VALUES
     ('boleta',  'B001', 0),
-    ('factura', 'F001', 0)
+    ('factura', 'F001', 0),
+    ('nota_credito', 'NC01', 0)
 ON CONFLICT DO NOTHING;

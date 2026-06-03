@@ -71,14 +71,14 @@ $_brand_logo_abs = $_brand_logo
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
         <?php if ($_brand_logo_abs && file_exists($_brand_logo_abs)): ?>
-            <img src="<?= ($base_path ?? '') . htmlspecialchars($_brand_logo) ?>"
+            <img id="sidebar-brand-logo" src="<?= ($base_path ?? '') . htmlspecialchars($_brand_logo) ?>"
                  alt="Logo" style="height:36px;width:auto;object-fit:contain;flex-shrink:0">
-            <span class="brand-name"><?= $_brand_name ?></span>
+            <span class="brand-name" id="sidebar-brand-name"><?= $_brand_name ?></span>
         <?php else: ?>
-            <div class="brand-icon"><i class="fas fa-pills"></i></div>
-            <div class="brand-text">
-                <span class="brand-name"><?= $_brand_name ?></span>
-                <span class="brand-sub">v1.0</span>
+            <div class="brand-icon" id="sidebar-brand-icon"><i class="fas fa-pills"></i></div>
+            <div class="brand-text" id="sidebar-brand-text">
+                <span class="brand-name" id="sidebar-brand-name"><?= $_brand_name ?></span>
+                <span class="brand-sub" id="sidebar-brand-sub">v1.0</span>
             </div>
         <?php endif; ?>
     </div>
@@ -148,6 +148,12 @@ $_brand_logo_abs = $_brand_logo
                 <span>Compras</span>
             </a>
 
+            <a href="<?= $base_path ?? '' ?>modules/traslados/index.php"
+               class="nav-item <?= ($current_module ?? '') === 'traslados' ? 'active' : '' ?>">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Traslados</span>
+            </a>
+
             <!-- Facturación: solo admin -->
             <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
                class="nav-item <?= $current_module === 'facturacion' ? 'active' : '' ?>">
@@ -157,6 +163,10 @@ $_brand_logo_abs = $_brand_logo
                     <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
                        class="<?= $current_page === 'reporte' ? 'active' : '' ?>">
                         <i class="fas fa-chart-bar"></i> Reporte de Ventas
+                    </a>
+                    <a href="<?= $base_path ?? '' ?>modules/facturacion/notas_credito.php"
+                       class="<?= $current_page === 'notas_credito' ? 'active' : '' ?>">
+                        <i class="fas fa-receipt"></i> Notas de crédito
                     </a>
                     <a href="<?= $base_path ?? '' ?>modules/facturacion/rentabilidad.php"
                        class="<?= $current_page === 'rentabilidad' ? 'active' : '' ?>">

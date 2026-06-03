@@ -1,7 +1,7 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/facturacion/index.php
-// MÓDULO:  Facturación → Reporte de Ventas
+// MÃ“DULO:  FacturaciÃ³n â†’ Reporte de Ventas
 // ============================================================
 
 require_once '../../config/database.php';
@@ -10,18 +10,52 @@ $base_path      = '../../';
 $required_roles = ['admin'];
 $current_module = 'facturacion';
 $current_page   = 'reporte';
-$page_title     = 'Reporte de Ventas — FarmaSystem';
-$breadcrumb     = '<strong>Facturación</strong> / Reporte de Ventas';
+$page_title     = 'Reporte de Ventas â€” FarmaSystem';
+$breadcrumb     = '<strong>FacturaciÃ³n</strong> / Reporte de Ventas';
 
 include '../../includes/header.php';
 ?>
 
+<link rel="stylesheet" href="<?= $base_path ?>assets/vendor/datatables/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="<?= $base_path ?>assets/vendor/select2/select2.min.css">
+<style>
+.select2-container { width:100% !important; }
+.select2-container--default .select2-selection--single {
+    height:38px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    background:var(--surface);
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height:36px;
+    padding-left:12px;
+    padding-right:28px;
+    font-size:.84rem;
+    color:var(--text-primary);
+}
+.select2-container--open { z-index:1065; }
+.select2-dropdown {
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 16px 40px rgba(15, 23, 42, .14);
+}
+.select2-search--dropdown { padding:10px; }
+.select2-search__field {
+    border:1px solid var(--border) !important;
+    border-radius:8px !important;
+    padding:8px 10px !important;
+    font-size:.84rem;
+}
+</style>
 <div class="page-header">
     <div>
         <div class="page-title">
             <i class="fas fa-chart-bar" style="color:var(--primary);margin-right:8px"></i>Reporte de Ventas
         </div>
-        <div class="page-subtitle">Consulta, filtra y exporta las ventas del período</div>
+        <div class="page-subtitle">Consulta, filtra y exporta las ventas del perÃ­odo</div>
     </div>
     <div class="page-actions">
         <button class="btn btn-success" id="btn-exportar" onclick="exportarExcel()">
@@ -72,7 +106,7 @@ include '../../includes/header.php';
         </div>
 
         <div class="form-group" style="margin:0;flex:1;min-width:130px">
-            <label class="form-label">Método de pago</label>
+            <label class="form-label">MÃ©todo de pago</label>
             <select class="form-control" id="f-tipo-pago">
                 <option value="">Todos</option>
                 <option value="efectivo">Efectivo</option>
@@ -95,7 +129,7 @@ include '../../includes/header.php';
             <div class="input-group">
                 <span class="input-group-icon"><i class="fas fa-search"></i></span>
                 <input type="text" id="f-q" class="form-control"
-                    placeholder="N° venta, cliente, vendedor...">
+                    placeholder="NÂ° venta, cliente, vendedor...">
             </div>
         </div>
 
@@ -104,9 +138,9 @@ include '../../includes/header.php';
         </button>
     </div>
 
-    <!-- Atajos de período -->
+    <!-- Atajos de perÃ­odo -->
     <div style="padding:0 20px 16px;display:flex;gap:8px;flex-wrap:wrap">
-        <span style="font-size:.78rem;color:var(--text-muted);align-self:center">Período rápido:</span>
+        <span style="font-size:.78rem;color:var(--text-muted);align-self:center">PerÃ­odo rÃ¡pido:</span>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('hoy')">Hoy</button>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('ayer')">Ayer</button>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('semana')">Esta semana</button>
@@ -122,18 +156,18 @@ include '../../includes/header.php';
     <?php foreach (range(0,5) as $_): ?>
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
-        <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div>
+        <div><div class="stat-value">â€”</div><div class="stat-label">Cargando...</div></div>
     </div>
     <?php endforeach; ?>
 </div>
 
 <!-- ======================================================
-     RESUMEN POR MÉTODO DE PAGO / COMPROBANTE
+     RESUMEN POR MÃ‰TODO DE PAGO / COMPROBANTE
      ====================================================== -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" id="resumen-wrap">
     <div class="card">
         <div class="card-header">
-            <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por método de pago</div>
+            <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por mÃ©todo de pago</div>
         </div>
         <div style="padding:0 8px 8px" id="resumen-pago">
             <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
@@ -170,17 +204,17 @@ include '../../includes/header.php';
     <div class="card-header">
         <div class="card-title">Detalle de ventas</div>
         <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-            <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">—</span>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">â€”</span>
             <button class="btn btn-success btn-sm" onclick="exportarExcel()">
                 <i class="fas fa-file-excel"></i> Exportar
             </button>
         </div>
     </div>
     <div class="table-wrap">
-        <table>
+        <table id="ventas-table" class="display facturacion-table" style="width:100%">
             <thead>
                 <tr>
-                    <th>N° Venta</th>
+                    <th>NÂ° Venta</th>
                     <th>Fecha / Hora</th>
                     <th>Vendedor</th>
                     <th>Cliente</th>
@@ -206,8 +240,111 @@ include '../../includes/header.php';
 
 <div class="toast-container" id="toast-container"></div>
 
+<div class="modal-overlay" id="modal-nota-credito-reporte">
+    <div class="modal" style="max-width:760px;width:min(760px,calc(100vw - 32px))">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-file-circle-plus" style="color:var(--primary);margin-right:8px"></i>Anular con Nota de Credito</h3>
+            <button class="modal-close" onclick="closeNotaCreditoReporte()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px;max-height:74vh;overflow-y:auto">
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px">
+                <div style="font-size:.74rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Comprobante origen</div>
+                <div style="margin-top:6px;font-size:1rem;font-weight:700;color:var(--text-primary)" id="nc-origen-numero">-</div>
+                <div style="margin-top:2px;font-size:.82rem;color:var(--text-muted)" id="nc-origen-cliente">-</div>
+                <div style="margin-top:4px;font-size:.9rem;font-weight:700;color:var(--primary)" id="nc-origen-total">S/ 0.00</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px">
+                <label class="form-label">Motivo SUNAT *</label>
+                <select id="nc-motivo" class="form-control"></select>
+            </div>
+
+            <div class="form-group" style="margin-bottom:6px">
+                <label class="form-label">Descripcion / motivo interno *</label>
+                <textarea id="nc-descripcion" class="form-control" rows="4" placeholder="Describe brevemente el motivo de la nota de credito"></textarea>
+            </div>
+
+            <div style="font-size:.8rem;color:var(--text-muted)">
+                La nota de credito se emitira vinculada al comprobante seleccionado.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeNotaCreditoReporte()">Cancelar</button>
+            <button class="btn btn-primary" id="btn-emitir-nc" onclick="emitirNotaCreditoReporte()">
+                <i class="fas fa-paper-plane"></i> Emitir nota de credito
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
+<script src="<?= $base_path ?>assets/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="<?= $base_path ?>assets/vendor/datatables/dataTables.bootstrap5.min.js"></script>
+<script src="<?= $base_path ?>assets/vendor/select2/select2.min.js"></script>
 <script>
 const BASE = '../../';
+const EMPRESA_NOMBRE  = <?= json_encode(sesionTenantNombre()) ?>;
+const EMPRESA_RUC     = <?= json_encode(getTenantConfig()['ruc'] ?? '') ?>;
+const EMPRESA_TEL     = <?= json_encode(getTenantConfig()['telefono'] ?? '') ?>;
+const EMPRESA_DIR     = <?= json_encode(getTenantConfig()['direccion'] ?? '') ?>;
+const SUCURSAL_NOMBRE = <?= json_encode(sesionSucursal()) ?>;
+const VENDEDOR_NOMBRE = <?= json_encode(sesionNombre()) ?>;
+let reporteTable = null;
+let reporteVentasCache = [];
+let reporteVentasMap = {};
+let notaCreditoReporteOrigen = null;
+let notaCreditoReporteMotivos = [];
+
+function destroyReporteTable() {
+    if (reporteTable) {
+        reporteTable.destroy();
+        reporteTable = null;
+    }
+}
+
+function initReporteTable() {
+    const table = document.getElementById('ventas-table');
+    if (!table || typeof window.jQuery === 'undefined' || typeof jQuery.fn.DataTable === 'undefined') {
+        return;
+    }
+
+    destroyReporteTable();
+    renderSalesTableHeader();
+
+    reporteTable = jQuery(table).DataTable({
+        pageLength: 15,
+        lengthMenu: [10, 15, 25, 50, 100],
+        order: [[0, 'desc']],
+        autoWidth: false,
+        responsive: false,
+        pagingType: 'simple_numbers',
+        dom: "<'dt-toolbar'lf>t<'dt-footer'ip>",
+        language: {
+            search: 'Buscar en resultados:',
+            searchPlaceholder: 'Cliente o comprobante...',
+            lengthMenu: 'Mostrar _MENU_ registros',
+            info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+            infoEmpty: 'Sin registros disponibles',
+            infoFiltered: '(filtrado de _MAX_ registros)',
+            zeroRecords: 'No se encontraron ventas con ese criterio',
+            emptyTable: 'No hay ventas para mostrar',
+            paginate: {
+                first: 'Primero',
+                last: 'Ultimo',
+                next: 'Siguiente',
+                previous: 'Anterior'
+            }
+        },
+        columnDefs: [
+            { targets: [3], className: 'dt-body-right' },
+            { targets: [4, 5, 6, 7, 8], className: 'dt-body-center' },
+            { targets: [4, 5, 8], orderable: false, searchable: false },
+            { targets: 6, width: '88px' },
+            { targets: 7, width: '88px' },
+            { targets: 8, width: '72px' }
+        ]
+    });
+}
 
 // ---- Estado de filtros ----
 function getParams() {
@@ -226,7 +363,365 @@ function buildQuery(extra = {}) {
     return new URLSearchParams({ ...getParams(), ...extra }).toString();
 }
 
-// ---- Períodos rápidos ----
+function renderSalesTableHeader() {
+    const table = document.getElementById('ventas-table');
+    if (!table || !table.tHead) {
+        return;
+    }
+
+    table.tHead.innerHTML = `
+        <tr>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th>Comprobante</th>
+            <th class="text-right">Total</th>
+            <th>XML</th>
+            <th>CDR</th>
+            <th>SUNAT</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    `;
+}
+
+function renderSummaryCard(totalDocs, totalAmount) {
+    let summary = document.getElementById('tabla-summary');
+    if (!summary) {
+        summary = document.createElement('div');
+        summary.id = 'tabla-summary';
+        summary.className = 'tabla-summary';
+        document.querySelector('.table-wrap')?.insertAdjacentElement('afterend', summary);
+    }
+
+    summary.innerHTML = `
+        <div class="summary-pill">
+            <span class="summary-label">Comprobantes</span>
+            <strong>${totalDocs}</strong>
+        </div>
+        <div class="summary-pill">
+            <span class="summary-label">Total emitido</span>
+            <strong>S/ ${Number(totalAmount || 0).toFixed(2)}</strong>
+        </div>
+    `;
+}
+
+function shortSunatStatus(rawStatus, responseCode = null) {
+    const txt = String(rawStatus || '').trim();
+    const code = String(responseCode ?? '').trim();
+    const lowered = txt.toLowerCase();
+
+    if (code === '0') {
+        return { label: 'Aceptado', className: 'badge-success', title: txt || 'CDR con respuesta 0' };
+    }
+    if (code === '1') {
+        return { label: 'Observado', className: 'badge-danger', title: txt || 'CDR con observaciones' };
+    }
+
+    if (!txt) {
+        return { label: '-', className: 'badge-gray', title: '' };
+    }
+    if (lowered.includes('aceptad')) {
+        return { label: 'Aceptado', className: 'badge-success', title: txt };
+    }
+    if (lowered.includes('pendiente')) {
+        return { label: 'Pendiente', className: 'badge-warning', title: txt };
+    }
+
+    if (lowered.includes('observ')) {
+        return { label: 'Observado', className: 'badge-danger', title: txt };
+    }
+
+    return { label: txt, className: 'badge-gray', title: txt };
+}
+
+function actionIconButton(icon, title, href = null, onclick = null) {
+    const attrs = href
+        ? `href="${href}" target="_blank" rel="noopener"`
+        : `href="javascript:void(0)" onclick="${onclick}"`;
+
+    return `<a class="icon-action-btn" ${attrs} title="${title}"><i class="fas fa-${icon}"></i></a>`;
+}
+
+function esc(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function openPrintWindow(title, contentHtml) {
+    const w = window.open('', '_blank', 'width=420,height=700');
+    if (!w) return;
+    w.document.open();
+    w.document.write(`<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${esc(title)}</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Courier New',Courier,monospace; font-size:12px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; }
+        @media print { @page { size:80mm auto; margin:4mm 3mm; } body { padding:0; } }
+    </style>
+</head>
+<body>${contentHtml}
+<script>
+    setTimeout(() => { window.print(); }, 250);
+<\/script>
+</body>
+</html>`);
+    w.document.close();
+}
+
+function buildReporteVentaTicketHtml(data) {
+    const items = Array.isArray(data.items) ? data.items : [];
+    const total = parseFloat(data.total || 0);
+    const subtotal = parseFloat(data.subtotal || 0);
+    const descuento = parseFloat(data.descuento || 0);
+    const igv = parseFloat(data.igv || 0);
+    const tipo = String(data.tipo_comprobante || '').toLowerCase();
+    const compLabel = tipo === 'factura'
+        ? 'FACTURA DE VENTA ELECTRÓNICA'
+        : (tipo === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'TICKET DE VENTA');
+    const compNumero = data.comprobante_numero || data.numero_venta || '---';
+    const dt = new Date(data.created_at || Date.now());
+    const fecha = dt.toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const hora = dt.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const clienteNombre = data.cliente || 'Cliente General';
+    const clienteDoc = data.dni || data.ruc || '';
+    const docLabel = data.ruc ? 'RUC' : (data.dni ? 'DNI' : '');
+
+    const itemsHtml = items.map(it => {
+        const nombre = it.nombre || it.producto_nombre || it.descripcion || 'Producto';
+        const qty = parseFloat(it.cantidad || it.qty || 0) || 0;
+        const pu = parseFloat(it.precio_unitario || it.precio || 0) || 0;
+        const sub = parseFloat(it.precio_total || it.subtotal || 0) || (pu * qty);
+        return `
+            <div style="margin-bottom:5px">
+                <div style="display:flex;justify-content:space-between;font-size:11px">
+                    <span style="flex:1;padding-right:6px;word-break:break-word">${esc(nombre)}</span>
+                    <span style="white-space:nowrap;font-weight:600">S/${sub.toFixed(2)}</span>
+                </div>
+                <div style="font-size:10px;color:#555;padding-left:2px">${qty} unid. x S/${pu.toFixed(2)}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div id="pos-ticket" style="font-family:'Courier New',Courier,monospace;color:#000;font-size:12px;line-height:1.5;width:100%">
+            <div style="text-align:center;margin-bottom:10px">
+                <div style="font-size:15px;font-weight:900;letter-spacing:1px;text-transform:uppercase">${esc(EMPRESA_NOMBRE || 'FARMACIA')}</div>
+                ${EMPRESA_RUC ? `<div style="font-size:11px">RUC: ${esc(EMPRESA_RUC)}</div>` : ''}
+                ${SUCURSAL_NOMBRE ? `<div style="font-size:11px;font-weight:600">${esc(SUCURSAL_NOMBRE)}</div>` : ''}
+                ${EMPRESA_DIR ? `<div style="font-size:10px">${esc(EMPRESA_DIR)}</div>` : ''}
+                ${EMPRESA_TEL ? `<div style="font-size:10px">Tel: ${esc(EMPRESA_TEL)}</div>` : ''}
+            </div>
+
+            <div style="border-top:2px solid #000;border-bottom:2px solid #000;text-align:center;padding:5px 0;margin-bottom:8px">
+                <div style="font-size:11px;font-weight:700">${compLabel}</div>
+                <div style="font-size:11px">${esc(compNumero)}</div>
+            </div>
+
+            <div style="font-size:11px;margin-bottom:6px">
+                <div>Fecha   : ${fecha} ${hora}</div>
+                <div>Cajero  : ${esc(data.vendedor || VENDEDOR_NOMBRE)}</div>
+                ${clienteNombre ? `<div>Cliente : ${esc(clienteNombre)}</div>` : ''}
+                ${docLabel && clienteDoc ? `<div>${docLabel}     : ${esc(clienteDoc)}</div>` : ''}
+                ${data.direccion ? `<div>Dir.    : ${esc(data.direccion)}</div>` : ''}
+            </div>
+
+            <div style="border-top:1px dashed #000;margin:6px 0"></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:3px">
+                <span>DESCRIPCIÓN</span><span>TOTAL</span>
+            </div>
+            <div style="border-top:1px dashed #000;margin:6px 0"></div>
+            <div style="margin-bottom:4px">${itemsHtml}</div>
+            <div style="border-top:1px dashed #000;margin:6px 0"></div>
+
+            <div style="font-size:11px;margin:4px 0">
+                <div style="display:flex;justify-content:space-between;gap:10px"><span>OP. GRAVADA:</span><span>S/ ${subtotal.toFixed(2)}</span></div>
+                ${descuento > 0 ? `<div style="display:flex;justify-content:space-between;gap:10px"><span>DESCUENTO:</span><span>-S/ ${descuento.toFixed(2)}</span></div>` : ''}
+                <div style="display:flex;justify-content:space-between;gap:10px"><span>IGV (18%):</span><span>S/ ${igv.toFixed(2)}</span></div>
+            </div>
+
+            <div style="border-top:2px solid #000;margin:6px 0"></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;line-height:1.6">
+                <span>TOTAL:</span><span>S/ ${total.toFixed(2)}</span>
+            </div>
+            <div style="border-top:2px solid #000;margin:6px 0"></div>
+
+            <div style="font-size:11px;margin-top:5px">
+                <div style="display:flex;justify-content:space-between;gap:10px"><span>${data.tipo_pago ? esc(data.tipo_pago.charAt(0).toUpperCase() + data.tipo_pago.slice(1)) + ':' : 'Pago:'}</span><span>S/ ${total.toFixed(2)}</span></div>
+            </div>
+
+            <div style="border-top:1px dashed #000;margin:6px 0"></div>
+            <div style="text-align:center;font-size:11px;padding:4px 0">
+                <div>¡Gracias por su compra!</div>
+                <div>Vuelva pronto</div>
+            </div>
+        </div>
+    `;
+}
+
+async function imprimirTicketVenta(ventaId) {
+    const row = reporteVentasMap[String(ventaId)];
+    if (!row) {
+        showToast('No se encontro la venta para imprimir.', 'error');
+        return;
+    }
+
+    try {
+        const r = await fetch(BASE + 'modules/facturacion/api.php?action=detalle_venta_ticket&id=' + encodeURIComponent(ventaId));
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.message || 'No se pudo preparar el ticket.');
+        const html = buildReporteVentaTicketHtml(data);
+        openPrintWindow(`Ticket ${data.numero_venta || data.comprobante_numero || ventaId}`, html);
+    } catch (e) {
+        console.error('imprimirTicketVenta', e);
+        showToast('No se pudo preparar el ticket para imprimir.', 'error');
+    }
+}
+
+function initNotaCreditoMotivoSelect() {
+    const sel = document.getElementById('nc-motivo');
+    if (!sel || !(window.jQuery && window.jQuery.fn.select2)) {
+        return;
+    }
+    const $sel = window.jQuery(sel);
+    if ($sel.data('select2')) {
+        $sel.select2('destroy');
+    }
+    $sel.select2({
+        width: '100%',
+        dropdownParent: window.jQuery('#modal-nota-credito-reporte'),
+        minimumResultsForSearch: Infinity
+    });
+}
+
+async function cargarMotivosNotaCreditoReporte() {
+    try {
+        const r = await fetch(BASE + 'modules/facturacion/api.php?action=tipos_nota_credito');
+        notaCreditoReporteMotivos = await r.json();
+        const sel = document.getElementById('nc-motivo');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Selecciona un motivo</option>' + (notaCreditoReporteMotivos || [])
+            .map(m => `<option value="${m.id}">${m.codigo} - ${m.descripcion}</option>`)
+            .join('');
+        const defaultMotivo = notaCreditoReporteMotivos.find(m => String(m.codigo || '').trim() === '01') || notaCreditoReporteMotivos[0] || null;
+        initNotaCreditoMotivoSelect();
+        if (defaultMotivo) {
+            sel.value = String(defaultMotivo.id);
+            if (window.jQuery && window.jQuery.fn.select2 && window.jQuery(sel).data('select2')) {
+                window.jQuery(sel).val(String(defaultMotivo.id)).trigger('change');
+            }
+        }
+    } catch (_) {
+        const sel = document.getElementById('nc-motivo');
+        if (sel) sel.innerHTML = '<option value="">No se pudieron cargar los motivos</option>';
+    }
+}
+
+function abrirNotaCreditoReporte(comprobanteId) {
+    const row = reporteVentasCache.find(v => String(v.comprobante_id || 0) === String(comprobanteId));
+    if (!row || !parseInt(row.comprobante_id || 0, 10)) {
+        showToast('No se encontro el comprobante para generar la nota de credito', 'error');
+        return;
+    }
+    if (!String(row.enlace_cdr || '').trim()) {
+        showToast('El comprobante debe tener CDR para emitir una nota de credito', 'error');
+        return;
+    }
+    if (String(row.tipo_comprobante || '').toLowerCase() === 'ticket') {
+        showToast('No se puede emitir nota de credito sobre ticket', 'error');
+        return;
+    }
+
+    notaCreditoReporteOrigen = row;
+    document.getElementById('nc-origen-numero').textContent = row.comprobante_numero || row.numero_venta || '-';
+    const cliente = row.cliente ? String(row.cliente) : 'Cliente';
+    const doc = [row.ruc ? `RUC: ${row.ruc}` : '', row.dni ? `DNI: ${row.dni}` : ''].filter(Boolean).join(' · ');
+    document.getElementById('nc-origen-cliente').textContent = doc ? `${cliente} · ${doc}` : cliente;
+    document.getElementById('nc-origen-total').textContent = `S/ ${parseFloat(row.total || 0).toFixed(2)}`;
+    document.getElementById('nc-descripcion').value = 'Anulacion de la operacion';
+    const motivoSelect = document.getElementById('nc-motivo');
+    const defaultMotivo = Array.isArray(notaCreditoReporteMotivos)
+        ? (notaCreditoReporteMotivos.find(m => String(m.codigo || '').trim() === '01') || notaCreditoReporteMotivos[0] || null)
+        : null;
+    if (motivoSelect) {
+        motivoSelect.value = defaultMotivo ? String(defaultMotivo.id) : '';
+        if (window.jQuery && window.jQuery.fn.select2 && window.jQuery(motivoSelect).data('select2')) {
+            window.jQuery(motivoSelect).val(defaultMotivo ? String(defaultMotivo.id) : '').trigger('change');
+        }
+    }
+    openNotaCreditoReporte();
+}
+
+function openNotaCreditoReporte() {
+    document.getElementById('modal-nota-credito-reporte').classList.add('open');
+    initNotaCreditoMotivoSelect();
+    const sel = document.getElementById('nc-motivo');
+    const defaultMotivo = Array.isArray(notaCreditoReporteMotivos)
+        ? (notaCreditoReporteMotivos.find(m => String(m.codigo || '').trim() === '01') || notaCreditoReporteMotivos[0] || null)
+        : null;
+    if (sel && defaultMotivo) {
+        sel.value = String(defaultMotivo.id);
+        if (window.jQuery && window.jQuery.fn.select2 && window.jQuery(sel).data('select2')) {
+            window.jQuery(sel).val(String(defaultMotivo.id)).trigger('change');
+        }
+    }
+}
+
+function closeNotaCreditoReporte() {
+    document.getElementById('modal-nota-credito-reporte').classList.remove('open');
+}
+
+function emitirNotaCreditoReporte() {
+    if (!notaCreditoReporteOrigen) {
+        showToast('Selecciona un comprobante origen', 'error');
+        return;
+    }
+    const tipoId = document.getElementById('nc-motivo').value;
+    const descripcion = document.getElementById('nc-descripcion').value.trim();
+    if (!tipoId) {
+        showToast('Selecciona el motivo de la nota', 'error');
+        return;
+    }
+    if (!descripcion) {
+        showToast('Escribe una descripcion', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-emitir-nc');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Emitiendo...';
+
+    fetch(BASE + 'modules/facturacion/api.php?action=crear_nota_credito', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            comprobante_origen_id: notaCreditoReporteOrigen.comprobante_id,
+            tipo_nota_credito_id: tipoId,
+            descripcion
+        })
+    })
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok || data.error) throw new Error(data.message || 'No se pudo emitir la nota de credito.');
+            closeNotaCreditoReporte();
+            showToast(data.message || 'Nota de credito emitida correctamente.', 'success');
+            buscar();
+        })
+        .catch(err => showToast(err.message || 'Error al emitir nota de credito', 'error'))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Emitir nota de credito';
+        });
+}
+
+// ---- PerÃ­odos rÃ¡pidos ----
 function setPeriodo(p) {
     const hoy = new Date();
     const fmt  = d => d.toISOString().slice(0, 10);
@@ -273,13 +768,13 @@ function resetFiltros() {
 // ---- Carga stats + reporte ----
 function buscar() {
     loadStats();
-    loadReporte();
+    loadReporteFacturacion();
 }
 
 function loadStats() {
     document.getElementById('stats-container').innerHTML = [0,1,2,3,4,5].map(() =>
         `<div class="stat-card"><div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
-         <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div></div>`
+         <div><div class="stat-value">â€”</div><div class="stat-label">Cargando...</div></div></div>`
     ).join('');
     document.getElementById('resumen-pago').innerHTML =
         '<div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
@@ -298,7 +793,7 @@ function loadStats() {
 
             const cards = [
                 { icon: 'shopping-cart',       color: 'blue',   val: d.total_completadas, label: 'Ventas completadas' },
-                { icon: 'dollar-sign',          color: 'green',  val: m(d.total_ingresos),  label: 'Ingresos del período' },
+                { icon: 'dollar-sign',          color: 'green',  val: m(d.total_ingresos),  label: 'Ingresos del perÃ­odo' },
                 { icon: 'receipt',              color: 'yellow', val: m(d.total_igv),        label: 'IGV total' },
                 { icon: 'tag',                  color: 'purple', val: m(d.total_descuentos), label: 'Descuentos otorgados' },
                 { icon: 'chart-line',           color: 'teal',   val: m(d.ticket_promedio),  label: 'Ticket promedio' },
@@ -310,7 +805,7 @@ function loadStats() {
                     <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
                 </div>`).join('');
 
-            // Resumen por método de pago
+            // Resumen por mÃ©todo de pago
             const pagos = [
                 { label: 'Efectivo',      key: 'pago_efectivo',      icon: 'money-bill-wave', color: '#16a34a' },
                 { label: 'Yape',          key: 'pago_yape',          icon: 'mobile-alt',      color: '#7c3aed' },
@@ -332,7 +827,7 @@ function loadStats() {
                         <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
                         <strong style="font-size:.88rem;min-width:80px;text-align:right">S/ ${n(d[p.key]).toFixed(2)}</strong>
                     </div>`;
-                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
+                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
 
             // Resumen por comprobante
             const comps = [
@@ -355,9 +850,9 @@ function loadStats() {
                         <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
                         <strong style="font-size:.88rem;min-width:60px;text-align:right">${cnt} ventas</strong>
                     </div>`;
-                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
+                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
         })
-        .catch(() => showToast('Error al cargar estadísticas', 'error'));
+        .catch(() => showToast('Error al cargar estadÃ­sticas', 'error'));
 }
 
 // ---- Comparativa por vendedor ----
@@ -367,7 +862,7 @@ function loadStatsUsuario() {
         .then(data => {
             if (!data || data.error || !data.length) {
                 document.getElementById('resumen-usuarios').innerHTML =
-                    '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
+                    '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
                 return;
             }
 
@@ -382,7 +877,7 @@ function loadStatsUsuario() {
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Ingresos</th>
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Ticket prom.</th>
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Anuladas</th>
-                        <th style="padding:10px 16px;font-size:.78rem;color:var(--text-muted);font-weight:600;min-width:180px">Participación</th>
+                        <th style="padding:10px 16px;font-size:.78rem;color:var(--text-muted);font-weight:600;min-width:180px">ParticipaciÃ³n</th>
                     </tr>
                 </thead><tbody>`;
 
@@ -439,17 +934,22 @@ function loadStatsUsuario() {
 }
 
 function loadReporte() {
+    destroyReporteTable();
     document.getElementById('tabla-body').innerHTML =
-        '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
-    document.getElementById('tabla-foot').innerHTML = '';
-    document.getElementById('result-count').textContent = '—';
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    const tableFoot = document.getElementById('tabla-foot');
+    if (tableFoot) {
+        tableFoot.innerHTML = '';
+        tableFoot.style.display = 'none';
+    }
+    document.getElementById('result-count').textContent = 'â€”';
 
     fetch(BASE + 'modules/facturacion/api.php?' + buildQuery({ action: 'reporte' }))
         .then(r => r.json())
         .then(data => {
             if (data.error) {
                 document.getElementById('tabla-body').innerHTML =
-                    `<tr><td colspan="12" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
+                    `<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
                 document.getElementById('result-count').textContent = 'Error';
                 return;
             }
@@ -458,11 +958,12 @@ function loadReporte() {
 
             if (!data.length) {
                 document.getElementById('tabla-body').innerHTML =
-                    '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
+                renderSummaryCard(0, 0);
                 return;
             }
 
-            const pagoIcon   = { efectivo:'💵', yape:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Yape" style="height:18px;vertical-align:middle;border-radius:3px">`, plin:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Plin" style="height:18px;vertical-align:middle;border-radius:3px">`, tarjeta:'💳', transferencia:'🏦' };
+            const pagoIcon   = { efectivo:'ðŸ’µ', yape:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Yape" style="height:18px;vertical-align:middle;border-radius:3px">`, plin:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Plin" style="height:18px;vertical-align:middle;border-radius:3px">`, tarjeta:'ðŸ’³', transferencia:'ðŸ¦' };
             const coloresUser = ['#4f46e5','#0891b2','#16a34a','#d97706','#7c3aed','#dc2626','#0f766e','#c2410c'];
             const vendColorMap = {};
             let vendIdx = 0;
@@ -470,12 +971,13 @@ function loadReporte() {
             document.getElementById('tabla-body').innerHTML = data.map(v => {
                 const dt       = new Date(v.created_at);
                 const fechaStr = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
+                const fechaOrden = dt.getTime();
                 const esCls    = v.estado === 'completada' ? 'badge-success' : 'badge-danger';
                 const sfx      = v.estado === 'anulada' ? 'style="opacity:.5"' : '';
 
-                // Color único por vendedor
-                const vend = v.vendedor || '—';
-                if (vend !== '—' && !vendColorMap[vend]) {
+                // Color Ãºnico por vendedor
+                const vend = v.vendedor || 'â€”';
+                if (vend !== 'â€”' && !vendColorMap[vend]) {
                     vendColorMap[vend] = coloresUser[vendIdx++ % coloresUser.length];
                 }
                 const vendColor = vendColorMap[vend] || '#94a3b8';
@@ -494,13 +996,16 @@ function loadReporte() {
                         const pdf  = v.enlace_pdf
                             ? ` <a href="${v.enlace_pdf}" target="_blank" title="Ver PDF" style="margin-left:4px"><i class="fas fa-file-pdf" style="color:#dc2626"></i></a>`
                             : '';
-                        return `<span class="badge ${cls}" style="font-size:.7rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle" title="${txt}">${txt}</span>${pdf}`;
+                        const reenviar = parseInt(v.comprobante_id || 0, 10) > 0 && !v.enlace_cdr
+                            ? `<button class="btn btn-ghost btn-sm" type="button" onclick="reenviarSunat(${parseInt(v.comprobante_id, 10)})" title="Reenviar a SUNAT" style="margin-left:6px;padding:4px 7px"><i class="fas fa-paper-plane"></i></button>`
+                            : '';
+                        return `<span class="badge ${cls}" style="font-size:.7rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle" title="${txt}">${txt}</span>${pdf}${reenviar}`;
                     })()
-                    : '<span style="color:var(--text-light);font-size:.8rem">—</span>';
+                    : '<span style="color:var(--text-light);font-size:.8rem">â€”</span>';
 
                 return `<tr ${sfx}>
                     <td><span style="font-weight:700;color:var(--primary);font-size:.88rem">${v.numero_venta}</span></td>
-                    <td style="font-size:.8rem;color:var(--text-muted);white-space:nowrap">${fechaStr}</td>
+                    <td data-order="${fechaOrden}" style="font-size:.8rem;color:var(--text-muted);white-space:nowrap">${fechaStr}</td>
                     <td style="white-space:nowrap">${vendBadge}</td>
                     <td style="font-size:.82rem">
                         <div style="font-weight:500">${v.cliente}</div>
@@ -510,11 +1015,11 @@ function loadReporte() {
                     <td><span class="badge badge-gray">${v.num_items}</span></td>
                     <td style="font-size:.82rem;white-space:nowrap">${pagoIcon[v.tipo_pago]||''} ${v.tipo_pago}</td>
                     <td>${compBadge}</td>
-                    <td class="text-right" style="font-size:.85rem">S/ ${parseFloat(v.subtotal).toFixed(2)}</td>
-                    <td class="text-right" style="font-size:.85rem;color:var(--text-muted)">S/ ${parseFloat(v.igv).toFixed(2)}</td>
-                    <td class="text-right"><strong style="font-size:.9rem">S/ ${parseFloat(v.total).toFixed(2)}</strong></td>
+                    <td data-order="${parseFloat(v.subtotal)}" class="text-right" style="font-size:.85rem">S/ ${parseFloat(v.subtotal).toFixed(2)}</td>
+                    <td data-order="${parseFloat(v.igv)}" class="text-right" style="font-size:.85rem;color:var(--text-muted)">S/ ${parseFloat(v.igv).toFixed(2)}</td>
+                    <td data-order="${parseFloat(v.total)}" class="text-right"><strong style="font-size:.9rem">S/ ${parseFloat(v.total).toFixed(2)}</strong></td>
                     <td><span class="badge ${esCls}">${v.estado}</span></td>
-                    <td style="max-width:130px">${sunatBadge}</td>
+                    <td class="sunat-cell">${sunatBadge}</td>
                 </tr>`;
             }).join('');
 
@@ -533,8 +1038,129 @@ function loadReporte() {
                     <td class="text-right" style="padding:10px 14px;color:var(--success);font-size:1rem">S/ ${totTotal.toFixed(2)}</td>
                     <td colspan="2"></td>
                 </tr>`;
+            initReporteTable();
         })
         .catch(() => showToast('Error al cargar el reporte', 'error'));
+}
+
+function loadReporteFacturacion() {
+    destroyReporteTable();
+    renderSalesTableHeader();
+
+    const tableFoot = document.getElementById('tabla-foot');
+    if (tableFoot) {
+        tableFoot.innerHTML = '';
+        tableFoot.style.display = 'none';
+    }
+
+    document.getElementById('tabla-body').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    document.getElementById('result-count').textContent = '...';
+
+    fetch(BASE + 'modules/facturacion/api.php?' + buildQuery({ action: 'reporte' }))
+        .then(r => r.json())
+        .then(data => {
+            reporteVentasCache = Array.isArray(data) ? data : [];
+            if (data.error) {
+                document.getElementById('tabla-body').innerHTML =
+                    `<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
+                document.getElementById('result-count').textContent = 'Error';
+                renderSummaryCard(0, 0);
+                return;
+            }
+
+            document.getElementById('result-count').textContent = `${data.length} resultado(s)`;
+
+            if (!data.length) {
+                document.getElementById('tabla-body').innerHTML =
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
+                renderSummaryCard(0, 0);
+                return;
+            }
+
+            reporteVentasMap = {};
+            document.getElementById('tabla-body').innerHTML = data.map(v => {
+                reporteVentasMap[String(v.id)] = v;
+                const dt = new Date(v.created_at);
+                const fechaOrden = dt.getTime();
+                const fecha = dt.toLocaleDateString('es-PE');
+                const hora = dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                const total = parseFloat(v.total || 0);
+                const clienteDoc = v.ruc || v.dni || '';
+                const responseCode = v.nubefact_response
+                    ? (() => {
+                        try {
+                            const parsed = typeof v.nubefact_response === 'string' ? JSON.parse(v.nubefact_response) : v.nubefact_response;
+                            return parsed?.cdr?.response_code ?? parsed?.cdr?.responseCode ?? null;
+                        } catch (_) {
+                            return null;
+                        }
+                    })()
+                    : null;
+                const sunat = shortSunatStatus(v.estado_sunat, responseCode);
+                const estadoLabel = v.estado === 'completada' ? 'Vigente' : 'Anulado';
+                const estadoClass = v.estado === 'completada' ? 'badge-success' : 'badge-danger';
+
+                const clienteHtml = `
+                    <div class="client-block">
+                        <div class="client-name">${v.cliente}</div>
+                        ${clienteDoc ? `<div class="client-doc">${clienteDoc}</div>` : ''}
+                    </div>
+                `;
+
+                const comprobanteHtml = v.comprobante_numero
+                    ? `<div class="voucher-block"><strong>${v.comprobante_numero}</strong><span>${String(v.tipo_comprobante || '').toUpperCase()}</span></div>`
+                    : `<div class="voucher-block"><strong>${v.numero_venta}</strong><span>NOTA DE VENTA</span></div>`;
+
+                const xmlBtn = v.enlace_xml
+                    ? actionIconButton('file-code', 'Ver XML', v.enlace_xml)
+                    : '';
+                const cdrBtn = v.enlace_cdr
+                    ? actionIconButton('receipt', 'Ver CDR', v.enlace_cdr)
+                    : '';
+
+                const acciones = `
+                    <div class="actions-inline">
+                        ${actionIconButton('print', 'Imprimir ticket', null, `imprimirTicketVenta(${parseInt(v.id, 10)})`)}
+                        ${v.comprobante_id && v.enlace_cdr && v.tipo_comprobante !== 'ticket'
+                            ? actionIconButton('file-circle-plus', 'Generar nota de credito', null, `abrirNotaCreditoReporte(${parseInt(v.comprobante_id, 10)})`)
+                            : ''}
+                        ${v.enlace_pdf ? actionIconButton('file-pdf', 'Ver PDF', v.enlace_pdf) : ''}
+                        ${parseInt(v.comprobante_id || 0, 10) > 0 ? actionIconButton('paper-plane', 'Reenviar a SUNAT', null, `reenviarSunat(${parseInt(v.comprobante_id, 10)})`) : ''}
+                    </div>
+                `;
+
+                return `
+                    <tr>
+                        <td data-order="${fechaOrden}">
+                            <div class="date-block">
+                                <strong>${fecha}</strong>
+                                <span>${hora}</span>
+                            </div>
+                        </td>
+                        <td>${clienteHtml}</td>
+                        <td>${comprobanteHtml}</td>
+                        <td data-order="${total}" class="text-right"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
+                        <td>${xmlBtn}</td>
+                        <td>${cdrBtn}</td>
+                        <td><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
+                        <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
+                        <td>${acciones}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const completadas = data.filter(v => v.estado === 'completada');
+            const totalGeneral = completadas.reduce((sum, row) => sum + parseFloat(row.total || 0), 0);
+            renderSummaryCard(completadas.length, totalGeneral);
+            initReporteTable();
+        })
+        .catch(() => {
+            document.getElementById('tabla-body').innerHTML =
+                '<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> Error al cargar el reporte</td></tr>';
+            document.getElementById('result-count').textContent = 'Error';
+            renderSummaryCard(0, 0);
+        });
 }
 
 // ---- Cargar lista de vendedores para el filtro ----
@@ -565,6 +1191,27 @@ function exportarExcel() {
     showToast('Descargando archivo Excel...', 'success');
 }
 
+function reenviarSunat(comprobanteId) {
+    if (!comprobanteId) {
+        return;
+    }
+
+    fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comprobante_id: comprobanteId })
+    })
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok || data.error) {
+                throw new Error(data.message || 'No se pudo reenviar el comprobante.');
+            }
+            showToast(data.message || 'Comprobante reenviado a SUNAT.', 'success');
+            buscar();
+        })
+        .catch(err => showToast(err.message || 'Error al reenviar a SUNAT', 'error'));
+}
+
 // ---- Toast ----
 function showToast(msg, type = 'info') {
     const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
@@ -577,6 +1224,7 @@ function showToast(msg, type = 'info') {
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
+    cargarMotivosNotaCreditoReporte();
     loadUsuarios();
     buscar();
     document.getElementById('f-q').addEventListener('keyup', e => { if (e.key === 'Enter') buscar(); });
@@ -586,6 +1234,285 @@ document.addEventListener('DOMContentLoaded', () => {
 <style>
 .stat-icon.purple { background: #f5f3ff; color: #7c3aed; }
 .stat-icon.teal   { background: #f0fdfa; color: #0d9488; }
+.facturacion-table thead th {
+    white-space: nowrap;
+}
+    .facturacion-table tbody td {
+        vertical-align: middle;
+    }
+    .facturacion-table {
+        table-layout: fixed;
+    }
+.table-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+.table-wrap table.dataTable {
+    width: 100% !important;
+    min-width: 1180px;
+    border-collapse: separate !important;
+}
+.dataTables_wrapper {
+    padding: 0 0 12px;
+    width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+.dt-toolbar,
+.dt-footer {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 14px 16px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.dt-toolbar {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+}
+.dt-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    padding-top: 12px;
+}
+.dataTables_filter input,
+.dataTables_length select {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+    min-height: 36px;
+    padding: 0 12px;
+    font: inherit;
+}
+.dataTables_filter label,
+.dataTables_length label,
+.dataTables_info {
+    color: var(--text-muted);
+    font-size: .8rem;
+}
+.dataTables_length,
+.dataTables_filter,
+.dataTables_info,
+.dataTables_paginate {
+    margin: 0 !important;
+}
+.dataTables_filter {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 1 1 280px;
+    min-width: 220px;
+}
+.dataTables_paginate {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.dataTables_wrapper .dataTables_paginate ul.pagination {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    gap: 6px;
+    align-items: center;
+}
+.dataTables_wrapper .dataTables_paginate ul.pagination li {
+    list-style: none !important;
+    margin: 0 !important;
+}
+.dataTables_wrapper .dataTables_paginate .page-link {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: var(--text) !important;
+    padding: 5px 10px !important;
+    min-width: 34px;
+    font-size: .8rem !important;
+    line-height: 1.2 !important;
+    text-align: center;
+    box-shadow: none !important;
+}
+.dataTables_wrapper .dataTables_paginate .page-item.active .page-link,
+.dataTables_wrapper .dataTables_paginate .page-link:hover {
+    background: var(--primary) !important;
+    color: #fff !important;
+    border-color: var(--primary) !important;
+}
+.dataTables_wrapper .dataTables_paginate .page-item.disabled .page-link {
+    opacity: .5;
+    cursor: not-allowed !important;
+    background: #fff !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border) !important;
+}
+.dataTables_wrapper .dataTables_filter input {
+    margin-left: 8px;
+    min-width: 180px;
+    max-width: 260px;
+}
+.dataTables_wrapper .dataTables_length select {
+    margin: 0 6px;
+    min-width: 74px;
+}
+.dataTables_info {
+    padding: 0 16px 12px;
+}
+.tabla-summary {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 12px 16px 4px;
+    flex-wrap: wrap;
+}
+.summary-pill {
+    min-width: 150px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.summary-label {
+    font-size: .72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.summary-pill strong {
+    font-size: 1rem;
+    color: var(--text);
+}
+.date-block,
+.voucher-block,
+.client-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.date-block strong,
+.voucher-block strong,
+.client-name {
+    font-size: .9rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.date-block span,
+.voucher-block span,
+.client-doc {
+    font-size: .74rem;
+    color: var(--text-muted);
+}
+.total-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+    padding: 8px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    font-weight: 700;
+    color: var(--text);
+}
+.icon-action-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: .18s ease;
+}
+.icon-action-btn:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.actions-inline {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+    .sunat-cell {
+    width: 88px !important;
+    min-width: 88px !important;
+    max-width: 88px !important;
+    white-space: nowrap;
+    text-align: center;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+    .sunat-cell .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 76px;
+        max-width: 76px;
+        padding: 6px 10px;
+        font-size: .72rem !important;
+        line-height: 1;
+    }
+.sunat-cell .icon-action-btn,
+.sunat-cell .btn.btn-ghost.btn-sm {
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    margin-left: 4px !important;
+    flex-shrink: 0;
+}
+.facturacion-table tbody td {
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+}
+.dt-footer {
+    padding-bottom: 10px;
+}
+@media (max-width: 768px) {
+    .dt-toolbar,
+    .dt-footer {
+        padding: 12px 12px 0;
+    }
+    .dataTables_filter {
+        margin-left: 0;
+        width: 100%;
+    }
+    .dataTables_filter input {
+        width: 100%;
+        max-width: none;
+    }
+    .table-wrap table.dataTable {
+        min-width: 1050px;
+    }
+    .dataTables_wrapper .dataTables_paginate .page-link {
+        padding: 4px 8px !important;
+        min-width: 30px;
+    }
+    .tabla-summary {
+        justify-content: stretch;
+        padding: 12px;
+    }
+    .summary-pill {
+        width: 100%;
+        min-width: 0;
+    }
+}
 </style>
 
 <?php include '../../includes/footer.php'; ?>
+

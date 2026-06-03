@@ -10,6 +10,313 @@ requireApiAuth(['admin']);
 $action = $_GET['action'] ?? '';
 $db     = getDB();
 
+function facturacionNormalizarAfectacionTipo(?string $tipo, ?string $codigo): string
+{
+    $tipo = strtoupper(trim((string) $tipo));
+    if ($tipo !== '') {
+        return $tipo;
+    }
+
+    return match (trim((string) $codigo)) {
+        '20', '21' => 'EXO',
+        '30', '31', '32', '33', '34', '35', '36' => 'INA',
+        '40' => 'EXP',
+        default => 'GRAV',
+    };
+}
+
+function facturacionSerieNotaCreditoSegunOrigen(array $origen): array
+{
+    $codigoOrigen = trim((string) ($origen['codigo_tipo_documento'] ?? ''));
+
+    if ($codigoOrigen === '01') {
+        return [
+            'tipo' => 'nota_credito_factura',
+            'serie' => 'FC01',
+            'descripcion' => 'Nota de crédito factura',
+        ];
+    }
+
+    if ($codigoOrigen === '03') {
+        return [
+            'tipo' => 'nota_credito_boleta',
+            'serie' => 'BC01',
+            'descripcion' => 'Nota de crédito boleta',
+        ];
+    }
+
+    return [
+        'tipo' => 'nota_credito',
+        'serie' => 'NC01',
+        'descripcion' => 'Nota de crédito',
+    ];
+}
+
+function facturacionMarcarOrigenComoAnulado(PDO $db, int $origenComprobanteId, int $origenVentaId, string $motivo = 'Anulado con nota de credito'): void
+{
+    $db->prepare("
+        UPDATE ventas
+        SET estado = 'anulada'
+        WHERE id = :id
+    ")->execute([':id' => $origenVentaId]);
+
+    $db->prepare("
+        UPDATE comprobantes_electronicos
+        SET estado_sunat = :estado
+        WHERE id = :id
+    ")->execute([
+        ':estado' => $motivo,
+        ':id' => $origenComprobanteId,
+    ]);
+}
+
+function facturacionCargarComprobanteVenta(PDO $db, int $comprobanteId): array
+{
+    $stmt = $db->prepare("
+        SELECT
+            ce.id,
+            ce.venta_id,
+            ce.tipo,
+            ce.serie,
+            ce.numero,
+            ce.numero_completo,
+            ce.codigo_tipo_documento,
+            ce.estado_sunat,
+            ce.enlace_del_pdf,
+            ce.enlace_del_xml,
+            ce.enlace_del_cdr,
+            ce.nubefact_response,
+            ce.referencia_comprobante_id,
+            ce.tipo_nota_credito_id,
+            ce.codigo_tipo_nota_credito,
+            ce.motivo_nota_credito,
+            ce.descripcion_nota_credito,
+            ce.documento_modificado_tipo_documento_codigo,
+            ce.documento_modificado_serie,
+            ce.documento_modificado_numero,
+            ce.documento_modificado_numero_completo,
+            ce.documento_modificado_fecha,
+            v.numero_venta,
+            v.tipo_pago,
+            v.sunat_forma_pago,
+            v.fecha_emision,
+            v.hora_emision,
+            v.moneda_codigo,
+            v.total,
+            v.cliente_id
+        FROM comprobantes_electronicos ce
+        INNER JOIN ventas v ON v.id = ce.venta_id
+        WHERE ce.id = :id
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $comprobanteId]);
+    $row = $stmt->fetch();
+
+    if (!$row) {
+        throw new RuntimeException('No se encontro el comprobante seleccionado.');
+    }
+
+    return $row;
+}
+
+function facturacionCargarTiposNotaCredito(PDO $db): array
+{
+    $stmt = $db->query("
+        SELECT id, codigo, descripcion
+        FROM public.fe_tipos_nota_credito
+        WHERE COALESCE(estado, TRUE) = TRUE
+        ORDER BY codigo
+    ");
+    return $stmt->fetchAll() ?: [];
+}
+
+function facturacionCargarOrigenesNotaCredito(PDO $db, string $q = ''): array
+{
+    $params = [];
+    $where = "WHERE ce.tipo IN ('boleta', 'factura') AND COALESCE(ce.enlace_del_cdr, '') <> ''";
+    if ($q !== '') {
+        $where .= " AND (
+            ce.numero_completo ILIKE :q OR
+            v.numero_venta ILIKE :q OR
+            COALESCE(c.nombres, '') ILIKE :q OR
+            COALESCE(c.apellidos, '') ILIKE :q OR
+            COALESCE(c.razon_social, '') ILIKE :q OR
+            COALESCE(c.nombre_completo, '') ILIKE :q
+        )";
+        $params[':q'] = '%' . trim($q) . '%';
+    }
+
+    $stmt = $db->prepare("
+        SELECT
+            ce.id,
+            ce.tipo,
+            ce.serie,
+            ce.numero,
+            ce.numero_completo,
+            ce.codigo_tipo_documento,
+            ce.estado_sunat,
+            v.numero_venta,
+            v.total,
+            v.created_at,
+            COALESCE(c.razon_social, c.nombre_completo, c.nombres || ' ' || COALESCE(c.apellidos,''), 'CLIENTES VARIOS') AS cliente,
+            COALESCE(c.dni, '') AS dni,
+            COALESCE(c.ruc, '') AS ruc
+        FROM comprobantes_electronicos ce
+        INNER JOIN ventas v ON v.id = ce.venta_id
+        LEFT JOIN clientes c ON c.id = v.cliente_id
+        $where
+        ORDER BY ce.created_at DESC
+        LIMIT 200
+    ");
+    $stmt->execute($params);
+    return $stmt->fetchAll() ?: [];
+}
+
+function facturacionCargarNotasCredito(PDO $db, string $desde, string $hasta, string $estado = '', string $q = ''): array
+{
+    $params = [':desde' => $desde, ':hasta' => $hasta . ' 23:59:59'];
+    $where = "WHERE ce.tipo = 'nota_credito' AND ce.created_at BETWEEN :desde AND :hasta";
+    if ($estado !== '') {
+        $where .= " AND LOWER(COALESCE(ce.estado_sunat, '')) LIKE :estado";
+        $params[':estado'] = '%' . strtolower(trim($estado)) . '%';
+    }
+    if ($q !== '') {
+        $where .= " AND (
+            ce.numero_completo ILIKE :q OR
+            COALESCE(c.nombres, '') ILIKE :q OR
+            COALESCE(c.apellidos, '') ILIKE :q OR
+            COALESCE(c.razon_social, '') ILIKE :q OR
+            COALESCE(c.nombre_completo, '') ILIKE :q OR
+            COALESCE(ref.numero_completo, '') ILIKE :q
+        )";
+        $params[':q'] = '%' . trim($q) . '%';
+    }
+
+    $stmt = $db->prepare("
+        SELECT
+            ce.id,
+            ce.venta_id,
+            ce.tipo,
+            ce.serie,
+            ce.numero,
+            ce.numero_completo,
+            ce.codigo_tipo_documento,
+            ce.estado_sunat,
+            ce.enlace_del_pdf,
+            ce.enlace_del_xml,
+            ce.enlace_del_cdr,
+            ce.nubefact_response,
+            ce.codigo_tipo_nota_credito,
+            ce.motivo_nota_credito,
+            ce.descripcion_nota_credito,
+            ce.documento_modificado_tipo_documento_codigo,
+            ce.documento_modificado_serie,
+            ce.documento_modificado_numero,
+            ce.documento_modificado_numero_completo,
+            ce.documento_modificado_fecha,
+            ce.created_at,
+            v.numero_venta,
+            v.total,
+            COALESCE(c.razon_social, c.nombre_completo, c.nombres || ' ' || COALESCE(c.apellidos,''), 'CLIENTES VARIOS') AS cliente,
+            COALESCE(c.dni, '') AS dni,
+            COALESCE(c.ruc, '') AS ruc,
+            COALESCE(ref.numero_completo, '') AS referencia_numero_completo,
+            COALESCE(ref.codigo_tipo_documento, '') AS referencia_codigo_tipo_documento
+        FROM comprobantes_electronicos ce
+        INNER JOIN ventas v ON v.id = ce.venta_id
+        LEFT JOIN clientes c ON c.id = v.cliente_id
+        LEFT JOIN comprobantes_electronicos ref ON ref.id = ce.referencia_comprobante_id
+        $where
+        ORDER BY ce.created_at DESC
+        LIMIT 200
+    ");
+    $stmt->execute($params);
+    return $stmt->fetchAll() ?: [];
+}
+
+function facturacionCargarClienteVenta(PDO $db, ?int $clienteId): ?array
+{
+    if (!$clienteId) {
+        return null;
+    }
+
+    $stmt = $db->prepare("
+        SELECT
+            id, nombres, apellidos, dni, ruc, telefono, email, direccion,
+            tipo_documento_id, tipo_documento_codigo, numero_documento,
+            nombre_completo, razon_social, ubigeo
+        FROM clientes
+        WHERE id = :id
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $clienteId]);
+
+    return $stmt->fetch() ?: null;
+}
+
+function facturacionCargarItemsVenta(PDO $db, int $ventaId): array
+{
+    $stmt = $db->prepare("
+        SELECT
+            vd.producto_id,
+            COALESCE(vd.descripcion, p.nombre, 'Producto') AS nombre,
+            COALESCE(vd.codigo_interno, p.codigo_interno, p.codigo, '') AS codigo,
+            vd.codigo_sunat,
+            vd.cantidad,
+            vd.precio_unitario,
+            vd.valor_unitario,
+            vd.valor_total,
+            vd.precio_total,
+            vd.igv,
+            vd.unidad_codigo,
+            vd.afectacion_igv_codigo,
+            COALESCE(a.tipo, '') AS afectacion_tipo,
+            CASE
+                WHEN COALESCE(vd.igv, 0) > 0 AND COALESCE(vd.valor_total, 0) > 0
+                    THEN ROUND((vd.igv / NULLIF(vd.valor_total, 0)) * 100, 2)
+                ELSE 0
+            END AS porcentaje_igv
+        FROM venta_detalles vd
+        LEFT JOIN productos p ON p.id = vd.producto_id
+        LEFT JOIN fe_tipos_afectacion_igv a ON a.id = vd.afectacion_igv_id
+        WHERE vd.venta_id = :venta_id
+        ORDER BY vd.id
+    ");
+    $stmt->execute([':venta_id' => $ventaId]);
+
+    $items = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $row['afectacion_tipo'] = facturacionNormalizarAfectacionTipo(
+            $row['afectacion_tipo'] ?? null,
+            $row['afectacion_igv_codigo'] ?? null
+        );
+        $items[] = $row;
+    }
+
+    if (!$items) {
+        throw new RuntimeException('La venta no tiene detalle para reenviar a SUNAT.');
+    }
+
+    return $items;
+}
+
+function facturacionExtraerResponseCode(?string $json): ?string
+{
+    $json = trim((string) $json);
+    if ($json === '') {
+        return null;
+    }
+
+    $data = json_decode($json, true);
+    if (!is_array($data)) {
+        return null;
+    }
+
+    return isset($data['cdr']['response_code'])
+        ? trim((string) $data['cdr']['response_code'])
+        : (isset($data['cdr']['responseCode']) ? trim((string) $data['cdr']['responseCode']) : null);
+}
+
 // ---- Parámetros de filtro comunes ----
 $desde     = $_GET['desde']     ?? date('Y-m-d');
 $hasta     = $_GET['hasta']     ?? date('Y-m-d');
@@ -114,6 +421,266 @@ switch ($action) {
         }
         break;
 
+    case 'tipos_nota_credito':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            echo json_encode(facturacionCargarTiposNotaCredito($db));
+        } catch (Exception $e) {
+            echo json_encode([]);
+        }
+        break;
+
+    case 'documentos_origen_nota_credito':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $qOrigen = trim($_GET['q'] ?? ($_POST['q'] ?? ''));
+            echo json_encode(facturacionCargarOrigenesNotaCredito($db, $qOrigen));
+        } catch (Exception $e) {
+            echo json_encode([]);
+        }
+        break;
+
+    case 'notas_reporte':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $rows = facturacionCargarNotasCredito($db, $desde, $hasta, $estado, trim($_GET['q'] ?? ''));
+            echo json_encode($rows);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => 'Error al cargar notas de credito: ' . $e->getMessage()], 500);
+        }
+        break;
+
+    case 'detalle_venta_ticket':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $ventaId = (int) ($_GET['id'] ?? 0);
+            if ($ventaId <= 0) {
+                jsonResponse(['error' => true, 'message' => 'Venta no válida.'], 422);
+            }
+
+            $stmt = $db->prepare("
+                SELECT
+                    v.id,
+                    v.numero_venta,
+                    v.created_at,
+                    v.subtotal,
+                    v.descuento,
+                    v.igv,
+                    v.total,
+                    v.tipo_pago,
+                    v.tipo_comprobante,
+                    v.estado,
+                    v.vendedor,
+                    v.fecha_emision,
+                    v.hora_emision,
+                    COALESCE(c.nombres || ' ' || COALESCE(c.apellidos,''), COALESCE(c.razon_social, c.nombre_completo, 'CLIENTES VARIOS')) AS cliente,
+                    COALESCE(c.dni, '') AS dni,
+                    COALESCE(c.ruc, '') AS ruc,
+                    COALESCE(c.direccion, '') AS direccion,
+                    COALESCE(ce.numero_completo, '') AS comprobante_numero,
+                    COALESCE(ce.estado_sunat, '') AS estado_sunat,
+                    COALESCE(ce.enlace_del_pdf, '') AS enlace_pdf,
+                    COALESCE(ce.enlace_del_xml, '') AS enlace_xml,
+                    COALESCE(ce.enlace_del_cdr, '') AS enlace_cdr
+                FROM ventas v
+                LEFT JOIN clientes c ON c.id = v.cliente_id
+                LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id
+                WHERE v.id = :id
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $ventaId]);
+            $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$venta) {
+                jsonResponse(['error' => true, 'message' => 'No se encontró la venta.'], 404);
+            }
+
+            $venta['items'] = facturacionCargarItemsVenta($db, $ventaId);
+            echo json_encode($venta);
+        } catch (Throwable $e) {
+            jsonResponse(['error' => true, 'message' => 'Error al preparar ticket: ' . $e->getMessage()], 500);
+        }
+        break;
+
+    case 'crear_nota_credito':
+        header('Content-Type: application/json; charset=UTF-8');
+
+        $raw  = file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+        $origenId = (int) ($data['comprobante_origen_id'] ?? 0);
+        $tipoNotaCreditoId = (int) ($data['tipo_nota_credito_id'] ?? 0);
+        $descripcion = trim((string) ($data['descripcion'] ?? ''));
+
+        if ($origenId <= 0 || $tipoNotaCreditoId <= 0) {
+            jsonResponse(['error' => true, 'message' => 'Debes seleccionar un comprobante origen y un motivo.'], 422);
+        }
+        if ($descripcion === '') {
+            jsonResponse(['error' => true, 'message' => 'La descripcion es obligatoria.'], 422);
+        }
+
+        try {
+            $origen = facturacionCargarComprobanteVenta($db, $origenId);
+            if (!in_array($origen['tipo'], ['boleta', 'factura'], true)) {
+                throw new RuntimeException('Solo se pueden anular boletas o facturas con nota de credito.');
+            }
+            $responseCode = facturacionExtraerResponseCode($origen['nubefact_response'] ?? null);
+            $estadoSunat = strtolower(trim((string) ($origen['estado_sunat'] ?? '')));
+            $yaEnviado = !empty($origen['enlace_del_cdr'])
+                || $responseCode !== null
+                || str_contains($estadoSunat, 'acept')
+                || str_contains($estadoSunat, 'observ');
+            if (!$yaEnviado) {
+                throw new RuntimeException('El comprobante origen debe estar enviado y con CDR antes de emitir una nota de credito.');
+            }
+
+            $tipoNota = null;
+            foreach (facturacionCargarTiposNotaCredito($db) as $row) {
+                if ((int) $row['id'] === $tipoNotaCreditoId) {
+                    $tipoNota = $row;
+                    break;
+                }
+            }
+            if (!$tipoNota) {
+                throw new RuntimeException('El motivo de la nota de credito no es valido.');
+            }
+
+            $cliente = facturacionCargarClienteVenta($db, !empty($origen['cliente_id']) ? (int) $origen['cliente_id'] : null);
+            $items = facturacionCargarItemsVenta($db, (int) $origen['venta_id']);
+
+            $db->beginTransaction();
+            $serieConfig = facturacionSerieNotaCreditoSegunOrigen($origen);
+            $serieStmt = $db->prepare("
+                SELECT tipo, serie, ultimo_numero, codigo_tipo_documento, tipo_documento_id
+                FROM series_comprobantes
+                WHERE tipo = :tipo AND serie = :serie AND COALESCE(activo, TRUE) = TRUE
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $serieStmt->execute([
+                ':tipo' => $serieConfig['tipo'],
+                ':serie' => $serieConfig['serie'],
+            ]);
+            $serieRow = $serieStmt->fetch();
+            if (!$serieRow) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw new RuntimeException('No hay una serie de nota de crédito configurada para esta sucursal.');
+            }
+            $nextNumero = (int) ($serieRow['ultimo_numero'] ?? 0) + 1;
+            $serie = (string) $serieRow['serie'];
+            $correlativo = str_pad((string) $nextNumero, 8, '0', STR_PAD_LEFT);
+            $numeroCompleto = $serie . '-' . $correlativo;
+            $notaCodigo = (string) $tipoNota['codigo'];
+
+            $db->prepare("
+                UPDATE series_comprobantes
+                SET ultimo_numero = :ultimo
+                WHERE tipo = :tipo AND serie = :serie
+            ")->execute([
+                ':ultimo' => $nextNumero,
+                ':tipo' => (string) $serieRow['tipo'],
+                ':serie' => (string) $serieRow['serie'],
+            ]);
+
+            $compStmt = $db->prepare("
+                INSERT INTO comprobantes_electronicos (
+                    venta_id, tipo, serie, numero, numero_completo, estado_sunat,
+                    codigo_tipo_documento, referencia_comprobante_id,
+                    tipo_nota_credito_id, codigo_tipo_nota_credito,
+                    motivo_nota_credito, descripcion_nota_credito,
+                    documento_modificado_tipo_documento_codigo,
+                    documento_modificado_serie,
+                    documento_modificado_numero,
+                    documento_modificado_numero_completo,
+                    documento_modificado_fecha, created_at
+                )
+                VALUES (
+                    :venta_id, 'nota_credito', :serie, :numero, :numero_completo, 'pendiente',
+                    '07', :referencia_id,
+                    :tipo_nota_credito_id, :codigo_tipo_nota_credito,
+                    :motivo_nota_credito, :descripcion_nota_credito,
+                    :doc_mod_tipo,
+                    :doc_mod_serie,
+                    :doc_mod_numero,
+                    :doc_mod_numero_completo,
+                    :doc_mod_fecha,
+                    CURRENT_TIMESTAMP
+                )
+                RETURNING id
+            ");
+            $compStmt->execute([
+                ':venta_id' => (int) $origen['venta_id'],
+                ':serie' => $serie,
+                ':numero' => $nextNumero,
+                ':numero_completo' => $numeroCompleto,
+                ':referencia_id' => (int) $origen['id'],
+                ':tipo_nota_credito_id' => $tipoNotaCreditoId,
+                ':codigo_tipo_nota_credito' => $notaCodigo,
+                ':motivo_nota_credito' => $tipoNota['descripcion'],
+                ':descripcion_nota_credito' => $descripcion,
+                ':doc_mod_tipo' => (string) ($origen['codigo_tipo_documento'] ?: '03'),
+                ':doc_mod_serie' => (string) ($origen['serie'] ?: ''),
+                ':doc_mod_numero' => (string) ($origen['numero'] ?: ''),
+                ':doc_mod_numero_completo' => (string) ($origen['numero_completo'] ?: ''),
+                ':doc_mod_fecha' => !empty($origen['fecha_emision']) ? $origen['fecha_emision'] : date('Y-m-d'),
+            ]);
+
+            $compId = (int) ($compStmt->fetch()['id'] ?? 0);
+            if ($compId <= 0) {
+                throw new RuntimeException('No se pudo crear la nota de credito.');
+            }
+
+            $db->commit();
+
+            require_once '../../config/sunat.php';
+            $compData = [
+                'id' => $compId,
+                'tipo' => 'nota_credito',
+                'serie' => $serie,
+                'numero' => $nextNumero,
+                'numero_completo' => $numeroCompleto,
+                'codigo_tipo_documento' => '07',
+            ];
+            $ventaInfo = [
+                'numero_venta' => (string) $origen['numero_venta'],
+                'tipo_pago' => (string) ($origen['tipo_pago'] ?? 'efectivo'),
+                'sunat_forma_pago' => 'Contado',
+                'fecha_emision' => date('Y-m-d'),
+                'hora_emision' => date('H:i:s'),
+                'moneda' => 'PEN',
+                'totales' => ['total' => (float) $origen['total']],
+                'documento_modificado_tipo_documento_codigo' => (string) ($origen['codigo_tipo_documento'] ?: '03'),
+                'documento_modificado_numero_completo' => (string) ($origen['numero_completo'] ?: ''),
+                'motivo_codigo' => $notaCodigo,
+                'motivo_descripcion' => $tipoNota['descripcion'],
+            ];
+
+            $resultado = enviar_sunat($db, $compData, $cliente, $items, $ventaInfo);
+
+            if (($resultado['error_nubefact'] ?? true) === false && (string) ($resultado['response_code'] ?? '') === '0') {
+                facturacionMarcarOrigenComoAnulado(
+                    $db,
+                    (int) $origen['id'],
+                    (int) $origen['venta_id'],
+                    'Anulado con nota de credito'
+                );
+            }
+            jsonResponse([
+                'error' => false,
+                'message' => 'Nota de credito enviada a SUNAT correctamente.',
+                'comprobante' => $resultado,
+            ]);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            jsonResponse([
+                'error' => true,
+                'message' => 'Error al emitir nota de credito: ' . $e->getMessage(),
+            ], 422);
+        }
+        break;
+
     // ---- GET: Reporte de ventas con filtros ----
     case 'reporte':
         header('Content-Type: application/json; charset=UTF-8');
@@ -134,11 +701,15 @@ switch ($action) {
 
         $join_ce  = $tiene_ce ? "LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id" : "";
         $sel_ce   = $tiene_ce
-            ? "COALESCE(ce.numero_completo, '') AS comprobante_numero,
+            ? "COALESCE(ce.id, 0)               AS comprobante_id,
+               COALESCE(ce.numero_completo, '') AS comprobante_numero,
                COALESCE(ce.estado_sunat, '')    AS estado_sunat,
-               COALESCE(ce.enlace_del_pdf, '')  AS enlace_pdf"
-            : "'' AS comprobante_numero, '' AS estado_sunat, '' AS enlace_pdf";
-        $group_ce = $tiene_ce ? ", ce.numero_completo, ce.estado_sunat, ce.enlace_del_pdf" : "";
+               COALESCE(ce.nubefact_response, '') AS nubefact_response,
+               COALESCE(ce.enlace_del_pdf, '')  AS enlace_pdf,
+               COALESCE(ce.enlace_del_xml, '')  AS enlace_xml,
+               COALESCE(ce.enlace_del_cdr, '')  AS enlace_cdr"
+            : "0 AS comprobante_id, '' AS comprobante_numero, '' AS estado_sunat, '' AS nubefact_response, '' AS enlace_pdf, '' AS enlace_xml, '' AS enlace_cdr";
+        $group_ce = $tiene_ce ? ", ce.id, ce.numero_completo, ce.estado_sunat, ce.nubefact_response, ce.enlace_del_pdf, ce.enlace_del_xml, ce.enlace_del_cdr" : "";
 
         try {
             $stmt = $db->prepare("
@@ -265,6 +836,78 @@ switch ($action) {
         exit;
 
     // ---- GET: Categorías para filtro ----
+    case 'reenviar_sunat':
+        header('Content-Type: application/json; charset=UTF-8');
+
+        $raw  = file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+        $comprobanteId = (int) ($data['comprobante_id'] ?? $_POST['comprobante_id'] ?? $_GET['comprobante_id'] ?? 0);
+
+        if ($comprobanteId <= 0) {
+            jsonResponse(['error' => true, 'message' => 'Comprobante no valido.'], 422);
+        }
+
+        try {
+            require_once '../../config/sunat.php';
+
+            $comp = facturacionCargarComprobanteVenta($db, $comprobanteId);
+            $responseCode = facturacionExtraerResponseCode($comp['nubefact_response'] ?? null);
+            $estadoSunat = strtolower(trim((string) ($comp['estado_sunat'] ?? '')));
+            $yaEnviado = !empty($comp['enlace_del_cdr'])
+                || $responseCode !== null
+                || str_contains($estadoSunat, 'acept')
+                || str_contains($estadoSunat, 'observ');
+
+            if ($yaEnviado) {
+                jsonResponse([
+                    'error' => true,
+                    'message' => 'Este comprobante ya tiene CDR y no se puede reenviar.',
+                ], 422);
+            }
+
+            $cliente = facturacionCargarClienteVenta($db, !empty($comp['cliente_id']) ? (int) $comp['cliente_id'] : null);
+            $items = facturacionCargarItemsVenta($db, (int) $comp['venta_id']);
+
+            $result = enviar_sunat(
+                $db,
+                [
+                    'id' => (int) $comp['id'],
+                    'tipo' => (string) $comp['tipo'],
+                    'serie' => (string) $comp['serie'],
+                    'numero' => (int) $comp['numero'],
+                    'numero_completo' => (string) $comp['numero_completo'],
+                    'codigo_tipo_documento' => (string) $comp['codigo_tipo_documento'],
+                ],
+                $cliente,
+                $items,
+                [
+                    'numero_venta' => (string) $comp['numero_venta'],
+                    'tipo_pago' => (string) $comp['tipo_pago'],
+                    'sunat_forma_pago' => (string) ($comp['sunat_forma_pago'] ?: 'Contado'),
+                    'fecha_emision' => (string) $comp['fecha_emision'],
+                    'hora_emision' => (string) $comp['hora_emision'],
+                    'moneda' => (string) ($comp['moneda_codigo'] ?: 'PEN'),
+                    'totales' => ['total' => (float) $comp['total']],
+                    'documento_modificado_tipo_documento_codigo' => (string) ($comp['documento_modificado_tipo_documento_codigo'] ?? ''),
+                    'documento_modificado_numero_completo' => (string) ($comp['documento_modificado_numero_completo'] ?? ''),
+                    'motivo_codigo' => (string) ($comp['codigo_tipo_nota_credito'] ?? ''),
+                    'motivo_descripcion' => (string) ($comp['motivo_nota_credito'] ?? ''),
+                ]
+            );
+
+            jsonResponse([
+                'error' => false,
+                'message' => 'Comprobante enviado a SUNAT correctamente.',
+                'comprobante' => $result,
+            ]);
+        } catch (Throwable $e) {
+            jsonResponse([
+                'error' => true,
+                'message' => 'Error SUNAT: ' . $e->getMessage(),
+            ], 422);
+        }
+        break;
+
     case 'categorias_lista':
         header('Content-Type: application/json; charset=UTF-8');
         try {

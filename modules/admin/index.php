@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/admin/index.php
 // MÓDULO:  Administración — Usuarios y Sucursales
@@ -85,8 +85,8 @@ include '../../includes/header.php';
                     <tr>
                         <th>Nombre</th>
                         <th>Schema</th>
-                        <th>Dirección</th>
-                        <th>Teléfono</th>
+                        <th>DirecciÃ³n</th>
+                        <th>TelÃ©fono</th>
                         <th>Usuarios</th>
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -126,11 +126,11 @@ include '../../includes/header.php';
                 <input type="text" id="u-username" class="form-control" placeholder="usuario123" autocomplete="off">
             </div>
             <div class="form-group" id="row-password">
-                <label class="form-label">Contraseña *</label>
+                <label class="form-label">ContraseÃ±a *</label>
                 <div class="input-group">
-                    <input type="password" id="u-password" class="form-control" placeholder="Mínimo 4 caracteres" autocomplete="new-password">
+                    <input type="password" id="u-password" class="form-control" placeholder="MÃ­nimo 4 caracteres" autocomplete="new-password">
                 </div>
-                <small id="lbl-password-opcional" style="color:var(--text-muted);font-size:.76rem;display:none">Dejar vacío para no cambiar la contraseña</small>
+                <small id="lbl-password-opcional" style="color:var(--text-muted);font-size:.76rem;display:none">Dejar vacÃ­o para no cambiar la contraseÃ±a</small>
             </div>
             <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
             <div style="font-size:.82rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:12px">
@@ -140,7 +140,7 @@ include '../../includes/header.php';
                 <div class="form-group" style="margin:0">
                     <label class="form-label">Sucursal</label>
                     <select id="u-sucursal" class="form-control">
-                        <option value="">— Sin asignar —</option>
+                        <option value="">â€” Sin asignar â€”</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin:0">
@@ -164,11 +164,11 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- MODAL: Cambiar contraseña -->
+<!-- MODAL: Cambiar contraseÃ±a -->
 <div class="modal-overlay" id="modal-password">
     <div class="modal" style="max-width:380px">
         <div class="modal-header">
-            <h3 class="modal-title">Cambiar contraseña</h3>
+            <h3 class="modal-title">Cambiar contraseÃ±a</h3>
             <button class="modal-close" onclick="closeModal('modal-password')"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
@@ -177,8 +177,8 @@ include '../../includes/header.php';
                 Usuario: <strong id="cp-username"></strong>
             </p>
             <div class="form-group">
-                <label class="form-label">Nueva contraseña *</label>
-                <input type="password" id="cp-password" class="form-control" placeholder="Mínimo 4 caracteres">
+                <label class="form-label">Nueva contraseÃ±a *</label>
+                <input type="password" id="cp-password" class="form-control" placeholder="MÃ­nimo 4 caracteres">
             </div>
         </div>
         <div class="modal-footer">
@@ -240,7 +240,7 @@ include '../../includes/header.php';
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
                 <div class="form-group">
-                    <label class="form-label">Teléfono</label>
+                    <label class="form-label">TelÃ©fono</label>
                     <input type="text" id="s-telefono" class="form-control" placeholder="01-123-4567">
                 </div>
                 <div class="form-group">
@@ -248,7 +248,7 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Dirección</label>
+                <label class="form-label">DirecciÃ³n</label>
                 <input type="text" id="s-direccion" class="form-control" placeholder="Av. Principal 123, Lima">
             </div>
             <div id="row-schema-info" style="display:none;background:var(--surface-2);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--text-muted)">
@@ -266,16 +266,136 @@ include '../../includes/header.php';
 </div>
 
 <!-- ======================================================
-     TAB: CONFIGURACIÓN DE MARCA
+     TAB: CONFIGURACIÃ“N DE MARCA
      ====================================================== -->
 <div id="pane-configuracion" style="display:none">
     <div class="card">
         <div class="card-header">
             <div class="card-title">
-                <i class="fas fa-paint-brush" style="color:var(--primary);margin-right:8px"></i>Configuración de marca
+                <i class="fas fa-building" style="color:var(--primary);margin-right:8px"></i>Configuración de empresa
             </div>
         </div>
-        <div style="padding:24px;max-width:520px">
+        <div style="padding:24px;max-width:920px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px;padding:18px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(135deg,#f8fbff 0%,#f3f7ff 100%)">
+                <div style="display:flex;gap:16px;align-items:center;min-width:280px;flex:1">
+                    <div style="width:78px;height:78px;border-radius:16px;border:1px dashed var(--border);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                        <i class="fas fa-store-alt" id="cfg-header-icon" style="font-size:2rem;color:var(--primary)"></i>
+                        <img id="cfg-header-logo" src="" alt="Logo empresa" style="max-width:78px;max-height:78px;object-fit:contain;display:none">
+                    </div>
+                    <div>
+                        <div id="cfg-header-business-name" style="font-size:1.1rem;font-weight:700;color:var(--text-dark);margin-bottom:6px">Datos de la botica</div>
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;color:var(--text-muted);font-size:.85rem">
+                            <span><i class="fas fa-id-card" style="margin-right:6px"></i><span id="cfg-header-ruc">RUC pendiente</span></span>
+                            <span><i class="fas fa-map-marker-alt" style="margin-right:6px"></i><span id="cfg-header-address">Direccion pendiente</span></span>
+                        </div>
+                    </div>
+                </div>
+                <div style="min-width:260px;flex:1;color:var(--text-muted);font-size:.84rem;line-height:1.55">
+                    Aqui puedes completar los datos principales del negocio y la informacion que saldra en los
+                    comprobantes electronicos. Tambien se guardan las credenciales de SUNAT y el certificado digital.
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:10px;flex-wrap:wrap">
+                <button class="tab-btn active" id="cfg-subtab-general" onclick="switchConfigSubtab('general')">
+                    <i class="fas fa-building"></i> Datos de la botica
+                </button>
+                <button class="tab-btn" id="cfg-subtab-sunat" onclick="switchConfigSubtab('sunat')">
+                    <i class="fas fa-file-invoice"></i> SUNAT y certificado
+                </button>
+            </div>
+
+            <div id="cfg-pane-general">
+
+            <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:14px">
+                Datos principales
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <div class="form-group">
+                    <label class="form-label">Razon social para emitir *</label>
+                    <input type="text" id="cfg-business-name" class="form-control" maxlength="255"
+                           placeholder="MYTEMS E.I.R.L.">
+                    <small style="color:var(--text-muted);font-size:.76rem">
+                        Es el nombre legal que saldra en la boleta o factura.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del negocio</label>
+                    <input type="text" id="cfg-trade-name" class="form-control" maxlength="255"
+                           placeholder="Generic Pharma">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+                <div class="form-group">
+                    <label class="form-label">RUC</label>
+                    <input type="text" id="cfg-ruc" class="form-control" inputmode="numeric" maxlength="11"
+                           placeholder="20610316884">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Correo</label>
+                    <input type="email" id="cfg-email" class="form-control" maxlength="150"
+                           placeholder="admin@mytems.cloud">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Telefono</label>
+                    <input type="text" id="cfg-telefono" class="form-control" maxlength="20"
+                           placeholder="950772205">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+                <div class="form-group">
+                    <label class="form-label">Direccion principal</label>
+                    <input type="text" id="cfg-direccion" class="form-control"
+                           placeholder="Alonso de Alvarado 209, Tarapoto">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Codigo pais</label>
+                    <input type="text" id="cfg-country-code" class="form-control" maxlength="2"
+                           placeholder="PE">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px">
+                <div class="form-group">
+                    <label class="form-label">Ubigeo</label>
+                    <input type="text" id="cfg-ubigeo" class="form-control" inputmode="numeric" maxlength="6"
+                           placeholder="220901">
+                    <small id="cfg-ubigeo-help" style="color:var(--text-muted);font-size:.76rem">
+                        Ejemplo: 220901 corresponde a Tarapoto.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Departamento</label>
+                    <input type="text" id="cfg-departamento" class="form-control" maxlength="100"
+                           placeholder="San Martin">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Provincia</label>
+                    <input type="text" id="cfg-provincia" class="form-control" maxlength="100"
+                           placeholder="San Martin">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Distrito</label>
+                    <input type="text" id="cfg-distrito" class="form-control" maxlength="100"
+                           placeholder="Tarapoto">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top:4px">
+                <label style="display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="cfg-tax-enabled" checked>
+                    La empresa factura con IGV
+                </label>
+                <small style="color:var(--text-muted);font-size:.76rem">
+                    Si tu precio ya incluye IGV, mantenlo activado.
+                </small>
+            </div>
+
+            <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin:22px 0 14px">
+                Sistema e identidad visual
+            </div>
 
             <!-- Nombre -->
             <div class="form-group">
@@ -283,7 +403,7 @@ include '../../includes/header.php';
                 <input type="text" id="cfg-nombre" class="form-control"
                        placeholder="Ej: Farmacia San Juan" maxlength="100">
                 <small style="color:var(--text-muted);font-size:.76rem">
-                    Aparece en la barra lateral y el título del navegador.
+                    Aparece en la barra lateral y el tÃ­tulo del navegador.
                 </small>
             </div>
 
@@ -318,15 +438,112 @@ include '../../includes/header.php';
                     <span id="logo-file-name" style="font-size:.82rem;color:var(--text-muted)">Ningún archivo seleccionado</span>
                 </div>
                 <small style="color:var(--text-muted);font-size:.76rem;margin-top:6px;display:block">
-                    JPG, PNG, GIF, WEBP o SVG — máx. 2 MB.
+                    JPG, PNG, GIF, WEBP o SVG â€” mÃ¡x. 2 MB.
                 </small>
             </div>
 
-            <!-- Botón único -->
+            <!-- BotÃ³n Ãºnico -->
             <div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;justify-content:flex-end">
                 <button class="btn btn-primary" id="btn-guardar-config" onclick="guardarConfig()">
                     <i class="fas fa-save"></i> Guardar y Actualizar
                 </button>
+            </div>
+            </div>
+
+            <div id="cfg-pane-sunat" style="display:none">
+                <div style="border:1px solid var(--border);border-radius:16px;padding:18px;background:linear-gradient(180deg,#fffdf7 0%,#fff 100%);margin-bottom:18px">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                        <div>
+                        <div style="font-size:1rem;font-weight:700;color:var(--text-dark);margin-bottom:6px">
+                            Datos para emitir en SUNAT
+                        </div>
+                        <div style="font-size:.84rem;color:var(--text-muted);max-width:620px;line-height:1.55">
+                                Completa aqui el usuario SOL, el entorno de pruebas o produccion
+                                y el certificado digital que usara la empresa para emitir.
+                        </div>
+                    </div>
+                    <span class="badge badge-info" style="padding:8px 12px;font-size:.72rem">Emision electronica</span>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del negocio</label>
+                        <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Usuario SOL</label>
+                        <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+                    <div class="form-group">
+                        <label class="form-label">Clave SOL</label>
+                        <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Clave certificado</label>
+                        <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vencimiento certificado</label>
+                        <input type="date" id="cfg-certificate-expires-at" class="form-control">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+                    <div class="form-group">
+                        <label class="form-label">GRE Client ID</label>
+                        <input type="text" id="cfg-gre-client-id" class="form-control" placeholder="Client ID GRE">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">GRE Client Secret</label>
+                        <input type="text" id="cfg-gre-client-secret" class="form-control" placeholder="Client Secret GRE">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Certificado digital (.pfx)</label>
+                        <input type="text" id="cfg-certificate-path" class="form-control" placeholder="Ruta del certificado .pfx">
+                        <small id="cfg-certificate-current" style="color:var(--text-muted);font-size:.76rem;display:block;margin-top:6px">
+                            Archivo actual: no configurado
+                        </small>
+                    </div>
+                </div>
+
+                <div style="border:1px dashed var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-2);margin:4px 0 18px">
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <label for="certificate-file-input" class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">
+                            <i class="fas fa-file-upload"></i> Cargar certificado .pfx
+                        </label>
+                        <input type="file" id="certificate-file-input" accept=".pfx,application/x-pkcs12" style="display:none" onchange="previewCertificateFile(this)">
+                        <span id="certificate-file-name" style="font-size:.82rem;color:var(--text-muted)">Ningún archivo seleccionado</span>
+                    </div>
+                    <small style="color:var(--text-muted);font-size:.76rem;margin-top:8px;display:block">
+                        Puedes subir aquÃ­ el certificado digital y el sistema guardarÃ¡ la ruta automÃ¡ticamente.
+                    </small>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                    <div class="form-group">
+                        <label class="form-label">Entorno SUNAT</label>
+                        <select id="cfg-sunat-server" class="form-control">
+                            <option value="3">Beta / Pruebas</option>
+                            <option value="1">Produccion</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <div style="padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-size:.84rem">
+                            Estos datos se usan para emitir comprobantes desde esta empresa.
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;justify-content:flex-end">
+                    <button class="btn btn-primary" id="btn-guardar-sunat" onclick="guardarConfig()">
+                        <i class="fas fa-save"></i> Guardar datos SUNAT
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -371,6 +588,14 @@ function switchTab(tab) {
     if (tab === 'configuracion') loadConfig();
 }
 
+function switchConfigSubtab(tab) {
+    const isGeneral = tab === 'general';
+    document.getElementById('cfg-pane-general').style.display = isGeneral ? '' : 'none';
+    document.getElementById('cfg-pane-sunat').style.display = isGeneral ? 'none' : '';
+    document.getElementById('cfg-subtab-general').classList.toggle('active', isGeneral);
+    document.getElementById('cfg-subtab-sunat').classList.toggle('active', !isGeneral);
+}
+
 // ================================================================
 // USUARIOS
 // ================================================================
@@ -388,7 +613,7 @@ function loadUsuarios() {
                 const accesos = (typeof u.accesos === 'string' ? JSON.parse(u.accesos) : u.accesos) || [];
                 const accBadges = accesos.map(a =>
                     `<span class="badge badge-rol-${a.rol === 'admin' ? 'admin' : 'cajero'}" style="margin-right:4px;${!a.activo?'opacity:.4':''}">
-                        ${a.sucursal} · ${a.rol === 'admin' ? 'Admin' : 'Cajero'}
+                        ${a.sucursal} Â· ${a.rol === 'admin' ? 'Admin' : 'Cajero'}
                         ${a.activo ? `<i class="fas fa-times" style="cursor:pointer;margin-left:4px" onclick="revocarAcceso(${u.id},'${escH(u.username)}',${a.sucursal_id})" title="Revocar"></i>` : ''}
                      </span>`
                 ).join('') || '<span style="color:var(--text-light);font-size:.8rem">Sin acceso</span>';
@@ -409,7 +634,7 @@ function loadUsuarios() {
                         <button class="btn btn-ghost btn-sm" onclick="abrirEditarUsuario(${u.id},'${escH(u.nombre)}','${escH(u.apellido||'')}','${escH(u.username)}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-ghost btn-sm" onclick="abrirCambiarPassword(${u.id},'${escH(u.username)}')" title="Cambiar contraseña">
+                        <button class="btn btn-ghost btn-sm" onclick="abrirCambiarPassword(${u.id},'${escH(u.username)}')" title="Cambiar contraseÃ±a">
                             <i class="fas fa-key"></i>
                         </button>
                         <button class="btn btn-ghost btn-sm" onclick="toggleActivoUsuario(${u.id})" title="${u.activo=='t'||u.activo===true?'Desactivar':'Activar'}">
@@ -463,7 +688,7 @@ function guardarUsuario() {
         ? { id, nombre, apellido, username }
         : { nombre, apellido, username, password, sucursal_id: sucId, rol };
 
-    if (!id && !password) { showToast('La contraseña es requerida', 'error'); return; }
+    if (!id && !password) { showToast('La contraseÃ±a es requerida', 'error'); return; }
 
     post(action, body).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
@@ -483,7 +708,7 @@ function abrirCambiarPassword(id, username) {
 function guardarPassword() {
     const id       = document.getElementById('cp-id').value;
     const password = document.getElementById('cp-password').value;
-    if (!password || password.length < 4) { showToast('Mínimo 4 caracteres', 'error'); return; }
+    if (!password || password.length < 4) { showToast('MÃ­nimo 4 caracteres', 'error'); return; }
     post('usuario_cambiar_password', { id, password }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast(d.message, 'success');
@@ -492,7 +717,7 @@ function guardarPassword() {
 }
 
 function toggleActivoUsuario(id) {
-    if (!confirm('¿Cambiar el estado de este usuario?')) return;
+    if (!confirm('Â¿Cambiar el estado de este usuario?')) return;
     post('usuario_toggle_activo', { id }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Estado actualizado', 'success');
@@ -522,7 +747,7 @@ function guardarAcceso() {
 }
 
 function revocarAcceso(userId, username, sucursalId) {
-    if (!confirm(`¿Revocar acceso de "${username}" a esta sucursal?`)) return;
+    if (!confirm(`Â¿Revocar acceso de "${username}" a esta sucursal?`)) return;
     post('revocar_acceso', { usuario_id: userId, sucursal_id: sucursalId }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Acceso revocado', 'success');
@@ -539,10 +764,10 @@ function loadSucursales() {
         .then(r => r.json())
         .then(data => {
             sucursalesList = data;
-            // Actualizar select de nuevo usuario también
+            // Actualizar select de nuevo usuario tambiÃ©n
             const selU = document.getElementById('u-sucursal');
             const curr = selU.value;
-            selU.innerHTML = '<option value="">— Sin asignar —</option>' +
+            selU.innerHTML = '<option value="">â€” Sin asignar â€”</option>' +
                 data.filter(s => s.activo === true || s.activo === 't')
                     .map(s => `<option value="${s.id}">${escH(s.nombre)}</option>`).join('');
             if (curr) selU.value = curr;
@@ -555,8 +780,8 @@ function loadSucursales() {
             document.getElementById('tbody-sucursales').innerHTML = data.map(s => `<tr>
                 <td><strong>${escH(s.nombre)}</strong></td>
                 <td><code style="font-size:.8rem;color:var(--primary)">${escH(s.schema_name)}</code></td>
-                <td style="font-size:.83rem;color:var(--text-muted)">${escH(s.direccion||'—')}</td>
-                <td style="font-size:.83rem">${escH(s.telefono||'—')}</td>
+                <td style="font-size:.83rem;color:var(--text-muted)">${escH(s.direccion||'â€”')}</td>
+                <td style="font-size:.83rem">${escH(s.telefono||'â€”')}</td>
                 <td><span class="badge badge-gray">${s.total_usuarios} usuarios</span></td>
                 <td><span class="badge ${s.activo=='t'||s.activo===true?'badge-success':'badge-danger'}">${s.activo=='t'||s.activo===true?'Activa':'Inactiva'}</span></td>
                 <td>
@@ -621,7 +846,7 @@ function guardarSucursal() {
 }
 
 function toggleActivoSucursal(id) {
-    if (!confirm('¿Cambiar el estado de esta sucursal?')) return;
+    if (!confirm('Â¿Cambiar el estado de esta sucursal?')) return;
     post('sucursal_toggle_activo', { id }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Estado actualizado', 'success');
@@ -630,7 +855,7 @@ function toggleActivoSucursal(id) {
 }
 
 // ================================================================
-// CONFIGURACIÓN DE MARCA
+// CONFIGURACIÃ“N DE MARCA
 // ================================================================
 
 let _logoPathActual = null;
@@ -639,27 +864,154 @@ function loadConfig() {
     fetch(BASE + 'modules/admin/api.php?action=config_get')
         .then(r => r.json())
         .then(data => {
+            document.getElementById('cfg-business-name').value = data.business_name || data.nombre || '';
+            document.getElementById('cfg-trade-name').value = data.trade_name || data.nombre || '';
+            document.getElementById('cfg-ruc').value = data.ruc || '';
+            document.getElementById('cfg-email').value = data.email || '';
+            document.getElementById('cfg-telefono').value = data.telefono || '';
+            document.getElementById('cfg-direccion').value = data.direccion || '';
+            document.getElementById('cfg-country-code').value = data.country_code || 'PE';
+            document.getElementById('cfg-ubigeo').value = data.ubigeo || '';
+            document.getElementById('cfg-departamento').value = data.departamento || '';
+            document.getElementById('cfg-provincia').value = data.provincia || '';
+            document.getElementById('cfg-distrito').value = data.distrito || '';
+            document.getElementById('cfg-tax-enabled').checked = data.tax_enabled === true || data.tax_enabled === 't' || data.tax_enabled === 1 || data.tax_enabled === '1';
+            document.getElementById('cfg-sunat-trade-name').value = data.trade_name || '';
+            document.getElementById('cfg-sunat-username').value = data.sunat_username || '';
+            document.getElementById('cfg-sunat-password').value = data.sunat_password || '';
+            document.getElementById('cfg-gre-client-id').value = data.gre_client_id || '';
+            document.getElementById('cfg-gre-client-secret').value = data.gre_client_secret || '';
+            document.getElementById('cfg-certificate-path').value = data.certificate_path || '';
+            document.getElementById('cfg-certificate-password').value = data.certificate_password || '';
+            document.getElementById('cfg-certificate-expires-at').value = data.certificate_expires_at || '';
+            document.getElementById('cfg-sunat-server').value = data.sunat_server || '3';
             document.getElementById('cfg-nombre').value = data.nombre_sistema || 'FarmaSystem';
+            updateCertificateSummary(data.certificate_path || '');
+            updateUbigeoHelp(data.ubigeo || '', data.departamento || '', data.provincia || '', data.distrito || '');
             _logoPathActual = data.logo_path || null;
             renderLogoPreview(_logoPathActual);
+            syncConfigHeader();
         })
-        .catch(() => showToast('Error al cargar configuración', 'error'));
+        .catch(() => showToast('Error al cargar configuraciÃ³n', 'error'));
 }
 
 function renderLogoPreview(logoPath) {
     const img    = document.getElementById('logo-img');
     const icon   = document.getElementById('logo-placeholder');
     const btnDel = document.getElementById('btn-eliminar-logo');
+    const headerLogo = document.getElementById('cfg-header-logo');
+    const headerIcon = document.getElementById('cfg-header-icon');
     if (logoPath) {
         img.src = BASE + logoPath;
         img.style.display = '';
         icon.style.display = 'none';
         btnDel.style.display = '';
+        headerLogo.src = BASE + logoPath;
+        headerLogo.style.display = '';
+        headerIcon.style.display = 'none';
     } else {
         img.style.display = 'none';
         img.src = '';
         icon.style.display = '';
         btnDel.style.display = 'none';
+        headerLogo.style.display = 'none';
+        headerLogo.src = '';
+        headerIcon.style.display = '';
+    }
+}
+
+function syncSidebarBrand() {
+    const brandName = document.getElementById('cfg-nombre').value.trim() || 'FarmaSystem';
+    const sidebarName = document.getElementById('sidebar-brand-name');
+    const sidebarLogo = document.getElementById('sidebar-brand-logo');
+    const sidebarIcon = document.getElementById('sidebar-brand-icon');
+
+    if (sidebarName) {
+        sidebarName.textContent = brandName;
+    }
+
+    if (sidebarLogo) {
+        if (_logoPathActual) {
+            sidebarLogo.src = BASE + _logoPathActual;
+            sidebarLogo.style.display = '';
+        } else {
+            sidebarLogo.style.display = 'none';
+            sidebarLogo.removeAttribute('src');
+        }
+    }
+
+    if (sidebarIcon) {
+        sidebarIcon.style.display = _logoPathActual ? 'none' : '';
+    }
+}
+
+function syncConfigHeader() {
+    const businessName = document.getElementById('cfg-business-name').value.trim();
+    const tradeName = document.getElementById('cfg-trade-name').value.trim();
+    const ruc = document.getElementById('cfg-ruc').value.trim();
+    const direccion = document.getElementById('cfg-direccion').value.trim();
+    document.getElementById('cfg-header-business-name').textContent = tradeName || businessName || 'Datos de la botica';
+    document.getElementById('cfg-header-ruc').textContent = ruc || 'RUC pendiente';
+    document.getElementById('cfg-header-address').textContent = direccion || 'Direccion pendiente';
+    syncSidebarBrand();
+}
+
+function updateCertificateSummary(path) {
+    const summary = document.getElementById('cfg-certificate-current');
+    if (!summary) return;
+    summary.textContent = path ? 'Archivo actual: ' + path : 'Archivo actual: no configurado';
+}
+
+function previewCertificateFile(input) {
+    const file = input.files[0];
+    document.getElementById('certificate-file-name').textContent = file ? file.name : 'Ningún archivo seleccionado';
+}
+
+function updateUbigeoHelp(ubigeo, departamento, provincia, distrito) {
+    const help = document.getElementById('cfg-ubigeo-help');
+    if (!help) return;
+
+    if (ubigeo && departamento && provincia && distrito) {
+        help.textContent = `${ubigeo} corresponde a ${distrito}, ${provincia}, ${departamento}.`;
+        return;
+    }
+
+    help.textContent = 'Ejemplo: 220901 corresponde a Tarapoto.';
+}
+
+async function autocompletarUbigeo() {
+    const ubigeo = document.getElementById('cfg-ubigeo').value.trim();
+
+    if (!/^\d{6}$/.test(ubigeo)) {
+        document.getElementById('cfg-departamento').value = '';
+        document.getElementById('cfg-provincia').value = '';
+        document.getElementById('cfg-distrito').value = '';
+        updateUbigeoHelp(ubigeo, '', '', '');
+        return;
+    }
+
+    try {
+        const data = await fetch(BASE + 'modules/admin/api.php?action=ubigeo_resolver&codigo=' + encodeURIComponent(ubigeo))
+            .then(r => r.json());
+
+        if (data.error) {
+            document.getElementById('cfg-departamento').value = '';
+            document.getElementById('cfg-provincia').value = '';
+            document.getElementById('cfg-distrito').value = '';
+            updateUbigeoHelp(ubigeo, '', '', '');
+            return;
+        }
+
+        document.getElementById('cfg-departamento').value = data.departamento || '';
+        document.getElementById('cfg-provincia').value = data.provincia || '';
+        document.getElementById('cfg-distrito').value = data.distrito || '';
+        updateUbigeoHelp(ubigeo, data.departamento || '', data.provincia || '', data.distrito || '');
+        syncConfigHeader();
+    } catch (error) {
+        document.getElementById('cfg-departamento').value = '';
+        document.getElementById('cfg-provincia').value = '';
+        document.getElementById('cfg-distrito').value = '';
+        updateUbigeoHelp(ubigeo, '', '', '');
     }
 }
 
@@ -672,21 +1024,88 @@ function previewLogoLocal(input) {
         document.getElementById('logo-img').src = e.target.result;
         document.getElementById('logo-img').style.display = '';
         document.getElementById('logo-placeholder').style.display = 'none';
+        document.getElementById('cfg-header-logo').src = e.target.result;
+        document.getElementById('cfg-header-logo').style.display = '';
+        document.getElementById('cfg-header-icon').style.display = 'none';
     };
     reader.readAsDataURL(file);
 }
 
 async function guardarConfig() {
     const nombre = document.getElementById('cfg-nombre').value.trim();
+    const businessName = document.getElementById('cfg-business-name').value.trim();
+    const tradeName = document.getElementById('cfg-trade-name').value.trim();
+    const ruc = document.getElementById('cfg-ruc').value.trim();
+    const email = document.getElementById('cfg-email').value.trim();
+    const telefono = document.getElementById('cfg-telefono').value.trim();
+    const direccion = document.getElementById('cfg-direccion').value.trim();
+    const countryCode = document.getElementById('cfg-country-code').value.trim().toUpperCase();
+    const ubigeo = document.getElementById('cfg-ubigeo').value.trim();
+    const departamento = document.getElementById('cfg-departamento').value.trim();
+    const provincia = document.getElementById('cfg-provincia').value.trim();
+    const distrito = document.getElementById('cfg-distrito').value.trim();
+    const taxEnabled = document.getElementById('cfg-tax-enabled').checked;
+    const sunatTradeName = document.getElementById('cfg-sunat-trade-name').value.trim();
+    const sunatUsername = document.getElementById('cfg-sunat-username').value.trim();
+    const sunatPassword = document.getElementById('cfg-sunat-password').value.trim();
+    const greClientId = document.getElementById('cfg-gre-client-id').value.trim();
+    const greClientSecret = document.getElementById('cfg-gre-client-secret').value.trim();
+    const certificatePath = document.getElementById('cfg-certificate-path').value.trim();
+    const certificatePassword = document.getElementById('cfg-certificate-password').value.trim();
+    const certificateExpiresAt = document.getElementById('cfg-certificate-expires-at').value.trim();
+    const sunatServer = document.getElementById('cfg-sunat-server').value;
     if (!nombre) { showToast('El nombre del sistema es requerido', 'error'); return; }
+    if (!businessName) { showToast('La razon social es requerida', 'error'); return; }
 
-    const btn = document.getElementById('btn-guardar-config');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    const buttons = ['btn-guardar-config', 'btn-guardar-sunat']
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    });
 
     try {
-        const r1 = await post('config_guardar', { nombre_sistema: nombre });
+        const r1 = await post('config_guardar', {
+            nombre_sistema: nombre,
+            business_name: businessName,
+            ruc,
+            email,
+            telefono,
+            direccion,
+            country_code: countryCode || 'PE',
+            ubigeo,
+            departamento,
+            provincia,
+            distrito,
+            tax_enabled: taxEnabled,
+            trade_name: sunatTradeName || tradeName,
+            sunat_username: sunatUsername,
+            sunat_password: sunatPassword,
+            gre_client_id: greClientId,
+            gre_client_secret: greClientSecret,
+            certificate_path: certificatePath,
+            certificate_password: certificatePassword,
+            certificate_expires_at: certificateExpiresAt,
+            sunat_server: sunatServer
+        });
         if (r1.error) { showToast(r1.message, 'error'); return; }
+
+        const certInput = document.getElementById('certificate-file-input');
+        if (certInput.files[0]) {
+            const fdCert = new FormData();
+            fdCert.append('certificate', certInput.files[0]);
+            const rCert = await fetch(BASE + 'modules/admin/api.php?action=certificate_subir', {
+                method: 'POST',
+                body: fdCert
+            }).then(r => r.json());
+            if (rCert.error) { showToast(rCert.message, 'error'); return; }
+            document.getElementById('cfg-certificate-path').value = rCert.certificate_path || '';
+            updateCertificateSummary(rCert.certificate_path || '');
+            certInput.value = '';
+            document.getElementById('certificate-file-name').textContent = 'Ningún archivo seleccionado';
+        }
 
         const input = document.getElementById('logo-file-input');
         if (input.files[0]) {
@@ -702,12 +1121,16 @@ async function guardarConfig() {
             document.getElementById('logo-file-name').textContent = 'Ningún archivo seleccionado';
         }
 
-        showToast('Configuración guardada — recarga la página para ver los cambios en el menú', 'success');
+        showToast('Configuración guardada', 'success');
+        syncConfigHeader();
     } catch (e) {
         showToast('Error al guardar la configuración', 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-save"></i> Guardar y Actualizar';
+        buttons.forEach(btn => {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.originalHtml || '<i class="fas fa-save"></i> Guardar';
+            delete btn.dataset.originalHtml;
+        });
     }
 }
 
@@ -715,11 +1138,12 @@ function eliminarLogo() {
     if (!confirm('¿Eliminar el logo actual? Se restaurará el ícono por defecto.')) return;
     post('logo_eliminar', {}).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
-        showToast('Logo eliminado — recarga la página para verlo en el menú', 'success');
+        showToast('Logo eliminado', 'success');
         _logoPathActual = null;
         renderLogoPreview(null);
         document.getElementById('logo-file-input').value = '';
         document.getElementById('logo-file-name').textContent = 'Ningún archivo seleccionado';
+        syncConfigHeader();
     });
 }
 
@@ -749,9 +1173,26 @@ function showToast(msg, type = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    switchConfigSubtab('general');
+    ['cfg-business-name', 'cfg-trade-name', 'cfg-ruc', 'cfg-direccion'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', syncConfigHeader);
+    });
+    const ubigeoInput = document.getElementById('cfg-ubigeo');
+    if (ubigeoInput) {
+        ubigeoInput.addEventListener('input', () => {
+            if (ubigeoInput.value.trim().length === 6) {
+                autocompletarUbigeo();
+            }
+        });
+        ubigeoInput.addEventListener('change', autocompletarUbigeo);
+        ubigeoInput.addEventListener('blur', autocompletarUbigeo);
+    }
     loadSucursales();
     loadUsuarios();
 });
 </script>
 
 <?php include '../../includes/footer.php'; ?>
+
+

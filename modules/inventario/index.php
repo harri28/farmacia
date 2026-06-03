@@ -165,6 +165,17 @@ include '../../includes/header.php';
                 </div>
 
                 <div style="grid-column:1/-1;display:flex;gap:14px">
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label">Codigo SUNAT</label>
+                        <input type="text" id="p-codigo-sunat" class="form-control" placeholder="00000000" maxlength="8">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label class="form-label">Codigo de barras</label>
+                        <input type="text" id="p-codigo-barras" class="form-control" placeholder="Opcional para lector o etiqueta">
+                    </div>
+                </div>
+
+                <div style="grid-column:1/-1;display:flex;gap:14px">
                     <div class="form-group" style="flex:1;margin-bottom:0">
                         <label class="form-label">Laboratorio</label>
                         <input type="text" id="p-laboratorio" class="form-control" placeholder="Bayer">
@@ -195,7 +206,7 @@ include '../../includes/header.php';
                         <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
                     </div>
                     <div class="form-group" style="flex:1.6">
-                        <label class="form-label">Unidad de medida <span style="color:var(--danger)">*</span></label>
+                        <label class="form-label">Unidad comercial <span style="color:var(--danger)">*</span></label>
                         <input type="text" id="p-unidad" class="form-control"
                                list="unidades-list" placeholder="Ej: unidad, caja x 10, frasco 100ml"
                                autocomplete="off">
@@ -230,6 +241,32 @@ include '../../includes/header.php';
                     <div class="form-group" style="flex:1">
                         <label class="form-label">Stock Mínimo</label>
                         <input type="number" id="p-stock-minimo" class="form-control" placeholder="5" min="0">
+                    </div>
+                </div>
+
+                <div style="grid-column:1/-1;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+                    <div class="form-group" style="flex:1;min-width:220px">
+                        <label class="form-label">Unidad SUNAT</label>
+                        <select id="p-unidad-codigo" class="form-control">
+                            <option value="NIU">NIU - Unidad</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1.5;min-width:280px">
+                        <label class="form-label">Afectacion IGV</label>
+                        <select id="p-afectacion-igv-codigo" class="form-control">
+                            <option value="10">10 - Gravado</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:.8;min-width:140px">
+                        <label class="form-label">IGV (%)</label>
+                        <input type="number" id="p-porcentaje-igv" class="form-control" placeholder="18.00" step="0.01" min="0">
+                    </div>
+                    <div class="form-group" style="flex:1;min-width:220px">
+                        <label class="form-label">Precio</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)">
+                            <input type="checkbox" id="p-incluye-igv" style="width:16px;height:16px;cursor:pointer" checked>
+                            <span id="p-incluye-igv-texto">El precio de venta guardado ya incluye IGV.</span>
+                        </label>
                     </div>
                 </div>
 
@@ -339,6 +376,39 @@ include '../../includes/header.php';
 
 <div class="toast-container" id="toast-container"></div>
 
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<style>
+.select2-container { width: 100% !important; }
+.select2-container .select2-selection--single {
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 9px 12px;
+    background: #fff;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 28px;
+    color: var(--text-dark);
+    padding-left: 0;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 46px;
+    right: 10px;
+}
+.select2-dropdown {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.select2-search--dropdown .select2-search__field {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+</style>
+
 <script>
 // ============================================================
 // Inventario JavaScript
@@ -348,16 +418,21 @@ const BASE = '../../';
 let categorias  = [];
 let editingId   = null;
 let ajusteProducto = null;
+let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
+let empresaFacturaConIgv = true;
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
-    loadCategorias().then(() => {
+    Promise.all([loadCategorias(), loadFacturacionCatalogos(), loadEmpresaConfig()]).then(() => {
         loadStats();
         loadProductos();
+    }).catch(() => {
+        showToast('No se pudieron cargar los catalogos de facturacion', 'error');
     });
     setupSearch();
     setupTipoAjuste();
     setupBarcodeScanner();
+    setupFacturacionProducto();
 });
 
 // ---- Stats ----
@@ -397,6 +472,119 @@ async function loadCategorias() {
         sel1.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
         sel2.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
     });
+}
+
+async function loadFacturacionCatalogos() {
+    const data = await fetch(BASE + 'modules/inventario/api.php?action=catalogos_facturacion').then(r => r.json());
+    if (data.error) {
+        throw new Error(data.message || 'No se pudieron cargar los catalogos de facturacion');
+    }
+
+    facturacionCatalogos = data;
+
+    const unidadSel = document.getElementById('p-unidad-codigo');
+    unidadSel.innerHTML = data.unidades.map(item =>
+        `<option value="${item.codigo}">${item.codigo} - ${item.descripcion}</option>`
+    ).join('');
+    unidadSel.dataset.ready = '1';
+    initUnidadSunatSelect();
+
+    const afectacionSel = document.getElementById('p-afectacion-igv-codigo');
+    afectacionSel.innerHTML = data.afectaciones_igv.map(item =>
+        `<option value="${item.codigo}" data-tipo="${item.tipo}">${item.codigo} - ${item.descripcion}</option>`
+    ).join('');
+}
+
+async function loadEmpresaConfig() {
+    const data = await fetch(BASE + 'modules/admin/api.php?action=config_get').then(r => r.json());
+    empresaFacturaConIgv = data.tax_enabled === true || data.tax_enabled === 't' || data.tax_enabled === 1 || data.tax_enabled === '1';
+}
+
+function initUnidadSunatSelect() {
+    if (typeof window.jQuery === 'undefined' || typeof window.jQuery.fn.select2 === 'undefined') {
+        return;
+    }
+
+    const $select = window.jQuery('#p-unidad-codigo');
+    if ($select.data('select2')) {
+        $select.select2('destroy');
+    }
+
+    $select.select2({
+        width: '100%',
+        dropdownParent: window.jQuery('#modal-producto .modal-body'),
+        placeholder: 'Selecciona unidad SUNAT',
+        language: {
+            noResults: () => 'Sin resultados',
+            searching: () => 'Buscando...'
+        }
+    });
+}
+
+function setupFacturacionProducto() {
+    const afectacionSel = document.getElementById('p-afectacion-igv-codigo');
+    const incluyeCheckbox = document.getElementById('p-incluye-igv');
+
+    afectacionSel.addEventListener('change', () => aplicarReglasIgvPorAfectacion());
+    incluyeCheckbox.addEventListener('change', actualizarTextoIncluyeIgv);
+}
+
+function getAfectacionSeleccionada() {
+    const codigo = document.getElementById('p-afectacion-igv-codigo').value;
+    return facturacionCatalogos.afectaciones_igv.find(item => item.codigo === codigo) || null;
+}
+
+function aplicarDefaultFacturacionProducto() {
+    document.getElementById('p-afectacion-igv-codigo').value = empresaFacturaConIgv ? '10' : '20';
+    document.getElementById('p-porcentaje-igv').value = empresaFacturaConIgv ? '18.00' : '0.00';
+    document.getElementById('p-incluye-igv').checked = empresaFacturaConIgv;
+    aplicarReglasIgvPorAfectacion(true);
+}
+
+function aplicarReglasIgvPorAfectacion(restaurarPorDefecto = false) {
+    const afectacion = getAfectacionSeleccionada();
+    const esGravado = afectacion && afectacion.tipo === 'GRAV';
+    const igvInput = document.getElementById('p-porcentaje-igv');
+    const incluyeCheckbox = document.getElementById('p-incluye-igv');
+    const estabaBloqueado = incluyeCheckbox.disabled;
+
+    if (!esGravado) {
+        igvInput.value = '0.00';
+        igvInput.disabled = true;
+        incluyeCheckbox.checked = false;
+        incluyeCheckbox.disabled = true;
+    } else {
+        igvInput.disabled = false;
+        incluyeCheckbox.disabled = false;
+
+        if (restaurarPorDefecto || parseFloat(igvInput.value || '0') <= 0) {
+            igvInput.value = '18.00';
+        }
+        if (restaurarPorDefecto || estabaBloqueado) {
+            incluyeCheckbox.checked = empresaFacturaConIgv;
+        }
+    }
+
+    actualizarTextoIncluyeIgv();
+}
+
+function actualizarTextoIncluyeIgv() {
+    const afectacion = getAfectacionSeleccionada();
+    const esGravado = afectacion && afectacion.tipo === 'GRAV';
+    const texto = document.getElementById('p-incluye-igv-texto');
+
+    if (!texto) {
+        return;
+    }
+
+    if (!esGravado) {
+        texto.textContent = 'Este producto no usa IGV por la afectacion elegida.';
+        return;
+    }
+
+    texto.textContent = document.getElementById('p-incluye-igv').checked
+        ? 'El precio de venta guardado ya incluye IGV.'
+        : 'El precio de venta se guardara sin IGV incluido.';
 }
 
 // ---- Listar productos ----
@@ -461,7 +649,10 @@ function loadProductos() {
                         <span style="${stockCls}">${p.stock}</span>
                         ${stockBadge}
                     </td>
-                    <td style="font-size:.78rem;color:var(--text-muted)">${p.unidad || 'unidad'}</td>
+                    <td style="font-size:.78rem;color:var(--text-muted)">
+                        <div>${p.unidad || 'unidad'}</div>
+                        <div style="font-size:.72rem;color:var(--text-light)">${p.unidad_codigo || 'NIU'} · ${p.afectacion_igv_tipo === 'GRAV' ? ('IGV ' + parseFloat(p.porcentaje_igv || 18).toFixed(2) + '%') : 'Sin IGV'}</div>
+                    </td>
                     <td class="text-right" style="font-size:.85rem;color:var(--text-muted)">${p.stock_minimo}</td>
                     ${vencCell}
                     <td>${activoBadge}</td>
@@ -508,6 +699,10 @@ function openProductoModal(producto = null) {
     editingId = producto ? producto.id : null;
     const title  = document.getElementById('modal-producto-title');
     const stockGroup = document.getElementById('stock-inicial-group');
+    const afectacionCodigoProducto = producto?.afectacion_igv_codigo ?? '10';
+    const afectacionProducto = facturacionCatalogos.afectaciones_igv.find(item => item.codigo === afectacionCodigoProducto);
+    const productoEsGravado = !afectacionProducto || afectacionProducto.tipo === 'GRAV';
+    const incluyeIgvGuardado = producto?.incluye_igv == 't' || producto?.incluye_igv === true;
 
     title.innerHTML = editingId
         ? '<i class="fas fa-edit" style="color:var(--primary);margin-right:8px"></i>Editar Producto'
@@ -520,6 +715,8 @@ function openProductoModal(producto = null) {
     document.getElementById('p-codigo').value        = producto?.codigo        ?? '';
     document.getElementById('p-nombre').value        = producto?.nombre        ?? '';
     document.getElementById('p-categoria').value     = producto?.categoria_id  ?? '';
+    document.getElementById('p-codigo-sunat').value  = producto?.codigo_sunat  ?? '00000000';
+    document.getElementById('p-codigo-barras').value = producto?.codigo_barras ?? '';
     document.getElementById('p-laboratorio').value   = producto?.laboratorio   ?? '';
     document.getElementById('p-presentacion').value  = producto?.presentacion  ?? '';
     document.getElementById('p-precio-compra').value = producto ? parseFloat(producto.precio_compra).toFixed(2) : '';
@@ -527,9 +724,25 @@ function openProductoModal(producto = null) {
     document.getElementById('p-stock').value         = producto?.stock         ?? '';
     document.getElementById('p-stock-minimo').value  = producto?.stock_minimo  ?? '5';
     document.getElementById('p-unidad').value        = producto?.unidad        ?? 'unidad';
+    document.getElementById('p-unidad-codigo').value = producto?.unidad_codigo ?? 'NIU';
+    document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '10';
+    document.getElementById('p-porcentaje-igv').value = producto ? parseFloat(producto.porcentaje_igv || 18).toFixed(2) : '18.00';
+    document.getElementById('p-incluye-igv').checked = !producto
+        ? empresaFacturaConIgv
+        : (productoEsGravado ? (incluyeIgvGuardado || empresaFacturaConIgv) : false);
     document.getElementById('p-receta').checked           = producto?.requiere_receta == 't' || producto?.requiere_receta === true;
     document.getElementById('p-favorito').checked         = producto?.favorito == 't'        || producto?.favorito === true;
     document.getElementById('p-fecha-vencimiento').value  = producto?.fecha_vencimiento ?? '';
+
+    if (!producto) {
+        aplicarDefaultFacturacionProducto();
+    } else {
+        aplicarReglasIgvPorAfectacion();
+    }
+
+    if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
+        window.jQuery('#p-unidad-codigo').trigger('change.select2');
+    }
 
     openModal('modal-producto');
     setTimeout(() => document.getElementById('p-codigo').focus(), 100);
@@ -549,6 +762,8 @@ function saveProducto() {
         codigo,
         nombre,
         categoria_id:    document.getElementById('p-categoria').value     || null,
+        codigo_sunat:    document.getElementById('p-codigo-sunat').value.trim() || '00000000',
+        codigo_barras:   document.getElementById('p-codigo-barras').value.trim() || null,
         laboratorio:     document.getElementById('p-laboratorio').value,
         presentacion:    document.getElementById('p-presentacion').value,
         precio_compra:   parseFloat(document.getElementById('p-precio-compra').value) || 0,
@@ -556,6 +771,10 @@ function saveProducto() {
         stock:           parseInt(document.getElementById('p-stock').value)        || 0,
         stock_minimo:    parseInt(document.getElementById('p-stock-minimo').value) || 5,
         unidad:          document.getElementById('p-unidad').value.trim() || 'unidad',
+        unidad_codigo:   document.getElementById('p-unidad-codigo').value || 'NIU',
+        afectacion_igv_codigo: document.getElementById('p-afectacion-igv-codigo').value || '10',
+        porcentaje_igv:  parseFloat(document.getElementById('p-porcentaje-igv').value) || 18,
+        incluye_igv:     document.getElementById('p-incluye-igv').checked,
         requiere_receta:    document.getElementById('p-receta').checked,
         favorito:           document.getElementById('p-favorito').checked,
         fecha_vencimiento:  document.getElementById('p-fecha-vencimiento').value || null,

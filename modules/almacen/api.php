@@ -12,6 +12,30 @@ requireApiAuth(['admin']);
 $action = $_GET['action'] ?? '';
 $db     = getDB();
 
+function almacenTablaTieneColumna(PDO $db, string $tabla, string $columna): bool
+{
+    static $cache = [];
+    $key = $tabla . '.' . $columna;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA()
+          AND table_name = :tabla
+          AND column_name = :columna
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':tabla' => $tabla,
+        ':columna' => $columna,
+    ]);
+
+    return $cache[$key] = (bool) $stmt->fetchColumn();
+}
+
 switch ($action) {
 
     // ================================================================
@@ -131,6 +155,22 @@ switch ($action) {
         $prov_id   = intval($_GET['proveedor_id'] ?? 0);
         $q         = '%' . ($_GET['q'] ?? '') . '%';
 
+        $selNumeroFactura = almacenTablaTieneColumna($db, 'ingresos', 'numero_factura')
+            ? 'i.numero_factura'
+            : "'' AS numero_factura";
+        $selFechaFactura = almacenTablaTieneColumna($db, 'ingresos', 'fecha_factura')
+            ? 'i.fecha_factura'
+            : 'NULL::date AS fecha_factura';
+        $selSubtotal = almacenTablaTieneColumna($db, 'ingresos', 'subtotal')
+            ? 'i.subtotal'
+            : 'i.total AS subtotal';
+        $selIgv = almacenTablaTieneColumna($db, 'ingresos', 'igv')
+            ? 'i.igv'
+            : '0::numeric AS igv';
+        $selUsuario = almacenTablaTieneColumna($db, 'ingresos', 'usuario')
+            ? 'i.usuario'
+            : "'' AS usuario";
+
         $where  = ['i.created_at BETWEEN :desde AND :hasta', '(i.numero_ingreso ILIKE :q OR COALESCE(p.razon_social,\'\') ILIKE :q)'];
         $params = [':desde' => $desde, ':hasta' => $hasta . ' 23:59:59', ':q' => $q];
 
@@ -138,15 +178,26 @@ switch ($action) {
         if ($prov_id) { $where[] = 'i.proveedor_id = :pid'; $params[':pid']     = $prov_id; }
 
         $stmt = $db->prepare("
-            SELECT i.id, i.numero_ingreso, i.numero_factura, i.fecha_factura,
-                   i.subtotal, i.igv, i.total, i.estado, i.usuario, i.created_at,
-                   COALESCE(p.nombre_comercial, p.razon_social, 'Sin proveedor') AS proveedor,
-                   COUNT(d.id) AS num_items
+            SELECT
+                i.id,
+                i.numero_ingreso,
+                {$selNumeroFactura},
+                {$selFechaFactura},
+                {$selSubtotal},
+                {$selIgv},
+                i.total,
+                i.estado,
+                {$selUsuario},
+                i.created_at,
+                COALESCE(p.nombre_comercial, p.razon_social, 'Sin proveedor') AS proveedor,
+                COALESCE((
+                    SELECT COUNT(*)
+                    FROM ingreso_detalles d
+                    WHERE d.ingreso_id = i.id
+                ), 0) AS num_items
             FROM ingresos i
             LEFT JOIN proveedores p ON p.id = i.proveedor_id
-            LEFT JOIN ingreso_detalles d ON d.ingreso_id = i.id
             WHERE " . implode(' AND ', $where) . "
-            GROUP BY i.id, p.nombre_comercial, p.razon_social
             ORDER BY i.created_at DESC
             LIMIT 200
         ");
@@ -197,24 +248,52 @@ switch ($action) {
         $db->beginTransaction();
         try {
             $numero = generarNumeroIngreso($db);
+            $columnas = ['numero_ingreso', 'proveedor_id', 'total', 'observaciones', 'estado'];
+            $values = [':num', ':prov', ':total', ':obs', "'completado'"];
+            $params = [
+                ':num' => $numero,
+                ':prov' => $data['proveedor_id'] ?: null,
+                ':total' => $total,
+                ':obs' => trim($data['observaciones'] ?? ''),
+            ];
+
+            if (almacenTablaTieneColumna($db, 'ingresos', 'numero_factura')) {
+                $columnas[] = 'numero_factura';
+                $values[] = ':factura';
+                $params[':factura'] = trim($data['numero_factura'] ?? '');
+            }
+            if (almacenTablaTieneColumna($db, 'ingresos', 'fecha_factura')) {
+                $columnas[] = 'fecha_factura';
+                $values[] = ':fecha';
+                $params[':fecha'] = $data['fecha_factura'] ?: date('Y-m-d');
+            }
+            if (almacenTablaTieneColumna($db, 'ingresos', 'subtotal')) {
+                $columnas[] = 'subtotal';
+                $values[] = ':sub';
+                $params[':sub'] = $subtotal;
+            }
+            if (almacenTablaTieneColumna($db, 'ingresos', 'igv')) {
+                $columnas[] = 'igv';
+                $values[] = ':igv';
+                $params[':igv'] = $igv;
+            }
+            if (almacenTablaTieneColumna($db, 'ingresos', 'usuario')) {
+                $columnas[] = 'usuario';
+                $values[] = ':usuario';
+                $params[':usuario'] = sesionNombre();
+            }
+            if (almacenTablaTieneColumna($db, 'ingresos', 'usuario_id') && !empty($_SESSION['usuario_id'])) {
+                $columnas[] = 'usuario_id';
+                $values[] = ':usuario_id';
+                $params[':usuario_id'] = (int) $_SESSION['usuario_id'];
+            }
+
             $stmt = $db->prepare("
-                INSERT INTO ingresos
-                    (numero_ingreso, proveedor_id, numero_factura, fecha_factura,
-                     subtotal, igv, total, observaciones, estado)
-                VALUES
-                    (:num, :prov, :factura, :fecha, :sub, :igv, :total, :obs, 'completado')
+                INSERT INTO ingresos (" . implode(', ', $columnas) . ")
+                VALUES (" . implode(', ', $values) . ")
                 RETURNING id
             ");
-            $stmt->execute([
-                ':num'     => $numero,
-                ':prov'    => $data['proveedor_id'] ?: null,
-                ':factura' => trim($data['numero_factura'] ?? ''),
-                ':fecha'   => $data['fecha_factura'] ?: date('Y-m-d'),
-                ':sub'     => $subtotal,
-                ':igv'     => $igv,
-                ':total'   => $total,
-                ':obs'     => trim($data['observaciones'] ?? ''),
-            ]);
+            $stmt->execute($params);
             $ingresoId = $stmt->fetch()['id'];
 
             foreach ($data['items'] as $item) {

@@ -57,16 +57,30 @@ function formatMoney(float $amount): string
 
 function generarNumeroVenta(PDO $db): string
 {
-    $stmt = $db->query("SELECT COUNT(*) AS total FROM ventas WHERE DATE(created_at) = CURRENT_DATE");
-    $num  = str_pad(($stmt->fetch()['total'] + 1), 4, '0', STR_PAD_LEFT);
-    return 'V' . date('Ymd') . '-' . $num;
+    $prefijo = 'V' . date('Ymd') . '-';
+    $stmt = $db->prepare("
+        SELECT COALESCE(MAX(CAST(SUBSTRING(numero_venta FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
+        FROM ventas
+        WHERE numero_venta LIKE :prefijo
+    ");
+    $stmt->execute([':prefijo' => $prefijo . '%']);
+    $ultimo = (int) ($stmt->fetch()['ultimo'] ?? 0);
+
+    return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
 }
 
 function generarNumeroIngreso(PDO $db): string
 {
-    $stmt = $db->query("SELECT COUNT(*) AS total FROM ingresos WHERE DATE(created_at) = CURRENT_DATE");
-    $num  = str_pad(($stmt->fetch()['total'] + 1), 4, '0', STR_PAD_LEFT);
-    return 'I' . date('Ymd') . '-' . $num;
+    $prefijo = 'I' . date('Ymd') . '-';
+    $stmt = $db->prepare("
+        SELECT COALESCE(MAX(CAST(SUBSTRING(numero_ingreso FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
+        FROM ingresos
+        WHERE numero_ingreso LIKE :prefijo
+    ");
+    $stmt->execute([':prefijo' => $prefijo . '%']);
+    $ultimo = (int) ($stmt->fetch()['ultimo'] ?? 0);
+
+    return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
 }
 
 function getTenantConfig(): array
