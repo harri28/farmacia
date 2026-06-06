@@ -8,7 +8,13 @@
 require_once __DIR__ . '/../../config/auth.php';
 
 if (!empty($_SESSION['usuario_id'])) {
-    header('Location: ' . (isSuperadmin() ? '../superadmin/index.php' : '../ventas/index.php'));
+    if (isSuperadmin()) {
+        header('Location: ../superadmin/index.php');
+    } elseif (isAdmin()) {
+        header('Location: ../dashboard/index.php');
+    } else {
+        header('Location: ../ventas/index.php');
+    }
     exit;
 }
 
@@ -122,7 +128,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
                             $_SESSION['sucursal_id']     = $sucursal_id;
                             $_SESSION['sucursal_nombre'] = $acceso['sucursal_nombre'];
                             $_SESSION['sucursal_schema'] = $acceso['schema_name'];
-                            header('Location: ../ventas/index.php');
+                            if (in_array($acceso['rol'], ['admin', 'gerente'], true)) {
+                                header('Location: ../dashboard/index.php');
+                            } else {
+                                header('Location: ../ventas/index.php');
+                            }
                             exit;
                         }
                     }

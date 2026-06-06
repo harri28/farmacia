@@ -7,10 +7,22 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
-requireApiAuth(['admin']);
+requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
+
+// Acciones exclusivas del rol gerente (Superadmin)
+$gerente_only = [
+    'usuarios_listar', 'usuario_crear', 'usuario_actualizar',
+    'usuario_cambiar_password', 'usuario_toggle_activo',
+    'asignar_acceso', 'revocar_acceso',
+    'sucursales_listar', 'sucursal_crear', 'sucursal_actualizar', 'sucursal_toggle_activo',
+    'config_guardar', 'logo_subir', 'logo_eliminar', 'certificate_subir',
+];
+if (in_array($action, $gerente_only, true) && !isGerente()) {
+    jsonResponse(['error' => true, 'message' => 'Solo el Superadmin puede realizar esta acción'], 403);
+}
 
 switch ($action) {
 

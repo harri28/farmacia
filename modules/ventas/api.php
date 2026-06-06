@@ -244,49 +244,22 @@ function ventasResolverFormaPagoId(PDO $db, string $tipoPago): ?int
 switch ($action) {
 
     case 'productos':
-        try {
-            $stmt = $db->query("
-                SELECT
-                    p.id, p.codigo, p.nombre, 
-                    p.precio_venta, p.stock, p.stock_minimo,
-                    p.laboratorio, p.presentacion, p.categoria_id, p.favorito,
-                    c.nombre AS categoria
-                FROM productos p
-                LEFT JOIN categorias c ON c.id = p.categoria_id
-                WHERE p.activo = TRUE
-                ORDER BY p.favorito DESC, p.nombre ASC
-            ");
-            echo json_encode($stmt->fetchAll());
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => true, 'message' => $e->getMessage(), 'sql_error' => true]);
-        }
-        break;
-
-    case 'debug_schema':
-        // Devuelve información de search_path y conteos para diagnosticar cargas por esquema
-        $info = [];
-        try {
-            $r = $db->query("SELECT current_schema() AS current_schema, current_setting('search_path') AS search_path")->fetch();
-            $info['current_schema'] = $r['current_schema'] ?? null;
-            $info['search_path'] = $r['search_path'] ?? null;
-        } catch (Exception $e) {
-            $info['schema_error'] = $e->getMessage();
-        }
-
-        try {
-            $info['productos_count'] = (int) $db->query("SELECT COUNT(*) FROM productos")->fetchColumn();
-        } catch (Exception $e) {
-            $info['productos_count_error'] = $e->getMessage();
-        }
-
-        try {
-            $info['public_productos_count'] = (int) $db->query("SELECT COUNT(*) FROM public.productos")->fetchColumn();
-        } catch (Exception $e) {
-            $info['public_productos_count_error'] = $e->getMessage();
-        }
-
-        echo json_encode($info);
+        $stmt = $db->query("
+            SELECT
+                p.id, p.codigo, p.codigo_interno, p.codigo_barras, p.codigo_sunat,
+                p.nombre, p.precio_venta, p.stock, p.stock_minimo,
+                p.laboratorio, p.presentacion, p.categoria_id, p.favorito,
+                p.unidad_id, p.unidad_codigo, p.afectacion_igv_id, p.afectacion_igv_codigo,
+                p.porcentaje_igv, p.incluye_igv, p.icbper_activo, p.factor_icbper,
+                a.tipo AS afectacion_tipo, a.descripcion AS afectacion_descripcion,
+                c.nombre AS categoria
+            FROM productos p
+            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
+            WHERE p.activo = TRUE
+            ORDER BY p.favorito DESC, p.nombre ASC
+        ");
+        echo json_encode($stmt->fetchAll());
         break;
 
     case 'series_disponibles':
@@ -482,7 +455,7 @@ switch ($action) {
                         p.icbper_activo, p.factor_icbper,
                         a.tipo AS afectacion_tipo
                     FROM productos p
-                    LEFT JOIN fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
+                    LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
                     WHERE p.id = :id AND p.activo = TRUE
                 ");
                 $stockStmt->execute([':id' => $productoId]);

@@ -317,7 +317,15 @@ include '../../includes/header.php';
     border-top:1px solid var(--border);
     margin:14px 0;
 }
+.pos-page-wrap {
+    display:flex;
+    flex-direction:column;
+    height:calc(100vh - var(--topbar-h) - 48px);
+}
+.pos-page-wrap .page-header { margin-bottom:16px; flex-shrink:0; }
 </style>
+
+<div class="pos-page-wrap">
 
 <div class="page-header">
     <div>
@@ -331,7 +339,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<div class="pos-layout">
+<div class="pos-layout" style="flex:1;min-height:0;height:auto">
     <!-- COLUMNA IZQUIERDA: búsqueda + productos -->
     <div class="pos-left">
         <!-- Barra de búsqueda + filtros -->
@@ -407,6 +415,8 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
+</div><!-- /.pos-page-wrap -->
 
 <!-- MODAL: Cobro / Pago -->
 <div class="modal-overlay" id="modal-cobro">
@@ -2004,6 +2014,22 @@ function onTipoPagoChange() {
         splitPaymentRows[0].method = metodo;
         renderSplitPaymentPanel();
     }
+
+    // Mostrar sección de efectivo solo cuando el método es efectivo (pago simple)
+    if (!splitPaymentEnabled && !creditPaymentEnabled) {
+        const seccionEfectivo = document.getElementById('pago-simple-efectivo');
+        if (seccionEfectivo) {
+            if (metodo === 'efectivo') {
+                seccionEfectivo.style.display = '';
+                syncMontoClienteWithTotal(true);
+            } else {
+                seccionEfectivo.style.display = 'none';
+                const inp = document.getElementById('monto-cliente');
+                if (inp) inp.value = '';
+            }
+        }
+    }
+
     calcularVuelto();
 }
 
@@ -2241,10 +2267,19 @@ function calcularVuelto() {
         return;
     }
 
-    const total    = getCheckoutTotalAmount();
-    const cliente  = parseFloat(document.getElementById('monto-cliente').value) || 0;
-    const vuelto   = cliente - total;
-    const el       = document.getElementById('vuelto');
+    const el = document.getElementById('vuelto');
+
+    // Para métodos que no son efectivo no hay vuelto
+    const metodo = document.getElementById('tipo-pago')?.value;
+    if (metodo && metodo !== 'efectivo') {
+        if (el) { el.textContent = 'S/ 0.00'; el.style.color = 'var(--success)'; }
+        return;
+    }
+
+    const total   = getCheckoutTotalAmount();
+    const cliente = parseFloat(document.getElementById('monto-cliente').value) || 0;
+    const vuelto  = cliente - total;
+
     if (cliente <= 0) {
         el.textContent = 'S/ 0.00';
         el.style.color = 'var(--success)';

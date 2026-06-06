@@ -42,9 +42,10 @@ function requireApiAuth(array $roles = []): void
 
 // ---- Helpers de sesión ----
 
-function isAdmin(): bool       { return ($_SESSION['rol'] ?? '') === 'admin'; }
-function isCajero(): bool      { return ($_SESSION['rol'] ?? '') === 'cajero'; }
-function isSuperadmin(): bool  { return ($_SESSION['rol'] ?? '') === 'superadmin'; }
+function isAdmin(): bool    { return in_array($_SESSION['rol'] ?? '', ['admin', 'gerente'], true); }
+function isGerente(): bool  { return ($_SESSION['rol'] ?? '') === 'gerente'; }
+function isCajero(): bool   { return ($_SESSION['rol'] ?? '') === 'cajero'; }
+function isSuperadmin(): bool { return ($_SESSION['rol'] ?? '') === 'superadmin'; }
 
 function sesionId(): int           { return (int)($_SESSION['usuario_id']      ?? 0); }
 function sesionNombre(): string    { return $_SESSION['nombre']                 ?? 'Usuario'; }
@@ -52,17 +53,12 @@ function sesionUsername(): string  { return $_SESSION['username']               
 function sesionRol(): string       { return $_SESSION['rol']                    ?? ''; }
 function sesionRolLabel(): string
 {
-    $rol = $_SESSION['rol'] ?? '';
-
-    switch ($rol) {
-        case 'admin':
-            return 'Administrador';
-        case 'cajero':
-            return 'Cajero';
-        case 'superadmin':
-            return 'Superadmin';
-        default:
-            return 'Usuario';
+    switch ($_SESSION['rol'] ?? '') {
+        case 'gerente':    return 'Superadmin';
+        case 'admin':      return 'Administrador';
+        case 'cajero':     return 'Cajero';
+        case 'superadmin': return 'Superadmin Sistema';
+        default:           return 'Usuario';
     }
 }
 function sesionSucursal(): string  { return $_SESSION['sucursal_nombre']        ?? ''; }

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/admin/index.php
 // MÓDULO:  Administración — Usuarios y Sucursales
@@ -11,7 +11,7 @@ $current_module = 'admin';
 $current_page   = 'admin';
 $page_title     = 'Administración — FarmaSystem';
 $breadcrumb     = '<strong>Administración</strong>';
-$required_roles = ['admin'];
+$required_roles = ['gerente'];
 
 include '../../includes/header.php';
 ?>
@@ -85,8 +85,8 @@ include '../../includes/header.php';
                     <tr>
                         <th>Nombre</th>
                         <th>Schema</th>
-                        <th>DirecciÃ³n</th>
-                        <th>TelÃ©fono</th>
+                        <th>Dirección</th>
+                        <th>Teléfono</th>
                         <th>Usuarios</th>
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -126,11 +126,11 @@ include '../../includes/header.php';
                 <input type="text" id="u-username" class="form-control" placeholder="usuario123" autocomplete="off">
             </div>
             <div class="form-group" id="row-password">
-                <label class="form-label">ContraseÃ±a *</label>
+                <label class="form-label">Contraseña *</label>
                 <div class="input-group">
-                    <input type="password" id="u-password" class="form-control" placeholder="MÃ­nimo 4 caracteres" autocomplete="new-password">
+                    <input type="password" id="u-password" class="form-control" placeholder="Mínimo 4 caracteres" autocomplete="new-password">
                 </div>
-                <small id="lbl-password-opcional" style="color:var(--text-muted);font-size:.76rem;display:none">Dejar vacÃ­o para no cambiar la contraseÃ±a</small>
+                <small id="lbl-password-opcional" style="color:var(--text-muted);font-size:.76rem;display:none">Dejar vacío para no cambiar la contraseña</small>
             </div>
             <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
             <div style="font-size:.82rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:12px">
@@ -140,7 +140,7 @@ include '../../includes/header.php';
                 <div class="form-group" style="margin:0">
                     <label class="form-label">Sucursal</label>
                     <select id="u-sucursal" class="form-control">
-                        <option value="">â€” Sin asignar â€”</option>
+                        <option value="">— Sin asignar —</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin:0">
@@ -148,6 +148,7 @@ include '../../includes/header.php';
                     <select id="u-rol" class="form-control">
                         <option value="cajero">Cajero</option>
                         <option value="admin">Administrador</option>
+                        <option value="gerente">Superadmin</option>
                     </select>
                 </div>
             </div>
@@ -164,11 +165,11 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- MODAL: Cambiar contraseÃ±a -->
+<!-- MODAL: Cambiar contraseña -->
 <div class="modal-overlay" id="modal-password">
     <div class="modal" style="max-width:380px">
         <div class="modal-header">
-            <h3 class="modal-title">Cambiar contraseÃ±a</h3>
+            <h3 class="modal-title">Cambiar contraseña</h3>
             <button class="modal-close" onclick="closeModal('modal-password')"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
@@ -177,8 +178,8 @@ include '../../includes/header.php';
                 Usuario: <strong id="cp-username"></strong>
             </p>
             <div class="form-group">
-                <label class="form-label">Nueva contraseÃ±a *</label>
-                <input type="password" id="cp-password" class="form-control" placeholder="MÃ­nimo 4 caracteres">
+                <label class="form-label">Nueva contraseña *</label>
+                <input type="password" id="cp-password" class="form-control" placeholder="Mínimo 4 caracteres">
             </div>
         </div>
         <div class="modal-footer">
@@ -211,6 +212,7 @@ include '../../includes/header.php';
                 <select id="ac-rol" class="form-control">
                     <option value="cajero">Cajero</option>
                     <option value="admin">Administrador</option>
+                    <option value="gerente">Superadmin</option>
                 </select>
             </div>
         </div>
@@ -240,7 +242,7 @@ include '../../includes/header.php';
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
                 <div class="form-group">
-                    <label class="form-label">TelÃ©fono</label>
+                    <label class="form-label">Teléfono</label>
                     <input type="text" id="s-telefono" class="form-control" placeholder="01-123-4567">
                 </div>
                 <div class="form-group">
@@ -248,7 +250,7 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">DirecciÃ³n</label>
+                <label class="form-label">Dirección</label>
                 <input type="text" id="s-direccion" class="form-control" placeholder="Av. Principal 123, Lima">
             </div>
             <div id="row-schema-info" style="display:none;background:var(--surface-2);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--text-muted)">
@@ -266,7 +268,7 @@ include '../../includes/header.php';
 </div>
 
 <!-- ======================================================
-     TAB: CONFIGURACIÃ“N DE MARCA
+     TAB: CONFIGURACIÓN DE MARCA
      ====================================================== -->
 <div id="pane-configuracion" style="display:none">
     <div class="card">
@@ -403,7 +405,7 @@ include '../../includes/header.php';
                 <input type="text" id="cfg-nombre" class="form-control"
                        placeholder="Ej: Farmacia San Juan" maxlength="100">
                 <small style="color:var(--text-muted);font-size:.76rem">
-                    Aparece en la barra lateral y el tÃ­tulo del navegador.
+                    Aparece en la barra lateral y el título del navegador.
                 </small>
             </div>
 
@@ -438,11 +440,11 @@ include '../../includes/header.php';
                     <span id="logo-file-name" style="font-size:.82rem;color:var(--text-muted)">Ningún archivo seleccionado</span>
                 </div>
                 <small style="color:var(--text-muted);font-size:.76rem;margin-top:6px;display:block">
-                    JPG, PNG, GIF, WEBP o SVG â€” mÃ¡x. 2 MB.
+                    JPG, PNG, GIF, WEBP o SVG — máx. 2 MB.
                 </small>
             </div>
 
-            <!-- BotÃ³n Ãºnico -->
+            <!-- Botón único -->
             <div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;justify-content:flex-end">
                 <button class="btn btn-primary" id="btn-guardar-config" onclick="guardarConfig()">
                     <i class="fas fa-save"></i> Guardar y Actualizar
@@ -519,7 +521,7 @@ include '../../includes/header.php';
                         <span id="certificate-file-name" style="font-size:.82rem;color:var(--text-muted)">Ningún archivo seleccionado</span>
                     </div>
                     <small style="color:var(--text-muted);font-size:.76rem;margin-top:8px;display:block">
-                        Puedes subir aquÃ­ el certificado digital y el sistema guardarÃ¡ la ruta automÃ¡ticamente.
+                        Puedes subir aquí el certificado digital y el sistema guardará la ruta automáticamente.
                     </small>
                 </div>
 
@@ -570,8 +572,9 @@ include '../../includes/header.php';
 .tab-btn:hover { color: var(--primary); }
 .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-.badge-rol-admin  { background:#eef2ff; color:#4f46e5; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
-.badge-rol-cajero { background:#f0fdf4; color:#16a34a; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.badge-rol-gerente { background:#fef3c7; color:#d97706; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.badge-rol-admin   { background:#eef2ff; color:#4f46e5; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.badge-rol-cajero  { background:#f0fdf4; color:#16a34a; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
 </style>
 
 <script>
@@ -611,9 +614,10 @@ function loadUsuarios() {
             }
             document.getElementById('tbody-usuarios').innerHTML = data.map(u => {
                 const accesos = (typeof u.accesos === 'string' ? JSON.parse(u.accesos) : u.accesos) || [];
+                const ROL_LABEL = { gerente: 'Superadmin', admin: 'Admin', cajero: 'Cajero' };
                 const accBadges = accesos.map(a =>
-                    `<span class="badge badge-rol-${a.rol === 'admin' ? 'admin' : 'cajero'}" style="margin-right:4px;${!a.activo?'opacity:.4':''}">
-                        ${a.sucursal} Â· ${a.rol === 'admin' ? 'Admin' : 'Cajero'}
+                    `<span class="badge badge-rol-${a.rol}" style="margin-right:4px;${!a.activo?'opacity:.4':''}">
+                        ${a.sucursal} · ${ROL_LABEL[a.rol] ?? a.rol}
                         ${a.activo ? `<i class="fas fa-times" style="cursor:pointer;margin-left:4px" onclick="revocarAcceso(${u.id},'${escH(u.username)}',${a.sucursal_id})" title="Revocar"></i>` : ''}
                      </span>`
                 ).join('') || '<span style="color:var(--text-light);font-size:.8rem">Sin acceso</span>';
@@ -634,7 +638,7 @@ function loadUsuarios() {
                         <button class="btn btn-ghost btn-sm" onclick="abrirEditarUsuario(${u.id},'${escH(u.nombre)}','${escH(u.apellido||'')}','${escH(u.username)}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-ghost btn-sm" onclick="abrirCambiarPassword(${u.id},'${escH(u.username)}')" title="Cambiar contraseÃ±a">
+                        <button class="btn btn-ghost btn-sm" onclick="abrirCambiarPassword(${u.id},'${escH(u.username)}')" title="Cambiar contraseña">
                             <i class="fas fa-key"></i>
                         </button>
                         <button class="btn btn-ghost btn-sm" onclick="toggleActivoUsuario(${u.id})" title="${u.activo=='t'||u.activo===true?'Desactivar':'Activar'}">
@@ -688,7 +692,7 @@ function guardarUsuario() {
         ? { id, nombre, apellido, username }
         : { nombre, apellido, username, password, sucursal_id: sucId, rol };
 
-    if (!id && !password) { showToast('La contraseÃ±a es requerida', 'error'); return; }
+    if (!id && !password) { showToast('La contraseña es requerida', 'error'); return; }
 
     post(action, body).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
@@ -708,7 +712,7 @@ function abrirCambiarPassword(id, username) {
 function guardarPassword() {
     const id       = document.getElementById('cp-id').value;
     const password = document.getElementById('cp-password').value;
-    if (!password || password.length < 4) { showToast('MÃ­nimo 4 caracteres', 'error'); return; }
+    if (!password || password.length < 4) { showToast('Mínimo 4 caracteres', 'error'); return; }
     post('usuario_cambiar_password', { id, password }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast(d.message, 'success');
@@ -717,7 +721,7 @@ function guardarPassword() {
 }
 
 function toggleActivoUsuario(id) {
-    if (!confirm('Â¿Cambiar el estado de este usuario?')) return;
+    if (!confirm('¿Cambiar el estado de este usuario?')) return;
     post('usuario_toggle_activo', { id }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Estado actualizado', 'success');
@@ -747,7 +751,7 @@ function guardarAcceso() {
 }
 
 function revocarAcceso(userId, username, sucursalId) {
-    if (!confirm(`Â¿Revocar acceso de "${username}" a esta sucursal?`)) return;
+    if (!confirm(`¿Revocar acceso de "${username}" a esta sucursal?`)) return;
     post('revocar_acceso', { usuario_id: userId, sucursal_id: sucursalId }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Acceso revocado', 'success');
@@ -764,10 +768,10 @@ function loadSucursales() {
         .then(r => r.json())
         .then(data => {
             sucursalesList = data;
-            // Actualizar select de nuevo usuario tambiÃ©n
+            // Actualizar select de nuevo usuario también
             const selU = document.getElementById('u-sucursal');
             const curr = selU.value;
-            selU.innerHTML = '<option value="">â€” Sin asignar â€”</option>' +
+            selU.innerHTML = '<option value="">— Sin asignar —</option>' +
                 data.filter(s => s.activo === true || s.activo === 't')
                     .map(s => `<option value="${s.id}">${escH(s.nombre)}</option>`).join('');
             if (curr) selU.value = curr;
@@ -780,8 +784,8 @@ function loadSucursales() {
             document.getElementById('tbody-sucursales').innerHTML = data.map(s => `<tr>
                 <td><strong>${escH(s.nombre)}</strong></td>
                 <td><code style="font-size:.8rem;color:var(--primary)">${escH(s.schema_name)}</code></td>
-                <td style="font-size:.83rem;color:var(--text-muted)">${escH(s.direccion||'â€”')}</td>
-                <td style="font-size:.83rem">${escH(s.telefono||'â€”')}</td>
+                <td style="font-size:.83rem;color:var(--text-muted)">${escH(s.direccion||'—')}</td>
+                <td style="font-size:.83rem">${escH(s.telefono||'—')}</td>
                 <td><span class="badge badge-gray">${s.total_usuarios} usuarios</span></td>
                 <td><span class="badge ${s.activo=='t'||s.activo===true?'badge-success':'badge-danger'}">${s.activo=='t'||s.activo===true?'Activa':'Inactiva'}</span></td>
                 <td>
@@ -846,7 +850,7 @@ function guardarSucursal() {
 }
 
 function toggleActivoSucursal(id) {
-    if (!confirm('Â¿Cambiar el estado de esta sucursal?')) return;
+    if (!confirm('¿Cambiar el estado de esta sucursal?')) return;
     post('sucursal_toggle_activo', { id }).then(d => {
         if (d.error) { showToast(d.message, 'error'); return; }
         showToast('Estado actualizado', 'success');
@@ -855,7 +859,7 @@ function toggleActivoSucursal(id) {
 }
 
 // ================================================================
-// CONFIGURACIÃ“N DE MARCA
+// CONFIGURACIÓN DE MARCA
 // ================================================================
 
 let _logoPathActual = null;
@@ -892,7 +896,7 @@ function loadConfig() {
             renderLogoPreview(_logoPathActual);
             syncConfigHeader();
         })
-        .catch(() => showToast('Error al cargar configuraciÃ³n', 'error'));
+        .catch(() => showToast('Error al cargar configuración', 'error'));
 }
 
 function renderLogoPreview(logoPath) {

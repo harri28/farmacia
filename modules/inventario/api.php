@@ -6,7 +6,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
-requireApiAuth(['admin']);
+requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -130,8 +130,8 @@ switch ($action) {
                 p.fecha_vencimiento
             FROM productos p
             LEFT JOIN categorias c ON c.id = p.categoria_id
-            LEFT JOIN fe_unidades u ON u.id = p.unidad_id
-            LEFT JOIN fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
+            LEFT JOIN public.fe_unidades u ON u.id = p.unidad_id
+            LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
             WHERE " . implode(' AND ', $where) . "
             ORDER BY p.nombre ASC
         ";

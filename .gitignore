@@ -1,15 +1,46 @@
-# ─── Configuración sensible ───────────────────────────────────
+# ─── Credenciales y configuración sensible ────────────────────
 config/secrets.php
 .env
 *.env
+
+# ─── Certificados digitales SUNAT (contienen claves privadas) ──
+facturacion/certs/*.pfx
+facturacion/certs/*.p12
+facturacion/certs/*.pem
+facturacion/cacert.pem
+
+# ─── Archivos generados por SUNAT en runtime ──────────────────
+facturacion/storage/xml/*.XML
+facturacion/storage/xml/*.xml
+facturacion/storage/xml/*.ZIP
+facturacion/storage/xml/*.zip
+facturacion/storage/cdr/*.ZIP
+facturacion/storage/cdr/*.zip
+facturacion/storage/cdr/R-*/
+facturacion/storage/soap/*
+
+# ─── Dumps y backups de base de datos ─────────────────────────
+*.sql.bak
+*.dump
+farmacia.sql
 
 # ─── Logs y caché ─────────────────────────────────────────────
 logs/
 *.log
 
-# ─── Composer ─────────────────────────────────────────────────
+# ─── Composer / Laravel (conexion_sunat) ──────────────────────
 vendor/
 composer.lock
+conexion_sunat/.env
+conexion_sunat/storage/logs/
+conexion_sunat/storage/framework/cache/data/
+conexion_sunat/storage/framework/sessions/
+conexion_sunat/storage/framework/views/
+conexion_sunat/bootstrap/cache/*.php
+
+# ─── Archivos subidos por usuarios ────────────────────────────
+assets/uploads/
+assets/img/logos/
 
 # ─── Sistema operativo ────────────────────────────────────────
 .DS_Store

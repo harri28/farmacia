@@ -2,7 +2,7 @@
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin'];
+$required_roles = ['admin', 'gerente'];
 $current_module = 'clientes';
 $current_page   = 'clientes';
 $page_title     = 'Clientes - FarmaSystem';
@@ -319,10 +319,10 @@ async function cargarClientes() {
         }
 
         tbody.innerHTML = clientesCache.map(c => {
-            const nombre = [c.nombres, c.apellidos].filter(Boolean).join(' ').trim() || 'Cliente';
+            const nombre = obtenerNombreCliente(c);
             const inicial = (nombre[0] || 'C').toUpperCase();
             const activo = c.activo === true || c.activo === 't' || c.activo === '1';
-            const documento = c.dni || c.ruc || '-';
+            const documento = c.numero_documento ? `${esc(c.descripcion_documento || 'Documento')}: ${esc(c.numero_documento)}` : '-';
 
             return `
                 <tr>
@@ -336,7 +336,8 @@ async function cargarClientes() {
                         </div>
                     </td>
                     <td>
-                        <div>Documento: ${esc(documento)}</div>
+                        <div>${documento}</div>
+                        ${c.tipo_documento_codigo ? `<div class="td-sub">Codigo SUNAT: ${esc(c.tipo_documento_codigo)}</div>` : ''}
                     </td>
                     <td>
                         ${c.telefono ? `<div><i class="fas fa-phone" style="font-size:.7rem;color:var(--text-muted);margin-right:3px"></i>${esc(c.telefono)}</div>` : ''}
@@ -344,7 +345,7 @@ async function cargarClientes() {
                         ${!c.telefono && !c.email ? '<span style="color:var(--text-muted);font-size:.8rem">-</span>' : ''}
                     </td>
                     <td style="text-align:center;font-weight:600">${c.total_compras ?? 0}</td>
-                    <td style="text-align:right;font-weight:600">S/ ${(parseFloat(c.total_gastado) || 0).toFixed(2)}</td>
+                    <td style="text-align:right;font-weight:600">S/ ${parseFloat(c.total_gastado || 0).toFixed(2)}</td>
                     <td style="font-size:.8rem;color:var(--text-muted)">${c.ultima_compra ? fmtDate(c.ultima_compra) : '-'}</td>
                     <td><span class="badge ${activo ? 'b-activo' : 'b-inactivo'}">${activo ? 'Activo' : 'Inactivo'}</span></td>
                     <td>

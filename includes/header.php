@@ -3,6 +3,8 @@
 // ARCHIVO: farmacia/includes/header.php
 // ============================================================
 
+header('Content-Type: text/html; charset=UTF-8');
+
 require_once ($base_path ?? '../../') . 'config/auth.php';
 requireAuth($required_roles ?? []);
 
@@ -40,8 +42,9 @@ $_brand_logo_abs = $_brand_logo
             text-transform: uppercase;
             letter-spacing: .04rem;
         }
-        .role-badge.admin  { background: #eef2ff; color: #4f46e5; }
-        .role-badge.cajero { background: #f0fdf4; color: #16a34a; }
+        .role-badge.gerente { background: #fef3c7; color: #d97706; }
+        .role-badge.admin   { background: #eef2ff; color: #4f46e5; }
+        .role-badge.cajero  { background: #f0fdf4; color: #16a34a; }
         .sucursal-label {
             font-size: .72rem;
             color: var(--text-muted);
@@ -126,10 +129,11 @@ $_brand_logo_abs = $_brand_logo
             </a>
 
             <!-- Almacén: solo admin -->
-            <a href="<?= $base_path ?? '' ?>modules/almacen/index.php"
-               class="nav-item <?= $current_module === 'almacen' ? 'active' : '' ?>">
-                <i class="fas fa-warehouse"></i>
-                <span>Almacén</span>
+            <div class="nav-group">
+                <a href="<?= $base_path ?? '' ?>modules/almacen/index.php" class="nav-item">
+                    <i class="fas fa-warehouse"></i>
+                    <span>Almacén</span>
+                </a>
                 <div class="nav-sub <?= $current_module === 'almacen' ? 'open' : '' ?>">
                     <a href="<?= $base_path ?? '' ?>modules/almacen/index.php"
                        class="<?= $current_page === 'ingresos' ? 'active' : '' ?>">
@@ -140,7 +144,7 @@ $_brand_logo_abs = $_brand_logo
                         <i class="fas fa-truck"></i> Proveedores
                     </a>
                 </div>
-            </a>
+            </div>
 
             <a href="<?= $base_path ?? '' ?>modules/compras/index.php"
                class="nav-item <?= ($current_module ?? '') === 'compras' ? 'active' : '' ?>">
@@ -155,10 +159,11 @@ $_brand_logo_abs = $_brand_logo
             </a>
 
             <!-- Facturación: solo admin -->
-            <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
-               class="nav-item <?= $current_module === 'facturacion' ? 'active' : '' ?>">
-                <i class="fas fa-file-invoice"></i>
-                <span>Facturación</span>
+            <div class="nav-group">
+                <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php" class="nav-item">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Facturación</span>
+                </a>
                 <div class="nav-sub <?= $current_module === 'facturacion' ? 'open' : '' ?>">
                     <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
                        class="<?= $current_page === 'reporte' ? 'active' : '' ?>">
@@ -173,23 +178,25 @@ $_brand_logo_abs = $_brand_logo
                         <i class="fas fa-chart-pie"></i> Rentabilidad
                     </a>
                 </div>
-            </a>
+            </div>
 
+            <?php if (isGerente()): ?>
             <span class="nav-label" style="margin-top:12px">SISTEMA</span>
 
-            <!-- E-commerce: solo admin -->
+            <!-- E-commerce: solo gerente (Superadmin) -->
             <a href="<?= $base_path ?? '' ?>modules/ecommerce/index.php"
                class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>">
                 <i class="fas fa-store"></i>
                 <span>E-commerce</span>
             </a>
 
-            <!-- Admin: solo admin -->
+            <!-- Admin: solo gerente (Superadmin) -->
             <a href="<?= $base_path ?? '' ?>modules/admin/index.php"
                class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>">
                 <i class="fas fa-cogs"></i>
                 <span>Administración</span>
             </a>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
     </nav>
@@ -200,7 +207,8 @@ $_brand_logo_abs = $_brand_logo
             <div style="flex:1;min-width:0">
                 <div class="user-name" style="display:flex;align-items:center;gap:6px">
                     <?= htmlspecialchars(sesionNombre()) ?>
-                    <span class="role-badge <?= sesionRol() ?>"><?= sesionRol() === 'admin' ? 'Admin' : 'Cajero' ?></span>
+                    <?php $rolLabels = ['gerente'=>'Superadmin','admin'=>'Admin','cajero'=>'Cajero']; ?>
+                    <span class="role-badge <?= sesionRol() ?>"><?= $rolLabels[sesionRol()] ?? sesionRol() ?></span>
                 </div>
                 <?php if (sesionTenantNombre()): ?>
                 <div class="sucursal-label" style="font-size:.68rem;color:var(--primary);font-weight:600;margin-bottom:1px">

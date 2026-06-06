@@ -90,7 +90,7 @@ input, select, textarea { font-family: var(--font); }
     padding: 9px 10px; border-radius: var(--radius-sm);
     color: var(--text-muted); font-size: .875rem; font-weight: 500;
     transition: background var(--transition), color var(--transition);
-    white-space: nowrap; cursor: pointer; position: relative; flex-wrap: wrap;
+    white-space: nowrap; cursor: pointer; position: relative;
 }
 .nav-item:hover:not(.disabled) { background: var(--primary-light); color: var(--primary); }
 .nav-item.active  { background: var(--primary-light); color: var(--primary); }
@@ -102,7 +102,7 @@ input, select, textarea { font-family: var(--font); }
     padding: 2px 6px; border-radius: 20px; font-weight: 600; letter-spacing: .03em;
 }
 .nav-sub {
-    display: none; width: 100%; padding-left: 28px; padding-top: 4px;
+    display: none; width: 100%; padding-left: 28px; padding-top: 2px;
     flex-direction: column; gap: 2px;
 }
 .nav-sub.open { display: flex; }

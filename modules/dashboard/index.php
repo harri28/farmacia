@@ -6,6 +6,13 @@
 
 require_once '../../config/database.php';
 
+// Cajeros no tienen acceso al dashboard → redirigir al POS
+if (isCajero()) {
+    header('Location: ../../modules/ventas/index.php');
+    exit;
+}
+
+$required_roles = ['admin', 'gerente'];
 $base_path      = '../../';
 $current_module = 'dashboard';
 $current_page   = 'inicio';
@@ -21,12 +28,12 @@ include '../../includes/header.php';
 .section-title { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
 
 /* ---- KPI cards ---- */
-.kpi-grid      { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.kpi-grid      { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
 .kpi-card      {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 20px;
+    padding: 14px 16px;
     box-shadow: var(--shadow);
     position: relative;
     overflow: hidden;
@@ -39,14 +46,14 @@ include '../../includes/header.php';
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 .kpi-icon {
-    width: 40px; height: 40px;
+    width: 32px; height: 32px;
     border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; margin-bottom: 12px;
+    font-size: .85rem; margin-bottom: 8px;
 }
-.kpi-label { font-size: .78rem; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
-.kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; }
-.kpi-sub   { font-size: .73rem; color: var(--text-light); margin-top: 6px; }
+.kpi-label { font-size: .72rem; color: var(--text-muted); font-weight: 500; margin-bottom: 3px; }
+.kpi-value { font-size: 1.25rem; font-weight: 700; color: var(--text); line-height: 1; }
+.kpi-sub   { font-size: .68rem; color: var(--text-light); margin-top: 4px; }
 .kpi-badge {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 2px 8px; border-radius: 20px;

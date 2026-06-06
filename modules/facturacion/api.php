@@ -5,7 +5,7 @@
 // ============================================================
 
 require_once '../../config/database.php';
-requireApiAuth(['admin']);
+requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -278,7 +278,7 @@ function facturacionCargarItemsVenta(PDO $db, int $ventaId): array
             END AS porcentaje_igv
         FROM venta_detalles vd
         LEFT JOIN productos p ON p.id = vd.producto_id
-        LEFT JOIN fe_tipos_afectacion_igv a ON a.id = vd.afectacion_igv_id
+        LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = vd.afectacion_igv_id
         WHERE vd.venta_id = :venta_id
         ORDER BY vd.id
     ");

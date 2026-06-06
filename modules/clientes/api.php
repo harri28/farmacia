@@ -1,21 +1,10 @@
 <?php
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
+requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
-
-// Permitir debug sin autenticación
-if ($action === 'debug') {
-    echo json_encode([
-        'session_status' => session_status(),
-        'usuario_id' => $_SESSION['usuario_id'] ?? null,
-        'sucursal_schema' => $_SESSION['sucursal_schema'] ?? null,
-    ]);
-    exit;
-}
-
-requireApiAuth(['admin']);
 
 function listarTiposDocumento(PDO $db): array
 {
@@ -248,8 +237,11 @@ switch ($action) {
             $estado = trim((string) ($_GET['estado'] ?? ''));
 
             $where = [
-                "(COALESCE(c.nombres,'') ILIKE :q
+                "(COALESCE(c.razon_social,'') ILIKE :q
+                  OR COALESCE(c.nombre_completo,'') ILIKE :q
+                  OR COALESCE(c.nombres,'') ILIKE :q
                   OR COALESCE(c.apellidos,'') ILIKE :q
+                  OR COALESCE(c.numero_documento,'') ILIKE :q
                   OR COALESCE(c.dni,'') ILIKE :q
                   OR COALESCE(c.ruc,'') ILIKE :q
                   OR COALESCE(c.telefono,'') ILIKE :q
@@ -275,26 +267,35 @@ switch ($action) {
                     c.direccion,
                     c.activo,
                     c.created_at,
+                    c.tipo_documento_id,
+                    c.tipo_documento_codigo,
+                    COALESCE(c.numero_documento, COALESCE(NULLIF(c.ruc,''), NULLIF(c.dni,''), '')) AS numero_documento,
+                    c.nombre_completo,
+                    c.razon_social,
+                    c.ubigeo,
+                    td.descripcion_documento,
                     COUNT(v.id) FILTER (WHERE v.estado = 'completada') AS total_compras,
                     COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS total_gastado,
                     MAX(v.created_at) FILTER (WHERE v.estado = 'completada') AS ultima_compra
                 FROM clientes c
+                LEFT JOIN public.fe_tipos_documento_identidad td ON td.id = c.tipo_documento_id
                 LEFT JOIN ventas v ON v.cliente_id = c.id
                 WHERE " . implode(' AND ', $where) . "
-                GROUP BY c.id
+                GROUP BY c.id, td.descripcion_documento
                 ORDER BY
                     CASE
-                        WHEN COALESCE(c.dni, '') = '00000000'
+                        WHEN COALESCE(c.numero_documento, '') = '00000000'
+                            OR UPPER(COALESCE(c.razon_social, '')) = 'CLIENTES VARIOS'
+                            OR UPPER(TRIM(COALESCE(c.nombres, '') || ' ' || COALESCE(c.apellidos, ''))) = 'CLIENTES VARIOS'
                         THEN 0
                         ELSE 1
                     END,
-                    COALESCE(c.nombres, '') ASC
+                    COALESCE(c.razon_social, c.nombre_completo, c.nombres) ASC
             ");
             $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => true, 'message' => $e->getMessage(), 'sql_error' => true], JSON_UNESCAPED_UNICODE);
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
         }
         break;
 

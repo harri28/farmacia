@@ -1,17 +1,17 @@
-﻿<?php
+<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/facturacion/index.php
-// MÃ“DULO:  FacturaciÃ³n â†’ Reporte de Ventas
+// MÓDULO:  Facturación → Reporte de Ventas
 // ============================================================
 
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin'];
+$required_roles = ['admin', 'gerente'];
 $current_module = 'facturacion';
 $current_page   = 'reporte';
-$page_title     = 'Reporte de Ventas â€” FarmaSystem';
-$breadcrumb     = '<strong>FacturaciÃ³n</strong> / Reporte de Ventas';
+$page_title     = 'Reporte de Ventas — FarmaSystem';
+$breadcrumb     = '<strong>Facturación</strong> / Reporte de Ventas';
 
 include '../../includes/header.php';
 ?>
@@ -55,7 +55,7 @@ include '../../includes/header.php';
         <div class="page-title">
             <i class="fas fa-chart-bar" style="color:var(--primary);margin-right:8px"></i>Reporte de Ventas
         </div>
-        <div class="page-subtitle">Consulta, filtra y exporta las ventas del perÃ­odo</div>
+        <div class="page-subtitle">Consulta, filtra y exporta las ventas del período</div>
     </div>
     <div class="page-actions">
         <button class="btn btn-success" id="btn-exportar" onclick="exportarExcel()">
@@ -106,7 +106,7 @@ include '../../includes/header.php';
         </div>
 
         <div class="form-group" style="margin:0;flex:1;min-width:130px">
-            <label class="form-label">MÃ©todo de pago</label>
+            <label class="form-label">Método de pago</label>
             <select class="form-control" id="f-tipo-pago">
                 <option value="">Todos</option>
                 <option value="efectivo">Efectivo</option>
@@ -129,7 +129,7 @@ include '../../includes/header.php';
             <div class="input-group">
                 <span class="input-group-icon"><i class="fas fa-search"></i></span>
                 <input type="text" id="f-q" class="form-control"
-                    placeholder="NÂ° venta, cliente, vendedor...">
+                    placeholder="N° venta, cliente, vendedor...">
             </div>
         </div>
 
@@ -138,9 +138,9 @@ include '../../includes/header.php';
         </button>
     </div>
 
-    <!-- Atajos de perÃ­odo -->
+    <!-- Atajos de período -->
     <div style="padding:0 20px 16px;display:flex;gap:8px;flex-wrap:wrap">
-        <span style="font-size:.78rem;color:var(--text-muted);align-self:center">PerÃ­odo rÃ¡pido:</span>
+        <span style="font-size:.78rem;color:var(--text-muted);align-self:center">Período rápido:</span>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('hoy')">Hoy</button>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('ayer')">Ayer</button>
         <button class="btn btn-ghost btn-sm" onclick="setPeriodo('semana')">Esta semana</button>
@@ -156,18 +156,18 @@ include '../../includes/header.php';
     <?php foreach (range(0,5) as $_): ?>
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
-        <div><div class="stat-value">â€”</div><div class="stat-label">Cargando...</div></div>
+        <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div>
     </div>
     <?php endforeach; ?>
 </div>
 
 <!-- ======================================================
-     RESUMEN POR MÃ‰TODO DE PAGO / COMPROBANTE
+     RESUMEN POR MÉTODO DE PAGO / COMPROBANTE
      ====================================================== -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px" id="resumen-wrap">
     <div class="card">
         <div class="card-header">
-            <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por mÃ©todo de pago</div>
+            <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por método de pago</div>
         </div>
         <div style="padding:0 8px 8px" id="resumen-pago">
             <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
@@ -204,7 +204,7 @@ include '../../includes/header.php';
     <div class="card-header">
         <div class="card-title">Detalle de ventas</div>
         <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-            <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">â€”</span>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">—</span>
             <button class="btn btn-success btn-sm" onclick="exportarExcel()">
                 <i class="fas fa-file-excel"></i> Exportar
             </button>
@@ -214,7 +214,7 @@ include '../../includes/header.php';
         <table id="ventas-table" class="display facturacion-table" style="width:100%">
             <thead>
                 <tr>
-                    <th>NÂ° Venta</th>
+                    <th>N° Venta</th>
                     <th>Fecha / Hora</th>
                     <th>Vendedor</th>
                     <th>Cliente</th>
@@ -721,7 +721,7 @@ function emitirNotaCreditoReporte() {
         });
 }
 
-// ---- PerÃ­odos rÃ¡pidos ----
+// ---- Períodos rápidos ----
 function setPeriodo(p) {
     const hoy = new Date();
     const fmt  = d => d.toISOString().slice(0, 10);
@@ -774,7 +774,7 @@ function buscar() {
 function loadStats() {
     document.getElementById('stats-container').innerHTML = [0,1,2,3,4,5].map(() =>
         `<div class="stat-card"><div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
-         <div><div class="stat-value">â€”</div><div class="stat-label">Cargando...</div></div></div>`
+         <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div></div>`
     ).join('');
     document.getElementById('resumen-pago').innerHTML =
         '<div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
@@ -793,7 +793,7 @@ function loadStats() {
 
             const cards = [
                 { icon: 'shopping-cart',       color: 'blue',   val: d.total_completadas, label: 'Ventas completadas' },
-                { icon: 'dollar-sign',          color: 'green',  val: m(d.total_ingresos),  label: 'Ingresos del perÃ­odo' },
+                { icon: 'dollar-sign',          color: 'green',  val: m(d.total_ingresos),  label: 'Ingresos del período' },
                 { icon: 'receipt',              color: 'yellow', val: m(d.total_igv),        label: 'IGV total' },
                 { icon: 'tag',                  color: 'purple', val: m(d.total_descuentos), label: 'Descuentos otorgados' },
                 { icon: 'chart-line',           color: 'teal',   val: m(d.ticket_promedio),  label: 'Ticket promedio' },
@@ -805,7 +805,7 @@ function loadStats() {
                     <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
                 </div>`).join('');
 
-            // Resumen por mÃ©todo de pago
+            // Resumen por método de pago
             const pagos = [
                 { label: 'Efectivo',      key: 'pago_efectivo',      icon: 'money-bill-wave', color: '#16a34a' },
                 { label: 'Yape',          key: 'pago_yape',          icon: 'mobile-alt',      color: '#7c3aed' },
@@ -827,7 +827,7 @@ function loadStats() {
                         <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
                         <strong style="font-size:.88rem;min-width:80px;text-align:right">S/ ${n(d[p.key]).toFixed(2)}</strong>
                     </div>`;
-                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
+                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
 
             // Resumen por comprobante
             const comps = [
@@ -850,9 +850,9 @@ function loadStats() {
                         <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
                         <strong style="font-size:.88rem;min-width:60px;text-align:right">${cnt} ventas</strong>
                     </div>`;
-                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
+                }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
         })
-        .catch(() => showToast('Error al cargar estadÃ­sticas', 'error'));
+        .catch(() => showToast('Error al cargar estadísticas', 'error'));
 }
 
 // ---- Comparativa por vendedor ----
@@ -862,7 +862,7 @@ function loadStatsUsuario() {
         .then(data => {
             if (!data || data.error || !data.length) {
                 document.getElementById('resumen-usuarios').innerHTML =
-                    '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el perÃ­odo</p>';
+                    '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
                 return;
             }
 
@@ -877,7 +877,7 @@ function loadStatsUsuario() {
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Ingresos</th>
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Ticket prom.</th>
                         <th style="padding:10px 16px;text-align:right;font-size:.78rem;color:var(--text-muted);font-weight:600">Anuladas</th>
-                        <th style="padding:10px 16px;font-size:.78rem;color:var(--text-muted);font-weight:600;min-width:180px">ParticipaciÃ³n</th>
+                        <th style="padding:10px 16px;font-size:.78rem;color:var(--text-muted);font-weight:600;min-width:180px">Participación</th>
                     </tr>
                 </thead><tbody>`;
 
@@ -942,7 +942,7 @@ function loadReporte() {
         tableFoot.innerHTML = '';
         tableFoot.style.display = 'none';
     }
-    document.getElementById('result-count').textContent = 'â€”';
+    document.getElementById('result-count').textContent = '—';
 
     fetch(BASE + 'modules/facturacion/api.php?' + buildQuery({ action: 'reporte' }))
         .then(r => r.json())
@@ -975,9 +975,9 @@ function loadReporte() {
                 const esCls    = v.estado === 'completada' ? 'badge-success' : 'badge-danger';
                 const sfx      = v.estado === 'anulada' ? 'style="opacity:.5"' : '';
 
-                // Color Ãºnico por vendedor
-                const vend = v.vendedor || 'â€”';
-                if (vend !== 'â€”' && !vendColorMap[vend]) {
+                // Color único por vendedor
+                const vend = v.vendedor || '—';
+                if (vend !== '—' && !vendColorMap[vend]) {
                     vendColorMap[vend] = coloresUser[vendIdx++ % coloresUser.length];
                 }
                 const vendColor = vendColorMap[vend] || '#94a3b8';
@@ -1001,7 +1001,7 @@ function loadReporte() {
                             : '';
                         return `<span class="badge ${cls}" style="font-size:.7rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle" title="${txt}">${txt}</span>${pdf}${reenviar}`;
                     })()
-                    : '<span style="color:var(--text-light);font-size:.8rem">â€”</span>';
+                    : '<span style="color:var(--text-light);font-size:.8rem">—</span>';
 
                 return `<tr ${sfx}>
                     <td><span style="font-weight:700;color:var(--primary);font-size:.88rem">${v.numero_venta}</span></td>
