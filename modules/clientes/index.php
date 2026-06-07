@@ -122,11 +122,6 @@ include '../../includes/header.php';
             <i class="fas fa-search"></i>
             <input type="text" id="inputBuscar" placeholder="Nombre, documento, telefono o correo..." oninput="debouncarBusqueda()">
         </div>
-        <div class="filter-pills">
-            <button class="pill active" onclick="filtrar('', this)">Todos</button>
-            <button class="pill" onclick="filtrar('activo', this)">Activos</button>
-            <button class="pill" onclick="filtrar('inactivo', this)">Inactivos</button>
-        </div>
     </div>
     <span id="contadorLabel" style="font-size:.8rem;color:var(--text-muted)"></span>
 </div>
@@ -141,12 +136,11 @@ include '../../includes/header.php';
                 <th style="text-align:center">Compras</th>
                 <th style="text-align:right">Total gastado</th>
                 <th>Ultima compra</th>
-                <th>Estado</th>
                 <th></th>
             </tr>
         </thead>
         <tbody id="tbodyClientes">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
         </tbody>
     </table>
 </div>
@@ -239,7 +233,6 @@ include '../../includes/header.php';
 
 <script>
 const API = '<?= $base_path ?>modules/clientes/api.php';
-let filtroEstado = '';
 let debounceBusqueda;
 let tiposDocumento = [];
 let clientesCache = [];
@@ -289,24 +282,17 @@ function debouncarBusqueda() {
     debounceBusqueda = setTimeout(cargarClientes, 280);
 }
 
-function filtrar(estado, btn) {
-    filtroEstado = estado;
-    document.querySelectorAll('.filter-pills .pill').forEach(item => item.classList.remove('active'));
-    btn.classList.add('active');
-    cargarClientes();
-}
-
 async function cargarClientes() {
     const tbody = document.getElementById('tbodyClientes');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     const q = document.getElementById('inputBuscar').value.trim();
 
     try {
-        const r = await fetch(`${API}?action=listar&q=${encodeURIComponent(q)}&estado=${encodeURIComponent(filtroEstado)}`);
+        const r = await fetch(`${API}?action=listar&q=${encodeURIComponent(q)}`);
         const data = await r.json();
 
         if (data.error) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#dc2626">${esc(data.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#dc2626">${esc(data.message)}</td></tr>`;
             return;
         }
 
@@ -314,14 +300,22 @@ async function cargarClientes() {
         document.getElementById('contadorLabel').textContent = `${clientesCache.length} cliente${clientesCache.length === 1 ? '' : 's'}`;
 
         if (!clientesCache.length) {
-            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-users"></i>No se encontraron clientes</div></td></tr>';
+            const sinFiltro = !q;
+            tbody.innerHTML = sinFiltro
+                ? `<tr><td colspan="7">
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <div>No hay clientes registrados</div>
+                        <a onclick="abrirModal()" style="font-size:inherit;color:var(--primary);text-decoration:underline;cursor:pointer">Agregar clientes</a>
+                    </div>
+                  </td></tr>`
+                : '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron clientes con ese criterio</div></td></tr>';
             return;
         }
 
         tbody.innerHTML = clientesCache.map(c => {
             const nombre = obtenerNombreCliente(c);
             const inicial = (nombre[0] || 'C').toUpperCase();
-            const activo = c.activo === true || c.activo === 't' || c.activo === '1';
             const documento = c.numero_documento ? `${esc(c.descripcion_documento || 'Documento')}: ${esc(c.numero_documento)}` : '-';
 
             return `
@@ -347,21 +341,17 @@ async function cargarClientes() {
                     <td style="text-align:center;font-weight:600">${c.total_compras ?? 0}</td>
                     <td style="text-align:right;font-weight:600">S/ ${parseFloat(c.total_gastado || 0).toFixed(2)}</td>
                     <td style="font-size:.8rem;color:var(--text-muted)">${c.ultima_compra ? fmtDate(c.ultima_compra) : '-'}</td>
-                    <td><span class="badge ${activo ? 'b-activo' : 'b-inactivo'}">${activo ? 'Activo' : 'Inactivo'}</span></td>
                     <td>
                         <div style="display:flex;gap:5px;justify-content:flex-end">
                             <button class="btn btn-secondary btn-sm btn-icon" title="Historial" onclick="verHistorial(${c.id})"><i class="fas fa-history"></i></button>
                             <button class="btn btn-secondary btn-sm btn-icon" title="Editar" onclick="abrirModalPorId(${c.id})"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-secondary btn-sm btn-icon" title="${activo ? 'Desactivar' : 'Activar'}" style="color:${activo ? '#dc2626' : '#16a34a'}" onclick="toggleActivo(${c.id}, '${escJs(nombre)}', ${activo})">
-                                <i class="fas fa-${activo ? 'user-slash' : 'user-check'}"></i>
-                            </button>
                         </div>
                     </td>
                 </tr>
             `;
         }).join('');
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#dc2626">Error al cargar clientes</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#dc2626">Error al cargar clientes</td></tr>';
     }
 }
 
@@ -536,29 +526,6 @@ async function guardarCliente() {
     }
 }
 
-async function toggleActivo(id, nombre, activo) {
-    const accion = activo ? 'desactivar' : 'activar';
-    if (!confirm(`¿Deseas ${accion} a ${nombre}?`)) {
-        return;
-    }
-
-    try {
-        const r = await fetch(`${API}?action=toggle_activo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-        const d = await r.json();
-        if (d.error) {
-            toast(d.message, 'err');
-            return;
-        }
-        toast(d.message);
-        await Promise.all([cargarClientes(), cargarStats()]);
-    } catch (e) {
-        toast('Error de conexion', 'err');
-    }
-}
 
 async function verHistorial(id) {
     document.getElementById('histBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></div>';

@@ -109,7 +109,7 @@ switch ($action) {
                 INSERT INTO ordenes_compra
                     (numero_orden, proveedor_id, usuario_id, estado, tipo_pago, dias_credito,
                      subtotal, igv, total, observaciones, fecha_entrega)
-                VALUES (:num, :pid, :uid, 'borrador', :tp, :dc, :sub, :igv, :tot, :obs, :fe)
+                VALUES (:num, :pid, :uid, 'pendiente', :tp, :dc, :sub, :igv, :tot, :obs, :fe)
                 RETURNING id
             ");
             $ins->execute([
@@ -130,12 +130,13 @@ switch ($action) {
                 $sub_item = floatval($item['cantidad']) * floatval($item['precio_unitario']);
                 $db->prepare("
                     INSERT INTO orden_compra_detalles
-                        (orden_id, producto_id, descripcion, cantidad, precio_unitario, subtotal)
-                    VALUES (:oid, :pid, :desc, :qty, :pu, :sub)
+                        (orden_id, producto_id, descripcion, unidad_medida, cantidad, precio_unitario, subtotal)
+                    VALUES (:oid, :pid, :desc, :um, :qty, :pu, :sub)
                 ")->execute([
                     ':oid'  => $orden_id,
                     ':pid'  => intval($item['producto_id'] ?? 0) ?: null,
                     ':desc' => trim($item['descripcion'] ?? ''),
+                    ':um'   => trim($item['unidad_medida'] ?? ''),
                     ':qty'  => intval($item['cantidad']),
                     ':pu'   => floatval($item['precio_unitario']),
                     ':sub'  => $sub_item,
@@ -495,7 +496,7 @@ switch ($action) {
     case 'productos_buscar':
         $q    = trim($_GET['q'] ?? '');
         $stmt = $db->prepare("
-            SELECT id, codigo, nombre, precio_compra, precio_venta, stock
+            SELECT id, codigo, nombre, unidad, precio_compra, precio_venta, stock
             FROM productos
             WHERE activo = TRUE AND (nombre ILIKE :q OR codigo ILIKE :q)
             ORDER BY nombre ASC LIMIT 20

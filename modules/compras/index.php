@@ -197,7 +197,7 @@ require_once '../../includes/header.php';
                 <th style="text-align:right">Total</th>
                 <th>Estado</th>
                 <th>Fecha</th>
-                <th></th>
+                <th style="text-align:center">Acciones</th>
             </tr></thead>
             <tbody id="tbodyOrdenes">
                 <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">
@@ -336,19 +336,19 @@ require_once '../../includes/header.php';
         <table class="items-table">
             <thead><tr>
                 <th style="width:35%">Producto</th>
-                <th style="width:25%">Descripción</th>
+                <th style="width:22%">Descripción</th>
+                <th style="width:11%">U.M.</th>
                 <th style="width:12%">Cantidad</th>
-                <th style="width:16%">P. Unitario</th>
-                <th style="width:10%">Subtotal</th>
+                <th style="width:15%">P. Unitario</th>
                 <th style="width:2%"></th>
             </tr></thead>
             <tbody id="itemsBody"></tbody>
         </table>
         </div>
         <div class="items-total" id="itemsTotales">
-            <span style="color:var(--text-muted);margin-right:16px">Subtotal: <strong id="totSubtotal">S/ 0.00</strong></span>
             <span style="color:var(--text-muted);margin-right:16px" id="igvRow" style="display:none">IGV: <strong id="totIgv">S/ 0.00</strong></span>
             Total: <strong id="totTotal">S/ 0.00</strong>
+            <strong id="totSubtotal" style="display:none">S/ 0.00</strong>
         </div>
 
         <div class="form-row" style="margin-top:10px">
@@ -360,8 +360,12 @@ require_once '../../includes/header.php';
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="cerrarModal('modalOrdenOverlay')">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarOrden('borrador')"><i class="fas fa-save"></i> Guardar borrador</button>
-        <button class="btn btn-primary" onclick="guardarOrden('pendiente')"><i class="fas fa-paper-plane"></i> Enviar a proveedor</button>
+        <button class="btn btn-primary" id="btnRegistrarOrden" onclick="guardarOrden(false)">
+            <i class="fas fa-save"></i> Registrar orden de compra
+        </button>
+        <button class="btn btn-primary" id="btnRegistrarCompartir" style="background:#16a34a" onclick="guardarOrden(true)">
+            <i class="fas fa-share-alt"></i> Registrar y compartir
+        </button>
     </div>
 </div>
 </div>
@@ -378,7 +382,7 @@ require_once '../../includes/header.php';
     <div class="modal-body" id="detalleBody">
         <div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></div>
     </div>
-    <div class="modal-footer" id="detalleFooter"></div>
+    <div class="modal-footer" id="detalleFooter" style="flex-wrap:wrap;gap:8px"></div>
 </div>
 </div>
 
@@ -612,11 +616,19 @@ async function cargarOrdenes() {
         }
         const lista = data;
         if (!lista.length) {
-            tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-file-alt"></i>No hay órdenes registradas</div></td></tr>';
+            tbody.innerHTML = _filtroOrden
+                ? `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron órdenes con ese filtro</div></td></tr>`
+                : `<tr><td colspan="8">
+                    <div class="empty-state">
+                        <i class="fas fa-file-alt"></i>
+                        <div>No hay órdenes de compra registradas</div>
+                        <a onclick="abrirNuevaOrden()" style="font-size:inherit;color:var(--primary);text-decoration:underline;cursor:pointer">Nueva orden de compra</a>
+                    </div>
+                   </td></tr>`;
             return;
         }
         tbody.innerHTML = lista.map(o => `
-        <tr>
+        <tr onclick="verOrden(${o.id})" style="cursor:pointer">
             <td class="td-main">${esc(o.numero_orden)}</td>
             <td>
                 <div style="font-weight:600;color:var(--text-primary)">${esc(o.proveedor||'—')}</div>
@@ -627,15 +639,14 @@ async function cargarOrdenes() {
             <td style="text-align:right;font-weight:600">S/ ${parseFloat(o.total).toFixed(2)}</td>
             <td><span class="badge b-${o.estado}">${ESTADO_LABEL[o.estado]||o.estado}</span></td>
             <td style="font-size:.8rem;color:var(--text-muted)">${fmtDate(o.created_at)}</td>
-            <td>
-                <div style="display:flex;gap:5px;justify-content:flex-end">
+            <td style="text-align:center" onclick="event.stopPropagation()">
+                <div style="display:flex;gap:5px;justify-content:center">
                     <button class="btn btn-secondary btn-sm" onclick="verOrden(${o.id})" title="Ver detalle">
                         <i class="fas fa-eye"></i>
                     </button>
-                    ${o.estado==='borrador' ? `<button class="btn btn-primary btn-sm" onclick="cambiarEstado(${o.id},'pendiente')" title="Enviar a proveedor"><i class="fas fa-paper-plane"></i></button>` : ''}
-                    ${o.estado==='pendiente' ? `<button class="btn btn-primary btn-sm" onclick="cambiarEstado(${o.id},'aprobada')" title="Aprobar orden"><i class="fas fa-check"></i></button>` : ''}
+                    ${o.estado==='pendiente' ? `<button class="btn btn-primary btn-sm" onclick="cambiarEstado(${o.id},'aprobada')" title="Aprobar"><i class="fas fa-check"></i></button>` : ''}
                     ${o.estado==='aprobada'  ? `<button class="btn btn-primary btn-sm" style="background:#16a34a" onclick="abrirRecibir(${o.id})" title="Recibir mercadería"><i class="fas fa-box-open"></i></button>` : ''}
-                    ${['borrador','pendiente'].includes(o.estado) ? `<button class="btn btn-secondary btn-sm" style="color:#dc2626" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
+                    ${['pendiente','aprobada'].includes(o.estado) ? `<button class="btn btn-secondary btn-sm" style="color:#dc2626" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
                 </div>
             </td>
         </tr>`).join('');
@@ -672,11 +683,12 @@ async function verOrden(id) {
                 </div>`:''}
             </div>
             <table class="items-table" style="margin-bottom:12px">
-                <thead><tr><th>Producto</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Subtotal</th></tr></thead>
+                <thead><tr><th>Producto</th><th>Descripción</th><th style="text-align:center">U.M.</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Subtotal</th></tr></thead>
                 <tbody>${(o.items||[]).map(it=>`
                 <tr style="border-top:1px solid var(--border)">
                     <td style="padding:8px 10px;font-size:.85rem;font-weight:600">${esc(it.producto_nombre||'—')}</td>
                     <td style="padding:8px 10px;font-size:.82rem;color:var(--text-muted)">${esc(it.descripcion||'')}</td>
+                    <td style="padding:8px 10px;text-align:center;font-size:.82rem">${esc(it.unidad_medida||'—')}</td>
                     <td style="padding:8px 10px;text-align:center">${it.cantidad}</td>
                     <td style="padding:8px 10px;text-align:right">S/ ${parseFloat(it.precio_unitario).toFixed(2)}</td>
                     <td style="padding:8px 10px;text-align:right;font-weight:600">S/ ${parseFloat(it.subtotal).toFixed(2)}</td>
@@ -690,11 +702,28 @@ async function verOrden(id) {
             </div>
             ${o.observaciones?`<div style="margin-top:14px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:.84rem;color:var(--text-secondary)">${esc(o.observaciones)}</div>`:''}
         `;
+        // Guardar referencia para compartir/PDF
+        _ultimaOrden = { id: o.id, numero: o.numero_orden };
+
         const footer = document.getElementById('detalleFooter');
-        footer.innerHTML = `<button class="btn btn-secondary" onclick="cerrarModal('modalDetalleOverlay')">Cerrar</button>`;
-        if (o.estado==='aprobada') {
-            footer.innerHTML += `<button class="btn btn-primary" style="background:#16a34a" onclick="cerrarModal('modalDetalleOverlay');abrirRecibir(${o.id})"><i class="fas fa-box-open"></i> Recibir mercadería</button>`;
+        let btns = `<button class="btn btn-secondary" onclick="cerrarModal('modalDetalleOverlay')">Cerrar</button>`;
+
+        // Acciones según estado
+        if (o.estado === 'pendiente') {
+            btns += `<button class="btn btn-primary" onclick="cerrarModal('modalDetalleOverlay');cambiarEstado(${o.id},'aprobada')"><i class="fas fa-check"></i> Aprobar</button>`;
         }
+        if (o.estado === 'aprobada') {
+            btns += `<button class="btn btn-primary" style="background:#16a34a" onclick="cerrarModal('modalDetalleOverlay');abrirRecibir(${o.id})"><i class="fas fa-box-open"></i> Recibir mercadería</button>`;
+        }
+        if (['pendiente','aprobada'].includes(o.estado)) {
+            btns += `<button class="btn btn-secondary" style="color:#dc2626" onclick="cerrarModal('modalDetalleOverlay');cambiarEstado(${o.id},'cancelada')"><i class="fas fa-ban"></i> Cancelar</button>`;
+        }
+
+        // PDF + Compartir siempre disponibles
+        btns += `<button class="btn btn-primary" style="background:#6366f1" onclick="abrirPDF()"><i class="fas fa-file-pdf"></i> Ver PDF</button>`;
+        btns += `<button class="btn btn-primary" style="background:#25d366" onclick="cerrarModal('modalDetalleOverlay');document.getElementById('compartirNumOrden').textContent='${esc(o.numero_orden)}';document.getElementById('modalCompartirOverlay').classList.add('active')"><i class="fas fa-share-alt"></i> Compartir</button>`;
+
+        footer.innerHTML = btns;
     } catch { document.getElementById('detalleBody').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px">Error al cargar</p>'; }
 }
 
@@ -748,7 +777,13 @@ async function cargarCuentas() {
         const r = await fetch(`${API}?action=cuentas_listar`);
         const lista = await r.json();
         if (!lista.length) {
-            tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><i class="fas fa-check-circle" style="color:#16a34a"></i>No hay cuentas pendientes</div></td></tr>';
+            tbody.innerHTML = `<tr><td colspan="9">
+                <div class="empty-state">
+                    <i class="fas fa-check-circle" style="color:#16a34a"></i>
+                    <div>No hay cuentas por pagar pendientes</div>
+                    <span style="font-size:.82rem;color:var(--text-muted)">Se generan automáticamente al recibir órdenes a crédito</span>
+                </div>
+               </td></tr>`;
             return;
         }
         tbody.innerHTML = lista.map(c => {
@@ -862,10 +897,20 @@ async function abrirNuevaOrden() {
     try {
         const r = await fetch(`${API}?action=proveedores`);
         _proveedores = await r.json();
-        document.getElementById('ocProveedor').innerHTML =
-            '<option value="">Seleccionar proveedor...</option>' +
-            _proveedores.map(p=>`<option value="${p.id}">${esc(p.razon_social)}${p.ruc?` (${p.ruc})`:''}</option>`).join('');
-    } catch { document.getElementById('ocProveedor').innerHTML = '<option value="">Error al cargar</option>'; }
+        if (!Array.isArray(_proveedores)) throw new Error('respuesta inesperada');
+        if (_proveedores.length === 0) {
+            document.getElementById('ocProveedor').innerHTML =
+                '<option value="">— Sin proveedores registrados —</option>';
+            toast('No hay proveedores. Ve a Almacén → Proveedores para agregar uno.', 'warn');
+        } else {
+            document.getElementById('ocProveedor').innerHTML =
+                '<option value="">Seleccionar proveedor...</option>' +
+                _proveedores.map(p=>`<option value="${p.id}">${esc(p.razon_social)}${p.ruc?` (${p.ruc})`:''}</option>`).join('');
+        }
+    } catch (e) {
+        document.getElementById('ocProveedor').innerHTML = '<option value="">Error al cargar proveedores</option>';
+        console.error('proveedores:', e);
+    }
 
     agregarFila();
     document.getElementById('modalOrdenOverlay').classList.add('active');
@@ -889,9 +934,10 @@ function agregarFila() {
             <input type="hidden" id="fp-${idx}">
         </td>
         <td><input type="text" id="fd-${idx}" placeholder="Descripción adicional"></td>
+        <td><input type="text" id="fum-${idx}" placeholder="unidad" style="text-align:center"></td>
         <td><input type="number" id="fq-${idx}" value="1" min="1" oninput="calcularFila(${idx})" style="text-align:center"></td>
         <td><input type="number" id="fu-${idx}" value="0" min="0" step="0.01" oninput="calcularFila(${idx})" style="text-align:right"></td>
-        <td style="text-align:right;font-weight:600;padding:6px 8px" id="fs-${idx}">S/ 0.00</td>
+        <td style="display:none" id="fs-${idx}">0</td>
         <td><button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();calcularTotales()"><i class="fas fa-trash"></i></button></td>
     `;
     document.getElementById('itemsBody').appendChild(tr);
@@ -900,15 +946,16 @@ function agregarFila() {
     const sel = tr.querySelector('select');
     fetch(`${API}?action=productos_buscar&q=`).then(r=>r.json()).then(lista=>{
         sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-            lista.map(p=>`<option value="${p.id}" data-pu="${p.precio_compra||0}" data-nombre="${esc(p.nombre)}">${esc(p.nombre)} (${esc(p.codigo)})</option>`).join('');
+            lista.map(p=>`<option value="${p.id}" data-pu="${p.precio_compra||0}" data-nombre="${esc(p.nombre)}" data-unidad="${esc(p.unidad||'')}">${esc(p.nombre)} (${esc(p.codigo)})</option>`).join('');
     }).catch(()=>{});
 }
 
 function selProducto(idx, sel) {
     const opt = sel.options[sel.selectedIndex];
     document.getElementById(`fp-${idx}`).value = sel.value;
-    if (sel.value && opt.dataset.pu) {
-        document.getElementById(`fu-${idx}`).value = parseFloat(opt.dataset.pu).toFixed(2);
+    if (sel.value) {
+        if (opt.dataset.pu) document.getElementById(`fu-${idx}`).value = parseFloat(opt.dataset.pu).toFixed(2);
+        if (opt.dataset.unidad) document.getElementById(`fum-${idx}`).value = opt.dataset.unidad;
     }
     calcularFila(idx);
 }
@@ -918,14 +965,14 @@ function calcularFila(idx) {
     const u = parseFloat(document.getElementById(`fu-${idx}`)?.value||0);
     const s = q * u;
     const el = document.getElementById(`fs-${idx}`);
-    if (el) el.textContent = 'S/ ' + s.toFixed(2);
+    if (el) el.textContent = s.toFixed(2);
     calcularTotales();
 }
 
 function calcularTotales() {
     let sub = 0;
     document.querySelectorAll('[id^="fs-"]').forEach(el => {
-        sub += parseFloat(el.textContent.replace('S/ ',''))||0;
+        sub += parseFloat(el.textContent) || 0;
     });
     const conIgv = document.getElementById('ocConIgv')?.checked;
     const igv    = conIgv ? sub * 0.18 : 0;
@@ -937,7 +984,9 @@ function calcularTotales() {
 
 document.getElementById('ocConIgv').addEventListener('change', calcularTotales);
 
-async function guardarOrden(estadoInicial) {
+let _ultimaOrden = null;
+
+async function guardarOrden(compartir = false) {
     const pid = document.getElementById('ocProveedor').value;
     if (!pid) { toast('Selecciona un proveedor','err'); return; }
 
@@ -946,13 +995,18 @@ async function guardarOrden(estadoInicial) {
         const idx   = tr.id.replace('fila-','');
         const pid_p = document.getElementById(`fp-${idx}`)?.value;
         const desc  = document.getElementById(`fd-${idx}`)?.value.trim();
+        const um    = document.getElementById(`fum-${idx}`)?.value.trim();
         const qty   = parseInt(document.getElementById(`fq-${idx}`)?.value||0);
         const pu    = parseFloat(document.getElementById(`fu-${idx}`)?.value||0);
         if ((pid_p || desc) && qty > 0 && pu >= 0) {
-            items.push({ producto_id: parseInt(pid_p||0)||null, descripcion: desc, cantidad: qty, precio_unitario: pu });
+            items.push({ producto_id: parseInt(pid_p||0)||null, descripcion: desc, unidad_medida: um, cantidad: qty, precio_unitario: pu });
         }
     });
     if (!items.length) { toast('Agrega al menos un ítem','err'); return; }
+
+    const btnReg  = document.getElementById('btnRegistrarOrden');
+    const btnComp = document.getElementById('btnRegistrarCompartir');
+    [btnReg, btnComp].forEach(b => b && (b.disabled = true));
 
     try {
         const r = await fetch(`${API}?action=orden_crear`, {
@@ -970,17 +1024,63 @@ async function guardarOrden(estadoInicial) {
         const d = await r.json();
         if (d.error) { toast(d.message,'err'); return; }
 
-        // Si la intención era enviar, cambiar estado a pendiente
-        if (estadoInicial === 'pendiente') {
-            await fetch(`${API}?action=orden_cambiar_estado`, {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({id: d.id, estado: 'pendiente'}),
-            });
-        }
-        toast('Orden creada correctamente');
+        _ultimaOrden = { id: d.id, numero: d.numero };
         cerrarModal('modalOrdenOverlay');
         cargarOrdenes(); cargarStats();
+
+        if (compartir) {
+            document.getElementById('compartirNumOrden').textContent = d.numero;
+            document.getElementById('modalCompartirOverlay').classList.add('active');
+        } else {
+            toast('Orden registrada correctamente');
+        }
     } catch { toast('Error de conexión','err'); }
+    finally { [btnReg, btnComp].forEach(b => b && (b.disabled = false)); }
+}
+
+function cerrarCompartir() {
+    document.getElementById('modalCompartirOverlay').classList.remove('active');
+}
+
+function abrirPDF() {
+    if (!_ultimaOrden) return;
+    window.open(`<?= $base_path ?>modules/compras/pdf.php?id=${_ultimaOrden.id}`, '_blank');
+}
+
+async function enviarWhatsApp() {
+    if (!_ultimaOrden) return;
+    try {
+        const r = await fetch(`${API}?action=orden_detalle&id=${_ultimaOrden.id}`);
+        const o = await r.json();
+        if (o.error) { toast(o.message, 'err'); return; }
+        const lineas = (o.items || []).map(it =>
+            `  • ${it.producto_nombre || it.descripcion || '—'} × ${it.cantidad}`
+        ).join('\n');
+        const texto = `*Orden de Compra: ${o.numero_orden || _ultimaOrden.numero}*\n`
+            + `Proveedor: ${o.proveedor || '—'}\n`
+            + `Tipo de pago: ${o.tipo_pago || '—'}\n\n`
+            + `*Productos:*\n${lineas}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    } catch { toast('No se pudo preparar el mensaje', 'err'); }
+}
+
+async function enviarCorreo() {
+    if (!_ultimaOrden) return;
+    try {
+        const r = await fetch(`${API}?action=orden_detalle&id=${_ultimaOrden.id}`);
+        const o = await r.json();
+        if (o.error) { toast(o.message, 'err'); return; }
+        const lineas = (o.items || []).map(it =>
+            `  - ${it.producto_nombre || it.descripcion || '—'}: ${it.cantidad} unidades`
+        ).join('\n');
+        const asunto = `Orden de Compra ${o.numero_orden || _ultimaOrden.numero}`;
+        const cuerpo = `Estimado(a) ${o.proveedor || 'proveedor'},\n\n`
+            + `Le hacemos llegar nuestra orden de compra N° ${o.numero_orden || _ultimaOrden.numero}:\n\n`
+            + `${lineas}\n\n`
+            + `Tipo de pago: ${o.tipo_pago || '—'}\n\n`
+            + `Quedo a su disposición para cualquier consulta.\n\nSaludos.`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+    } catch { toast('No se pudo preparar el correo', 'err'); }
 }
 
 // ----------------------------------------------------------------
@@ -1018,7 +1118,15 @@ async function cargarCuentasCobrar() {
             return;
         }
         if (!lista.length) {
-            tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><i class="fas fa-check-circle" style="color:#16a34a"></i>No hay cuentas por cobrar</div></td></tr>';
+            tbody.innerHTML = _filtroCobrar
+                ? `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron cuentas con ese filtro</div></td></tr>`
+                : `<tr><td colspan="9">
+                    <div class="empty-state">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <div>No hay cuentas por cobrar registradas</div>
+                        <a onclick="abrirNuevaCuentaCobrar()" style="font-size:inherit;color:var(--primary);text-decoration:underline;cursor:pointer">Nueva cuenta por cobrar</a>
+                    </div>
+                   </td></tr>`;
             return;
         }
         const hoy = new Date().toISOString().split('T')[0];
@@ -1187,5 +1295,33 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 cargarStats();
 cargarOrdenes();
 </script>
+
+<!-- Modal compartir orden -->
+<div class="modal-overlay" id="modalCompartirOverlay" onclick="if(event.target===this)cerrarCompartir()">
+<div class="modal" style="max-width:420px">
+    <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-share-alt"></i> Compartir orden</h3>
+        <button class="modal-close" onclick="cerrarCompartir()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:28px 24px;text-align:center">
+        <p style="color:var(--text-muted);margin-bottom:6px;font-size:.85rem">Orden registrada</p>
+        <p style="font-size:1.3rem;font-weight:700;color:var(--primary);margin-bottom:24px" id="compartirNumOrden"></p>
+        <div style="display:flex;flex-direction:column;gap:12px">
+            <button class="btn btn-primary" style="justify-content:center;gap:10px;font-size:.95rem" onclick="abrirPDF()">
+                <i class="fas fa-file-pdf"></i> Ver / Imprimir PDF
+            </button>
+            <button class="btn btn-primary" style="justify-content:center;gap:10px;font-size:.95rem;background:#25d366" onclick="enviarWhatsApp()">
+                <i class="fab fa-whatsapp"></i> Enviar por WhatsApp
+            </button>
+            <button class="btn btn-primary" style="justify-content:center;gap:10px;font-size:.95rem;background:#6366f1" onclick="enviarCorreo()">
+                <i class="fas fa-envelope"></i> Enviar por correo
+            </button>
+        </div>
+    </div>
+    <div class="modal-footer" style="justify-content:center">
+        <button class="btn btn-secondary" onclick="cerrarCompartir()">Cerrar</button>
+    </div>
+</div>
+</div>
 
 <?php require_once '../../includes/footer.php'; ?>

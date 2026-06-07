@@ -64,6 +64,64 @@ input, select, textarea { font-family: var(--font); }
     overflow: hidden;
 }
 .sidebar.collapsed { width: 64px; }
+
+/* ── SIDEBAR COLLAPSED: icon-only (desktop) ── */
+.sidebar.collapsed .sidebar-brand     { justify-content: center; padding: 18px 8px; }
+.sidebar.collapsed .brand-text,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-item > span,
+.sidebar.collapsed .nav-item .badge-soon,
+.sidebar.collapsed .nav-sub            { display: none !important; }
+.sidebar.collapsed .nav-item           { justify-content: center; padding: 10px 8px; }
+.sidebar.collapsed .nav-item i         { width: auto; font-size: 1rem; }
+.sidebar.collapsed .sidebar-footer     { padding: 10px 4px; }
+.sidebar.collapsed .sidebar-footer .user-info { justify-content: center; }
+.sidebar.collapsed .sidebar-footer .user-info > *:not(.user-avatar) { display: none; }
+
+/* Tooltip en collapsed */
+.sidebar.collapsed .nav-item[data-tooltip] { position: relative; }
+.sidebar.collapsed .nav-item[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%; transform: translateY(-50%);
+    background: #1e293b; color: #fff;
+    padding: 5px 11px; border-radius: 6px;
+    font-size: .78rem; font-weight: 500;
+    white-space: nowrap; z-index: 400;
+    box-shadow: 0 4px 14px rgba(0,0,0,.22);
+    pointer-events: none;
+}
+.sidebar.collapsed .nav-item[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: #1e293b;
+    z-index: 400; pointer-events: none;
+}
+
+/* ── OVERLAY (backdrop cuando sidebar se expande en móvil) ── */
+.sidebar-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 199; cursor: pointer;
+}
+.sidebar-overlay.active { display: block; }
+
+/* ── MOBILE (≤ 768 px) ── */
+@media (max-width: 768px) {
+    /* Sidebar colapsado (64 px) es el estado base en móvil */
+    .main-content { margin-left: 64px !important; }
+    .topbar       { left: 64px !important; }
+
+    /* Cuando se expande en móvil, el sidebar flota sobre el contenido */
+    .sidebar:not(.collapsed) {
+        z-index: 300;
+        box-shadow: 8px 0 32px rgba(0,0,0,.2);
+    }
+}
 .sidebar-brand {
     display: flex; align-items: center; gap: 12px;
     padding: 18px 16px; border-bottom: 1px solid var(--border);
@@ -280,6 +338,10 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-close:hover { background: var(--surface-2); color: var(--text); }
 .modal-body   { padding: 22px; }
 .modal-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+/* EMPTY STATE */
+.empty-state { padding: 56px 20px; text-align: center; color: var(--text-muted); }
+.empty-state i { font-size: 2.4rem; display: block; margin-bottom: 12px; }
 
 /* TOAST */
 .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 900; display: flex; flex-direction: column; gap: 8px; }

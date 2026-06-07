@@ -11,13 +11,12 @@ function listarTiposDocumento(PDO $db): array
     $stmt = $db->query("
         SELECT id, codigo, descripcion, descripcion_documento
         FROM public.fe_tipos_documento_identidad
-        WHERE estado = TRUE
+        WHERE estado = TRUE AND codigo IN ('1', '6', '0')
         ORDER BY CASE codigo
             WHEN '1' THEN 0
             WHEN '6' THEN 1
-            WHEN '4' THEN 2
             ELSE 99
-        END, descripcion
+        END
     ");
 
     return $stmt->fetchAll();

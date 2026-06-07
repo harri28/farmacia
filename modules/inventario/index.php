@@ -646,12 +646,18 @@ function loadProductos() {
             if (!Array.isArray(data)) throw new Error('unexpected');
             document.getElementById('result-count').textContent = data.length + ' producto(s)';
             if (!data.length) {
-                const hayFiltros = params.get('q') || params.get('categoria_id') || (params.get('stock_status') && params.get('stock_status') !== '');
-                const msg = hayFiltros
-                    ? '<i class="fas fa-search" style="font-size:1.3rem"></i><br><br>No se encontraron productos con esos filtros'
-                    : '<i class="fas fa-box-open" style="font-size:1.8rem;color:var(--text-light)"></i><br><br><strong style="color:var(--text)">Aún no has agregado productos</strong><br><span style="font-size:.85rem">Haz clic en <b>Nuevo Producto</b> para comenzar</span>';
-                document.getElementById('tabla-body').innerHTML =
-                    `<tr><td colspan="12" style="text-align:center;padding:48px;color:var(--text-muted)">${msg}</td></tr>`;
+                const hayFiltros = params.get('q') ||
+                    (params.get('categoria_id') && params.get('categoria_id') !== '0') ||
+                    (params.get('stock_status') && params.get('stock_status') !== '');
+                document.getElementById('tabla-body').innerHTML = hayFiltros
+                    ? `<tr><td colspan="12"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron productos con esos filtros</div></td></tr>`
+                    : `<tr><td colspan="12">
+                        <div class="empty-state">
+                            <i class="fas fa-box-open"></i>
+                            <div>No hay productos registrados</div>
+                            <a onclick="openProductoModal()" style="font-size:inherit;color:var(--primary);text-decoration:underline;cursor:pointer">Agregar productos</a>
+                        </div>
+                       </td></tr>`;
                 return;
             }
 

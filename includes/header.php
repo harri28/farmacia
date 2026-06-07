@@ -29,7 +29,7 @@ $_brand_logo_abs = $_brand_logo
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="<?= $base_path ?? '' ?>assets/css/style.css">
+    <link rel="stylesheet" href="<?= $base_path ?? '' ?>assets/css/style.css?v=<?= filemtime(($_SERVER['DOCUMENT_ROOT'] ?? '') . '/farmacia/assets/css/style.css') ?>">
     <script src="<?= $base_path ?? '' ?>assets/js/barcode-scanner.js"></script>
     <style>
         /* Rol badge en sidebar */
@@ -92,42 +92,48 @@ $_brand_logo_abs = $_brand_logo
 
             <!-- Dashboard -->
             <a href="<?= $base_path ?? '' ?>modules/dashboard/index.php"
-               class="nav-item <?= $current_module === 'dashboard' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'dashboard' ? 'active' : '' ?>"
+               data-tooltip="Dashboard">
                 <i class="fas fa-chart-line"></i>
                 <span>Dashboard</span>
             </a>
 
             <!-- Ventas -->
             <a href="<?= $base_path ?? '' ?>modules/ventas/index.php"
-               class="nav-item <?= $current_module === 'ventas' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'ventas' ? 'active' : '' ?>"
+               data-tooltip="Ventas">
                 <i class="fas fa-cash-register"></i>
                 <span>Ventas</span>
             </a>
 
             <!-- Caja -->
             <a href="<?= $base_path ?? '' ?>modules/caja/index.php"
-               class="nav-item <?= $current_module === 'caja' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'caja' ? 'active' : '' ?>"
+               data-tooltip="Caja">
                 <i class="fas fa-cash-register"></i>
                 <span>Caja</span>
             </a>
 
             <!-- Clientes -->
             <a href="<?= $base_path ?? '' ?>modules/clientes/index.php"
-               class="nav-item <?= $current_module === 'clientes' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'clientes' ? 'active' : '' ?>"
+               data-tooltip="Clientes">
                 <i class="fas fa-users"></i>
                 <span>Clientes</span>
             </a>
 
             <!-- Inventario -->
             <a href="<?= $base_path ?? '' ?>modules/inventario/index.php"
-               class="nav-item <?= $current_module === 'inventario' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'inventario' ? 'active' : '' ?>"
+               data-tooltip="Inventario">
                 <i class="fas fa-boxes"></i>
                 <span>Inventario</span>
             </a>
 
             <!-- Almacén -->
             <div class="nav-group">
-                <a href="<?= $base_path ?? '' ?>modules/almacen/index.php" class="nav-item">
+                <a href="<?= $base_path ?? '' ?>modules/almacen/index.php" class="nav-item"
+                   data-tooltip="Almacén">
                     <i class="fas fa-warehouse"></i>
                     <span>Almacén</span>
                 </a>
@@ -144,20 +150,23 @@ $_brand_logo_abs = $_brand_logo
             </div>
 
             <a href="<?= $base_path ?? '' ?>modules/compras/index.php"
-               class="nav-item <?= ($current_module ?? '') === 'compras' ? 'active' : '' ?>">
+               class="nav-item <?= ($current_module ?? '') === 'compras' ? 'active' : '' ?>"
+               data-tooltip="Compras">
                 <i class="fas fa-shopping-cart"></i>
                 <span>Compras</span>
             </a>
 
             <a href="<?= $base_path ?? '' ?>modules/traslados/index.php"
-               class="nav-item <?= ($current_module ?? '') === 'traslados' ? 'active' : '' ?>">
+               class="nav-item <?= ($current_module ?? '') === 'traslados' ? 'active' : '' ?>"
+               data-tooltip="Traslados">
                 <i class="fas fa-exchange-alt"></i>
                 <span>Traslados</span>
             </a>
 
             <!-- Facturación -->
             <div class="nav-group">
-                <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php" class="nav-item">
+                <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php" class="nav-item"
+                   data-tooltip="Facturación">
                     <i class="fas fa-file-invoice"></i>
                     <span>Facturación</span>
                 </a>
@@ -181,13 +190,15 @@ $_brand_logo_abs = $_brand_logo
             <span class="nav-label" style="margin-top:12px">SISTEMA</span>
 
             <a href="<?= $base_path ?? '' ?>modules/admin/index.php"
-               class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>"
+               data-tooltip="Administración">
                 <i class="fas fa-cogs"></i>
                 <span>Administración</span>
             </a>
 
             <a href="<?= $base_path ?? '' ?>modules/ecommerce/index.php"
-               class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>">
+               class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>"
+               data-tooltip="E-commerce">
                 <i class="fas fa-store"></i>
                 <span>E-commerce</span>
             </a>
@@ -222,6 +233,9 @@ $_brand_logo_abs = $_brand_logo
         </div>
     </div>
 </aside>
+
+<!-- Overlay para cerrar sidebar en móvil -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 
 <!-- TOPBAR -->
 <div class="topbar">
