@@ -90,45 +90,42 @@ $_brand_logo_abs = $_brand_logo
         <div class="nav-section">
             <span class="nav-label">PRINCIPAL</span>
 
-            <?php if (isAdmin()): ?>
-            <!-- Dashboard: solo admin -->
+            <!-- Dashboard -->
             <a href="<?= $base_path ?? '' ?>modules/dashboard/index.php"
                class="nav-item <?= $current_module === 'dashboard' ? 'active' : '' ?>">
                 <i class="fas fa-chart-line"></i>
                 <span>Dashboard</span>
             </a>
-            <?php endif; ?>
 
-            <!-- Ventas: admin + cajero -->
+            <!-- Ventas -->
             <a href="<?= $base_path ?? '' ?>modules/ventas/index.php"
                class="nav-item <?= $current_module === 'ventas' ? 'active' : '' ?>">
                 <i class="fas fa-cash-register"></i>
                 <span>Ventas</span>
             </a>
 
-            <!-- Caja: admin + cajero -->
+            <!-- Caja -->
             <a href="<?= $base_path ?? '' ?>modules/caja/index.php"
                class="nav-item <?= $current_module === 'caja' ? 'active' : '' ?>">
                 <i class="fas fa-cash-register"></i>
                 <span>Caja</span>
             </a>
 
-            <?php if (isAdmin()): ?>
-            <!-- Clientes: solo admin -->
+            <!-- Clientes -->
             <a href="<?= $base_path ?? '' ?>modules/clientes/index.php"
                class="nav-item <?= $current_module === 'clientes' ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
                 <span>Clientes</span>
             </a>
 
-            <!-- Inventario: solo admin -->
+            <!-- Inventario -->
             <a href="<?= $base_path ?? '' ?>modules/inventario/index.php"
                class="nav-item <?= $current_module === 'inventario' ? 'active' : '' ?>">
                 <i class="fas fa-boxes"></i>
                 <span>Inventario</span>
             </a>
 
-            <!-- Almacén: solo admin -->
+            <!-- Almacén -->
             <div class="nav-group">
                 <a href="<?= $base_path ?? '' ?>modules/almacen/index.php" class="nav-item">
                     <i class="fas fa-warehouse"></i>
@@ -158,7 +155,7 @@ $_brand_logo_abs = $_brand_logo
                 <span>Traslados</span>
             </a>
 
-            <!-- Facturación: solo admin -->
+            <!-- Facturación -->
             <div class="nav-group">
                 <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php" class="nav-item">
                     <i class="fas fa-file-invoice"></i>
@@ -180,23 +177,20 @@ $_brand_logo_abs = $_brand_logo
                 </div>
             </div>
 
-            <?php if (isGerente()): ?>
+            <?php if (isAdmin()): ?>
             <span class="nav-label" style="margin-top:12px">SISTEMA</span>
 
-            <!-- E-commerce: solo gerente (Superadmin) -->
-            <a href="<?= $base_path ?? '' ?>modules/ecommerce/index.php"
-               class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>">
-                <i class="fas fa-store"></i>
-                <span>E-commerce</span>
-            </a>
-
-            <!-- Admin: solo gerente (Superadmin) -->
             <a href="<?= $base_path ?? '' ?>modules/admin/index.php"
                class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>">
                 <i class="fas fa-cogs"></i>
                 <span>Administración</span>
             </a>
-            <?php endif; ?>
+
+            <a href="<?= $base_path ?? '' ?>modules/ecommerce/index.php"
+               class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>">
+                <i class="fas fa-store"></i>
+                <span>E-commerce</span>
+            </a>
             <?php endif; ?>
         </div>
     </nav>
@@ -247,3 +241,19 @@ $_brand_logo_abs = $_brand_logo
 
 <!-- MAIN CONTENT -->
 <main class="main-content" id="main-content">
+<?php
+if (isCajero()) {
+    try {
+        $_caja_row = getDB()->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1")->fetch();
+        if (!$_caja_row):
+?>
+<div style="background:#fef3c7;border-bottom:2px solid #f59e0b;padding:10px 24px;display:flex;align-items:center;gap:10px;font-size:.88rem;color:#92400e">
+    <i class="fas fa-exclamation-triangle" style="color:#d97706"></i>
+    <strong>Caja no aperturada.</strong>
+    <span>Debes <a href="<?= ($base_path ?? '') ?>modules/caja/index.php" style="color:#d97706;font-weight:600;text-decoration:underline">aperturar la caja</a> antes de registrar ventas.</span>
+</div>
+<?php
+        endif;
+    } catch (Throwable $e) {}
+}
+?>

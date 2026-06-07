@@ -6,13 +6,7 @@
 
 require_once '../../config/database.php';
 
-// Cajeros no tienen acceso al dashboard → redirigir al POS
-if (isCajero()) {
-    header('Location: ../../modules/ventas/index.php');
-    exit;
-}
-
-$required_roles = ['admin', 'gerente'];
+$required_roles = ['admin', 'gerente', 'cajero'];
 $base_path      = '../../';
 $current_module = 'dashboard';
 $current_page   = 'inicio';

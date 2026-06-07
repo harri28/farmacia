@@ -7,7 +7,7 @@
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin', 'gerente'];
+$required_roles = ['admin', 'gerente', 'cajero'];
 $current_module = 'inventario';
 $current_page   = 'inventario';
 $page_title     = 'Inventario — FarmaSystem';
@@ -206,37 +206,55 @@ include '../../includes/header.php';
                         <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
                     </div>
                     <div class="form-group" style="flex:1.6">
-                        <label class="form-label">Unidad comercial <span style="color:var(--danger)">*</span></label>
-                        <input type="text" id="p-unidad" class="form-control"
-                               list="unidades-list" placeholder="Ej: unidad, caja x 10, frasco 100ml"
-                               autocomplete="off">
-                        <datalist id="unidades-list">
-                            <option value="unidad">
-                            <option value="caja">
-                            <option value="caja x 10">
-                            <option value="caja x 20">
-                            <option value="caja x 30">
-                            <option value="caja x 100">
-                            <option value="blíster x 10">
-                            <option value="blíster x 14">
-                            <option value="blíster x 20">
-                            <option value="blíster x 30">
-                            <option value="paquete">
-                            <option value="frasco">
-                            <option value="frasco 60ml">
-                            <option value="frasco 100ml">
-                            <option value="frasco 120ml">
-                            <option value="frasco 250ml">
-                            <option value="ampolla">
-                            <option value="sobre">
-                            <option value="sachet">
-                            <option value="tubo">
-                            <option value="parche">
-                            <option value="kilogramo">
-                            <option value="gramo">
-                            <option value="litro">
-                            <option value="mililitro">
-                        </datalist>
+                        <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                            <span>Unidad de medida <span style="color:var(--danger)">*</span></span>
+                            <button type="button" onclick="toggleNuevaUnidad()"
+                                    style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                <i class="fas fa-plus-circle"></i> Nueva
+                            </button>
+                        </label>
+                        <select id="p-unidad" class="form-control">
+                            <option value="unidad">unidad</option>
+                            <option value="caja">caja</option>
+                            <option value="caja x 10">caja x 10</option>
+                            <option value="caja x 20">caja x 20</option>
+                            <option value="caja x 30">caja x 30</option>
+                            <option value="caja x 100">caja x 100</option>
+                            <option value="blíster x 10">blíster x 10</option>
+                            <option value="blíster x 14">blíster x 14</option>
+                            <option value="blíster x 20">blíster x 20</option>
+                            <option value="blíster x 30">blíster x 30</option>
+                            <option value="paquete">paquete</option>
+                            <option value="frasco">frasco</option>
+                            <option value="frasco 60ml">frasco 60ml</option>
+                            <option value="frasco 100ml">frasco 100ml</option>
+                            <option value="frasco 120ml">frasco 120ml</option>
+                            <option value="frasco 250ml">frasco 250ml</option>
+                            <option value="ampolla">ampolla</option>
+                            <option value="sobre">sobre</option>
+                            <option value="sachet">sachet</option>
+                            <option value="tubo">tubo</option>
+                            <option value="parche">parche</option>
+                            <option value="kilogramo">kilogramo</option>
+                            <option value="gramo">gramo</option>
+                            <option value="litro">litro</option>
+                            <option value="mililitro">mililitro</option>
+                        </select>
+                        <div id="nueva-unidad-form" style="display:none;margin-top:8px">
+                            <div style="display:flex;gap:6px">
+                                <input type="text" id="nueva-unidad-nombre" class="form-control"
+                                       placeholder="Ej: blíster x 28"
+                                       style="flex:1;font-size:.85rem"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault();guardarNuevaUnidad();}
+                                                  if(event.key==='Escape'){toggleNuevaUnidad();}">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="guardarNuevaUnidad()" title="Agregar">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaUnidad()" title="Cancelar">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" style="flex:1">
                         <label class="form-label">Stock Mínimo</label>
@@ -488,6 +506,7 @@ async function loadFacturacionCatalogos() {
     ).join('');
     unidadSel.dataset.ready = '1';
     initUnidadSunatSelect();
+    initUnidadComercialSelect();
 
     const afectacionSel = document.getElementById('p-afectacion-igv-codigo');
     afectacionSel.innerHTML = data.afectaciones_igv.map(item =>
@@ -516,6 +535,28 @@ function initUnidadSunatSelect() {
         placeholder: 'Selecciona unidad SUNAT',
         language: {
             noResults: () => 'Sin resultados',
+            searching: () => 'Buscando...'
+        }
+    });
+}
+
+function initUnidadComercialSelect() {
+    if (typeof window.jQuery === 'undefined' || typeof window.jQuery.fn.select2 === 'undefined') {
+        return;
+    }
+
+    const $select = window.jQuery('#p-unidad');
+    if ($select.data('select2')) {
+        $select.select2('destroy');
+    }
+
+    $select.select2({
+        width: '100%',
+        tags: true,
+        dropdownParent: window.jQuery('#modal-producto .modal-body'),
+        placeholder: 'Selecciona o escribe una unidad',
+        language: {
+            noResults: () => 'Escribe para crear una unidad personalizada',
             searching: () => 'Buscando...'
         }
     });
@@ -602,10 +643,15 @@ function loadProductos() {
     fetch(BASE + 'modules/inventario/api.php?' + params)
         .then(r => r.json())
         .then(data => {
+            if (!Array.isArray(data)) throw new Error('unexpected');
             document.getElementById('result-count').textContent = data.length + ' producto(s)';
             if (!data.length) {
+                const hayFiltros = params.get('q') || params.get('categoria_id') || (params.get('stock_status') && params.get('stock_status') !== '');
+                const msg = hayFiltros
+                    ? '<i class="fas fa-search" style="font-size:1.3rem"></i><br><br>No se encontraron productos con esos filtros'
+                    : '<i class="fas fa-box-open" style="font-size:1.8rem;color:var(--text-light)"></i><br><br><strong style="color:var(--text)">Aún no has agregado productos</strong><br><span style="font-size:.85rem">Haz clic en <b>Nuevo Producto</b> para comenzar</span>';
                 document.getElementById('tabla-body').innerHTML =
-                    '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-box-open" style="font-size:1.3rem"></i><br><br>No se encontraron productos</td></tr>';
+                    `<tr><td colspan="12" style="text-align:center;padding:48px;color:var(--text-muted)">${msg}</td></tr>`;
                 return;
             }
 
@@ -673,7 +719,10 @@ function loadProductos() {
                 </tr>`;
             }).join('');
         })
-        .catch(() => showToast('Error al cargar productos', 'error'));
+        .catch(() => {
+            document.getElementById('tabla-body').innerHTML =
+                '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-exclamation-circle" style="font-size:1.3rem;color:var(--danger)"></i><br><br>Error al cargar los productos. Intenta recargar la página.</td></tr>';
+        });
 }
 
 // ---- Búsqueda con debounce ----
@@ -723,7 +772,16 @@ function openProductoModal(producto = null) {
     document.getElementById('p-precio-venta').value  = producto ? parseFloat(producto.precio_venta).toFixed(2)  : '';
     document.getElementById('p-stock').value         = producto?.stock         ?? '';
     document.getElementById('p-stock-minimo').value  = producto?.stock_minimo  ?? '5';
-    document.getElementById('p-unidad').value        = producto?.unidad        ?? 'unidad';
+    const unidadVal = producto?.unidad ?? 'unidad';
+    if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
+        const $unidadSel = window.jQuery('#p-unidad');
+        if ($unidadSel.find(`option[value="${CSS.escape ? unidadVal : unidadVal}"]`).length === 0) {
+            $unidadSel.append(new Option(unidadVal, unidadVal, true, true));
+        }
+        $unidadSel.val(unidadVal).trigger('change.select2');
+    } else {
+        document.getElementById('p-unidad').value = unidadVal;
+    }
     document.getElementById('p-unidad-codigo').value = producto?.unidad_codigo ?? 'NIU';
     document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '10';
     document.getElementById('p-porcentaje-igv').value = producto ? parseFloat(producto.porcentaje_igv || 18).toFixed(2) : '18.00';
@@ -742,6 +800,7 @@ function openProductoModal(producto = null) {
 
     if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
         window.jQuery('#p-unidad-codigo').trigger('change.select2');
+        window.jQuery('#p-unidad').trigger('change.select2');
     }
 
     openModal('modal-producto');
@@ -1019,6 +1078,36 @@ function actualizarSelectoresCategorias() {
     selFiltro.innerHTML = '<option value="0">Todas</option>';
     categorias.forEach(c => selFiltro.add(new Option(c.nombre, c.id)));
     selFiltro.value = valFiltro;
+}
+
+// ---- Nueva unidad de medida inline ----
+function toggleNuevaUnidad() {
+    const form = document.getElementById('nueva-unidad-form');
+    const visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'flex';
+    form.style.flexDirection = 'column';
+    if (!visible) {
+        document.getElementById('nueva-unidad-nombre').value = '';
+        document.getElementById('nueva-unidad-nombre').focus();
+    }
+}
+
+function guardarNuevaUnidad() {
+    const nombre = document.getElementById('nueva-unidad-nombre').value.trim();
+    if (!nombre) { showToast('Escribe el nombre de la unidad', 'error'); return; }
+
+    if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
+        const $sel = window.jQuery('#p-unidad');
+        if ($sel.find(`option[value="${nombre}"]`).length === 0) {
+            $sel.append(new Option(nombre, nombre, true, true));
+        }
+        $sel.val(nombre).trigger('change.select2');
+    } else {
+        document.getElementById('p-unidad').value = nombre;
+    }
+
+    toggleNuevaUnidad();
+    showToast(`Unidad "${nombre}" agregada`, 'success');
 }
 
 // ---- Nueva categoría inline ----

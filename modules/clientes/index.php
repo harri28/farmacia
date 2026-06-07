@@ -2,7 +2,7 @@
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin', 'gerente'];
+$required_roles = ['admin', 'gerente', 'cajero'];
 $current_module = 'clientes';
 $current_page   = 'clientes';
 $page_title     = 'Clientes - FarmaSystem';

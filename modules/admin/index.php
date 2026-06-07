@@ -11,7 +11,7 @@ $current_module = 'admin';
 $current_page   = 'admin';
 $page_title     = 'Administración — FarmaSystem';
 $breadcrumb     = '<strong>Administración</strong>';
-$required_roles = ['gerente'];
+$required_roles = ['admin', 'gerente'];
 
 include '../../includes/header.php';
 ?>
@@ -35,6 +35,9 @@ include '../../includes/header.php';
     </button>
     <button class="tab-btn" id="tab-configuracion" onclick="switchTab('configuracion')">
         <i class="fas fa-paint-brush"></i> Configuración
+    </button>
+    <button class="tab-btn" id="tab-auditoria" onclick="switchTab('auditoria')">
+        <i class="fas fa-shield-alt"></i> Auditoría
     </button>
 </div>
 
@@ -93,7 +96,7 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody id="tbody-sucursales">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
             </table>
         </div>
@@ -551,6 +554,73 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ======================================================
+     TAB: AUDITORÍA
+     ====================================================== -->
+<div id="pane-auditoria" style="display:none">
+
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:16px">
+        <div style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="aud-desde" class="form-control">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="aud-hasta" class="form-control">
+            </div>
+            <div class="form-group" style="margin:0;flex:2;min-width:180px">
+                <label class="form-label">Buscar usuario o detalle</label>
+                <input type="text" id="aud-q" class="form-control" placeholder="Ej: juan, intento fallido...">
+            </div>
+            <div class="form-group" style="margin:0;flex:1.5;min-width:160px">
+                <label class="form-label">Tipo de evento</label>
+                <select id="aud-accion" class="form-control">
+                    <option value="">Todos</option>
+                    <option value="login">Inicio de sesión</option>
+                    <option value="logout">Cierre de sesión</option>
+                    <option value="login_fallido">Intento fallido</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="loadAuditoria()" style="margin-bottom:0">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-shield-alt" style="color:var(--primary);margin-right:8px"></i>Registro de actividad
+            </div>
+            <span id="aud-count" style="font-size:.82rem;color:var(--text-muted)"></span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Evento</th>
+                        <th>Módulo</th>
+                        <th>Detalle</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-auditoria">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                        Selecciona un rango de fechas y presiona Buscar
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <style>
@@ -583,12 +653,13 @@ let sucursalesList = [];
 
 // ---- Tabs ----
 function switchTab(tab) {
-    ['usuarios', 'sucursales', 'configuracion'].forEach(t => {
+    ['usuarios', 'sucursales', 'configuracion', 'auditoria'].forEach(t => {
         document.getElementById('pane-' + t).style.display = t === tab ? '' : 'none';
         document.getElementById('tab-' + t).classList.toggle('active', t === tab);
     });
     if (tab === 'sucursales')    loadSucursales();
     if (tab === 'configuracion') loadConfig();
+    if (tab === 'auditoria')     loadAuditoria();
 }
 
 function switchConfigSubtab(tab) {
@@ -607,7 +678,7 @@ function loadUsuarios() {
     fetch(BASE + 'modules/admin/api.php?action=usuarios_listar')
         .then(r => r.json())
         .then(data => {
-            if (!data.length) {
+            if (data.error || !Array.isArray(data) || !data.length) {
                 document.getElementById('tbody-usuarios').innerHTML =
                     '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-users"></i><br><br>No hay usuarios registrados</td></tr>';
                 return;
@@ -767,6 +838,11 @@ function loadSucursales() {
     fetch(BASE + 'modules/admin/api.php?action=sucursales_listar')
         .then(r => r.json())
         .then(data => {
+            if (data.error || !Array.isArray(data)) {
+                document.getElementById('tbody-sucursales').innerHTML =
+                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-store"></i><br><br>No hay sucursales registradas</td></tr>';
+                return;
+            }
             sucursalesList = data;
             // Actualizar select de nuevo usuario también
             const selU = document.getElementById('u-sucursal');
@@ -778,7 +854,7 @@ function loadSucursales() {
 
             if (!data.length) {
                 document.getElementById('tbody-sucursales').innerHTML =
-                    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-store"></i><br><br>No hay sucursales registradas</td></tr>';
+                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-store"></i><br><br>No hay sucursales registradas</td></tr>';
                 return;
             }
             document.getElementById('tbody-sucursales').innerHTML = data.map(s => `<tr>
@@ -798,7 +874,11 @@ function loadSucursales() {
                 </td>
             </tr>`).join('');
         })
-        .catch(() => showToast('Error al cargar sucursales', 'error'));
+        .catch(() => {
+            document.getElementById('tbody-sucursales').innerHTML =
+                '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-store"></i><br><br>No hay sucursales registradas</td></tr>';
+            showToast('Error al cargar sucursales', 'error');
+        });
 }
 
 function abrirModalSucursal() {
@@ -1152,6 +1232,68 @@ function eliminarLogo() {
 }
 
 // ================================================================
+// AUDITORÍA
+// ================================================================
+
+const ACCION_CFG = {
+    'login':         { label: 'Inicio de sesión', icon: 'sign-in-alt',        color: 'var(--success)' },
+    'logout':        { label: 'Cierre de sesión', icon: 'sign-out-alt',       color: 'var(--text-muted)' },
+    'login_fallido': { label: 'Intento fallido',  icon: 'exclamation-triangle', color: 'var(--danger)' },
+};
+
+function loadAuditoria() {
+    const params = new URLSearchParams({
+        action: 'auditoria_listar',
+        desde:  document.getElementById('aud-desde').value,
+        hasta:  document.getElementById('aud-hasta').value,
+        q:      document.getElementById('aud-q').value,
+        accion: document.getElementById('aud-accion').value,
+    });
+
+    document.getElementById('tbody-auditoria').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    document.getElementById('aud-count').textContent = '';
+
+    fetch(BASE + 'modules/admin/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error || !Array.isArray(data) || !data.length) {
+                document.getElementById('tbody-auditoria').innerHTML =
+                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-shield-alt" style="font-size:1.3rem"></i><br><br>No hay registros en este período</td></tr>';
+                return;
+            }
+            document.getElementById('aud-count').textContent = data.length + ' registro(s)';
+            document.getElementById('tbody-auditoria').innerHTML = data.map(r => {
+                const cfg = ACCION_CFG[r.accion] || { label: r.accion, icon: 'circle', color: 'var(--primary)' };
+                const fecha = new Date(r.created_at);
+                const fechaStr = fecha.toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
+                const horaStr  = fecha.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
+                return `<tr>
+                    <td style="font-size:.82rem;white-space:nowrap;color:var(--text-muted)">${fechaStr}</td>
+                    <td style="font-size:.82rem;white-space:nowrap;color:var(--text-muted)">${horaStr}</td>
+                    <td>
+                        <div style="font-weight:600;font-size:.88rem">${escH(r.nombre_usuario || r.username || '—')}</div>
+                        <div style="font-size:.75rem;color:var(--text-muted)">${escH(r.username || '')}</div>
+                    </td>
+                    <td>${r.rol ? `<span class="badge badge-rol-${escH(r.rol)}">${{admin:'Administrador',cajero:'Cajero',gerente:'Superadmin'}[r.rol] ?? escH(r.rol)}</span>` : '<span style="color:var(--text-light);font-size:.8rem">—</span>'}</td>
+                    <td>
+                        <span style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:${cfg.color}">
+                            <i class="fas fa-${cfg.icon}"></i> ${cfg.label}
+                        </span>
+                    </td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${escH(r.modulo || '—')}</td>
+                    <td style="font-size:.82rem">${escH(r.detalle || '—')}</td>
+                    <td style="font-family:monospace;font-size:.78rem;color:var(--text-light)">${escH(r.ip_address || '—')}</td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => {
+            document.getElementById('tbody-auditoria').innerHTML =
+                '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-shield-alt" style="font-size:1.3rem"></i><br><br>No hay registros en este período</td></tr>';
+        });
+}
+
+// ================================================================
 // HELPERS
 // ================================================================
 
@@ -1177,6 +1319,12 @@ function showToast(msg, type = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Fechas por defecto para auditoría: últimos 7 días
+    const hoy   = new Date();
+    const hace7 = new Date(hoy); hace7.setDate(hace7.getDate() - 7);
+    document.getElementById('aud-hasta').value = hoy.toISOString().split('T')[0];
+    document.getElementById('aud-desde').value = hace7.toISOString().split('T')[0];
+
     switchConfigSubtab('general');
     ['cfg-business-name', 'cfg-trade-name', 'cfg-ruc', 'cfg-direccion'].forEach(id => {
         const el = document.getElementById(id);

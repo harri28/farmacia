@@ -6,7 +6,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
-requireApiAuth(['admin', 'gerente']);
+requireApiAuth(['admin', 'gerente', 'cajero']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
@@ -168,6 +168,7 @@ switch ($action) {
         ]);
 
     case 'crear_categoria':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden gestionar categorías'], 403);
         $data   = json_decode(file_get_contents('php://input'), true);
         $nombre = trim($data['nombre'] ?? '');
         if (!$nombre) {
@@ -187,6 +188,7 @@ switch ($action) {
         break;
 
     case 'editar_categoria':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden gestionar categorías'], 403);
         $data   = json_decode(file_get_contents('php://input'), true);
         $id     = intval($data['id'] ?? 0);
         $nombre = trim($data['nombre'] ?? '');
@@ -206,6 +208,7 @@ switch ($action) {
         break;
 
     case 'eliminar_categoria':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden gestionar categorías'], 403);
         $data = json_decode(file_get_contents('php://input'), true);
         $id   = intval($data['id'] ?? 0);
         if (!$id) {
@@ -361,6 +364,7 @@ switch ($action) {
         jsonResponse(['error' => false, 'message' => 'Producto actualizado correctamente']);
 
     case 'ajustar_stock':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden ajustar stock manualmente'], 403);
         $data     = json_decode(file_get_contents('php://input'), true);
         $id       = intval($data['id'] ?? 0);
         $tipo     = $data['tipo'] ?? '';
@@ -390,6 +394,7 @@ switch ($action) {
         jsonResponse(['error' => false, 'message' => 'Stock ajustado correctamente', 'nuevo_stock' => $nuevo_stock]);
 
     case 'toggle_activo':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden activar o desactivar productos'], 403);
         $data = json_decode(file_get_contents('php://input'), true);
         $id   = intval($data['id'] ?? 0);
         if (!$id) {

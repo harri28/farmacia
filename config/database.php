@@ -50,6 +50,32 @@ function jsonResponse(array $data, int $code = 200): void
     exit;
 }
 
+function registrarAuditoria(string $accion, string $modulo = '', string $detalle = ''): void
+{
+    try {
+        $db = getDB();
+        $db->prepare("
+            INSERT INTO public.audit_log
+                (tenant_id, sucursal_id, usuario_id, username, nombre_usuario, rol, accion, modulo, detalle, ip_address)
+            VALUES
+                (:tid, :sid, :uid, :uname, :nombre, :rol, :accion, :modulo, :detalle, :ip)
+        ")->execute([
+            ':tid'    => $_SESSION['tenant_id']    ?? null,
+            ':sid'    => $_SESSION['sucursal_id']  ?? null,
+            ':uid'    => $_SESSION['usuario_id']   ?? null,
+            ':uname'  => $_SESSION['username']     ?? null,
+            ':nombre' => $_SESSION['nombre']       ?? null,
+            ':rol'    => $_SESSION['rol']          ?? null,
+            ':accion' => $accion,
+            ':modulo' => $modulo,
+            ':detalle'=> $detalle,
+            ':ip'     => $_SERVER['REMOTE_ADDR']   ?? null,
+        ]);
+    } catch (Throwable $e) {
+        // No interrumpir el flujo si falla el log
+    }
+}
+
 function formatMoney(float $amount): string
 {
     return 'S/ ' . number_format($amount, 2);

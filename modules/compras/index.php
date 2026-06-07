@@ -1,5 +1,5 @@
 <?php
-$required_roles  = ['admin', 'gerente'];
+$required_roles  = ['admin', 'gerente', 'cajero'];
 $base_path       = '../../';
 $current_module  = 'compras';
 $current_page    = 'compras';

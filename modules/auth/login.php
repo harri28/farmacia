@@ -99,6 +99,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
 
                     if (!$user || !password_verify($password, $user['password_hash'])) {
                         $error = 'Usuario o contraseña incorrectos.';
+                        try {
+                            $db->prepare("INSERT INTO public.audit_log
+                                (tenant_id, username, accion, modulo, detalle, ip_address)
+                                VALUES (:tid, :uname, 'login_fallido', 'auth', :detalle, :ip)")
+                               ->execute([
+                                   ':tid'    => $tenant_id ?: null,
+                                   ':uname'  => $username,
+                                   ':detalle'=> 'Credenciales incorrectas',
+                                   ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
+                               ]);
+                        } catch (Throwable $e) {}
                     } elseif ((int)$user['tenant_id'] !== $tenant_id) {
                         $error = 'No tienes acceso a esta empresa.';
                     } else {
@@ -128,6 +139,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
                             $_SESSION['sucursal_id']     = $sucursal_id;
                             $_SESSION['sucursal_nombre'] = $acceso['sucursal_nombre'];
                             $_SESSION['sucursal_schema'] = $acceso['schema_name'];
+                            try {
+                                $db->prepare("INSERT INTO public.audit_log
+                                    (tenant_id, sucursal_id, usuario_id, username, nombre_usuario, rol, accion, modulo, detalle, ip_address)
+                                    VALUES (:tid, :sid, :uid, :uname, :nombre, :rol, 'login', 'auth', :detalle, :ip)")
+                                   ->execute([
+                                       ':tid'    => $tenant_id,
+                                       ':sid'    => $sucursal_id,
+                                       ':uid'    => $user['id'],
+                                       ':uname'  => $user['username'],
+                                       ':nombre' => trim($user['nombre'] . ' ' . ($user['apellido'] ?? '')),
+                                       ':rol'    => $acceso['rol'],
+                                       ':detalle'=> 'Ingresó a ' . $acceso['sucursal_nombre'],
+                                       ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
+                                   ]);
+                            } catch (Throwable $e) {}
                             if (in_array($acceso['rol'], ['admin', 'gerente'], true)) {
                                 header('Location: ../dashboard/index.php');
                             } else {

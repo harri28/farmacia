@@ -12,16 +12,16 @@ requireApiAuth(['admin', 'gerente']);
 $action = $_GET['action'] ?? '';
 $db     = getDB();
 
-// Acciones exclusivas del rol gerente (Superadmin)
-$gerente_only = [
+// Acciones exclusivas del rol admin
+$admin_only = [
     'usuarios_listar', 'usuario_crear', 'usuario_actualizar',
     'usuario_cambiar_password', 'usuario_toggle_activo',
     'asignar_acceso', 'revocar_acceso',
     'sucursales_listar', 'sucursal_crear', 'sucursal_actualizar', 'sucursal_toggle_activo',
     'config_guardar', 'logo_subir', 'logo_eliminar', 'certificate_subir',
 ];
-if (in_array($action, $gerente_only, true) && !isGerente()) {
-    jsonResponse(['error' => true, 'message' => 'Solo el Superadmin puede realizar esta acción'], 403);
+if (in_array($action, $admin_only, true) && !isAdmin()) {
+    jsonResponse(['error' => true, 'message' => 'No tienes permiso para realizar esta acción'], 403);
 }
 
 switch ($action) {
@@ -672,6 +672,42 @@ switch ($action) {
             WHERE tenant_id = :tid
         ")->execute([':tid' => $tid]);
         jsonResponse(['error' => false, 'message' => 'Logo eliminado']);
+
+    case 'auditoria_listar':
+        $desde  = $_GET['desde'] ?? date('Y-m-d', strtotime('-7 days'));
+        $hasta  = $_GET['hasta'] ?? date('Y-m-d');
+        $q      = trim($_GET['q']      ?? '');
+        $accion = trim($_GET['accion'] ?? '');
+        $tid    = sesionTenantId();
+
+        $where  = [
+            'al.tenant_id = :tid',
+            "al.created_at >= :desde::date",
+            "al.created_at <  (:hasta::date + INTERVAL '1 day')",
+        ];
+        $params = [':tid' => $tid, ':desde' => $desde, ':hasta' => $hasta];
+
+        if ($q !== '') {
+            $where[] = "(al.username ILIKE :q OR al.nombre_usuario ILIKE :q OR al.detalle ILIKE :q)";
+            $params[':q'] = "%{$q}%";
+        }
+        if ($accion !== '') {
+            $where[] = 'al.accion = :accion';
+            $params[':accion'] = $accion;
+        }
+
+        $stmt = $db->prepare("
+            SELECT al.id, al.usuario_id, al.username, al.nombre_usuario, al.rol,
+                   al.accion, al.modulo, al.detalle, al.ip_address,
+                   al.created_at AT TIME ZONE 'America/Lima' AS created_at
+            FROM public.audit_log al
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY al.created_at DESC
+            LIMIT 500
+        ");
+        $stmt->execute($params);
+        echo json_encode($stmt->fetchAll());
+        break;
 
     default:
         jsonResponse(['error' => true, 'message' => 'Acción no válida'], 404);

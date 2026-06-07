@@ -60,7 +60,12 @@
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U postgres -d farmacia -f \"C:\\\\xampp\\\\htdocs\\\\farmacia\\\\database\\\\migration_tenant_config.sql\" 2>&1)",
       "WebFetch(domain:www.electromania.pe)",
       "Bash(C:/xampp/pgsql/bin/psql.exe *)",
-      "Bash(PGPASSWORD=1234 /c/Program Files/PostgreSQL/17/bin/psql.exe *)"
+      "Bash(PGPASSWORD=1234 /c/Program Files/PostgreSQL/17/bin/psql.exe *)",
+      "Bash(git *)",
+      "Bash(GIT_EDITOR=true git *)",
+      "Bash(GIT_EDITOR=: git rebase --continue)",
+      "PowerShell($env:PGPASSWORD = \"1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U postgres -d farmacia -f \"C:\\\\xampp\\\\htdocs\\\\farmacia\\\\database\\\\migration_17_audit_log.sql\")",
+      "PowerShell($env:PGPASSWORD = \"1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U postgres -d farmacia -c \"ALTER TABLE public.audit_log ADD COLUMN IF NOT EXISTS rol VARCHAR\\(50\\) DEFAULT '';\")"
     ]
   }
 }

@@ -4,7 +4,7 @@ $current_module = 'ecommerce';
 $current_page   = 'config';
 $page_title     = 'Configuración E-commerce';
 $breadcrumb     = 'E-commerce / Configuración';
-$required_roles = ['gerente'];
+$required_roles = ['admin', 'gerente'];
 
 require_once $base_path . 'config/database.php';
 require_once $base_path . 'includes/header.php';
