@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // ARCHIVO: farmacia/modules/auth/login.php
-// Flujo: Empresa → Sucursal → Credenciales
+// Flujo: Sucursal → Credenciales
 //        (superadmin accede directamente con credenciales)
 // ============================================================
 
@@ -22,43 +22,64 @@ require_once __DIR__ . '/../../config/database.php';
 
 $error = '';
 
-// ---- Cargar datos para el selector (renderizado server-side) ----
+// ---- Cargar sucursales con nombre del tenant ----
 try {
     $db = getDB();
 
-    $tenants = $db->query("
-        SELECT id, nombre, slug FROM public.tenants WHERE activo = TRUE ORDER BY nombre ASC
-    ")->fetchAll();
-
     $sucursales_raw = $db->query("
-        SELECT id, tenant_id, nombre, direccion, telefono
-        FROM public.sucursales WHERE activo = TRUE ORDER BY nombre ASC
+        SELECT s.id, s.tenant_id, s.nombre, s.direccion, s.telefono,
+               t.nombre AS tenant_nombre, t.slug AS tenant_slug
+        FROM public.sucursales s
+        JOIN public.tenants t ON t.id = s.tenant_id
+        WHERE s.activo = TRUE AND t.activo = TRUE
+        ORDER BY t.nombre ASC, s.nombre ASC
     ")->fetchAll();
 
-    // Agrupar sucursales por tenant para filtrado en JS
-    $sucursales_por_tenant = [];
-    foreach ($sucursales_raw as $s) {
-        $sucursales_por_tenant[$s['tenant_id']][] = $s;
+    // Detectar tenant desde subdominio (ej: maryfarma.genpharma.cloud → slug "maryfarma")
+    $detected_tenant = null;
+    $subdomain_mode  = false;
+    $host = strtolower(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''));
+    $host_parts = explode('.', $host);
+    if (count($host_parts) >= 3 && $host_parts[0] !== 'www') {
+        $slug = $host_parts[0];
+        foreach ($sucursales_raw as $s) {
+            if (strtolower($s['tenant_slug']) === $slug) {
+                $detected_tenant = ['id' => $s['tenant_id'], 'nombre' => $s['tenant_nombre']];
+                $subdomain_mode  = true;
+                break;
+            }
+        }
+        if ($subdomain_mode) {
+            $sucursales_raw = array_values(array_filter(
+                $sucursales_raw, fn($s) => $s['tenant_id'] == $detected_tenant['id']
+            ));
+        }
     }
 
+    // ¿Hay sucursales de más de un tenant? (para mostrar nombre de empresa en cada card)
+    $tenant_ids   = array_unique(array_column($sucursales_raw, 'tenant_id'));
+    $multi_tenant = count($tenant_ids) > 1;
+
 } catch (Exception $e) {
-    $tenants = [];
-    $sucursales_por_tenant = [];
+    $sucursales_raw  = [];
+    $detected_tenant = null;
+    $subdomain_mode  = false;
+    $multi_tenant    = false;
     $error = 'No se pudo conectar con la base de datos.';
 }
 
 // ---- POST: Procesar login ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
 
-    $username  = trim($_POST['username'] ?? '');
-    $password  = $_POST['password'] ?? '';
+    $username    = trim($_POST['username'] ?? '');
+    $password    = $_POST['password'] ?? '';
     $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
     $tenant_id   = intval($_POST['tenant_id']   ?? 0);
 
     if (!$username || !$password) {
         $error = 'Ingresa usuario y contraseña.';
     } elseif (!$sucursal_id || !$tenant_id) {
-        $error = 'Selecciona una empresa y una sucursal.';
+        $error = 'Selecciona una sucursal.';
     } else {
         try {
             $stmt = $db->prepare("
@@ -191,7 +212,7 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         .step-title { font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:4px; }
         .step-sub   { font-size:.82rem;color:#64748b;margin-bottom:20px; }
 
-        /* Selector cards (tenants + branches) */
+        /* Sucursal cards */
         .sel-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;margin-bottom:4px; }
         .sel-card {
             border:2px solid #e2e8f0;border-radius:11px;padding:14px 12px;cursor:pointer;
@@ -200,7 +221,6 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         .sel-card:hover { border-color:#6366f1;background:#fafafe;transform:translateY(-1px); }
         .sel-card.selected { border-color:#6366f1;background:#eef2ff; }
         .sel-icon { width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.95rem;margin-bottom:9px; }
-        .sel-icon.tenant  { background:#eef2ff;color:#6366f1; }
         .sel-icon.branch  { background:#f0fdf4;color:#16a34a; }
         .sel-nombre  { font-size:.88rem;font-weight:700;color:#1e293b; }
         .sel-sub     { font-size:.73rem;color:#64748b;margin-top:3px;line-height:1.3; }
@@ -217,8 +237,6 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         .sel-badge .sel-badge-text { flex:1; }
         .sel-badge .sel-badge-nombre { font-size:.85rem;font-weight:600;color:#1e293b; }
         .sel-badge .sel-badge-sub    { font-size:.73rem;color:#64748b; }
-        .btn-cambiar { background:none;border:none;cursor:pointer;color:#6366f1;font-size:.75rem;font-weight:600;text-decoration:underline; }
-        .btn-cambiar:hover { color:#4f46e5; }
 
         /* Formulario */
         .form-group { margin-bottom:16px; }
@@ -236,18 +254,13 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         /* Alert */
         .alert { background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:9px;padding:10px 14px;font-size:.83rem;margin-bottom:16px;display:flex;align-items:center;gap:8px; }
 
-        /* Superadmin link */
-        .sa-link { text-align:center;margin-top:20px; }
-        .sa-link button { background:none;border:none;cursor:pointer;font-size:.75rem;color:#94a3b8;font-family:inherit; }
-        .sa-link button:hover { color:#475569; }
-
         /* Nav pills (back) */
         .back-btn { display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:.8rem;color:#64748b;font-family:inherit;margin-bottom:16px;padding:0; }
         .back-btn:hover { color:#1e293b; }
     </style>
 </head>
 <body>
-<div class="card <?= count($tenants) > 2 ? 'wide' : '' ?>" id="login-card">
+<div class="card <?= count($sucursales_raw) > 2 ? 'wide' : '' ?>" id="login-card">
 
     <div class="card-header">
         <div class="brand-icon"><i class="fas fa-pills"></i></div>
@@ -261,29 +274,35 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         <div class="alert" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d">
             <i class="fas fa-check-circle"></i> Contraseña actualizada correctamente. Ya puedes iniciar sesión.
         </div>
-        <?php elseif ($error && !$prev_tenant_id): ?>
+        <?php elseif ($error && !$prev_sucursal_id): ?>
         <div class="alert"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
         <!-- ============================================================
-             PASO 1: Selección de empresa (tenant)
+             PASO 1: Selección de sucursal
              ============================================================ -->
-        <div class="step <?= !$prev_tenant_id ? 'active' : '' ?>" id="step-tenant">
-            <div class="step-title">¿Con qué empresa vas a trabajar?</div>
-            <div class="step-sub">Selecciona tu empresa para continuar</div>
+        <div class="step <?= !$prev_sucursal_id ? 'active' : '' ?>" id="step-branch">
 
-            <?php if (empty($tenants)): ?>
+            <div class="step-title">Selecciona tu sucursal</div>
+            <div class="step-sub">Elige el local en el que trabajarás hoy</div>
+
+            <?php if (empty($sucursales_raw)): ?>
             <div class="empty-state">
-                <i class="fas fa-building" style="font-size:2rem;display:block;margin-bottom:10px"></i>
-                No hay empresas registradas.<br>Ejecuta el setup inicial del sistema.
+                <i class="fas fa-store-slash" style="font-size:2rem;display:block;margin-bottom:10px"></i>
+                No hay sucursales disponibles.<br>Contacta al administrador del sistema.
             </div>
             <?php else: ?>
-            <div class="sel-grid" id="grid-tenants">
-                <?php foreach ($tenants as $t): ?>
-                <div class="sel-card" onclick="selectTenant(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['nombre'])) ?>', '<?= htmlspecialchars(addslashes($t['slug'])) ?>')">
-                    <div class="sel-icon tenant"><i class="fas fa-building"></i></div>
-                    <div class="sel-nombre"><?= htmlspecialchars($t['nombre']) ?></div>
-                    <div class="sel-sub"><?= htmlspecialchars($t['slug']) ?></div>
+            <div class="sel-grid">
+                <?php foreach ($sucursales_raw as $s): ?>
+                <div class="sel-card <?= ((int)$s['id'] === $prev_sucursal_id) ? 'selected' : '' ?>"
+                     onclick="selectBranch(<?= $s['id'] ?>, <?= $s['tenant_id'] ?>, '<?= htmlspecialchars(addslashes($s['nombre'])) ?>', '<?= htmlspecialchars(addslashes($s['direccion'] ?? '')) ?>', '<?= htmlspecialchars(addslashes($s['tenant_nombre'])) ?>')">
+                    <div class="sel-icon branch"><i class="fas fa-store"></i></div>
+                    <div class="sel-nombre"><?= htmlspecialchars($s['nombre']) ?></div>
+                    <?php if ($multi_tenant): ?>
+                    <div class="sel-sub"><?= htmlspecialchars($s['tenant_nombre']) ?></div>
+                    <?php elseif ($s['direccion']): ?>
+                    <div class="sel-sub"><?= htmlspecialchars($s['direccion']) ?></div>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -292,39 +311,40 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         </div>
 
         <!-- ============================================================
-             PASO 2: Selección de sucursal
-             ============================================================ -->
-        <div class="step <?= ($prev_tenant_id && !$prev_sucursal_id) ? 'active' : '' ?>" id="step-branch">
-            <button type="button" class="back-btn" onclick="goTo('step-tenant')">
-                <i class="fas fa-arrow-left"></i> Cambiar empresa
-            </button>
-
-            <div class="sel-badge" id="badge-tenant">
-                <i class="fas fa-building"></i>
-                <div class="sel-badge-text">
-                    <div class="sel-badge-nombre" id="badge-tenant-nombre"></div>
-                    <div class="sel-badge-sub">Empresa seleccionada</div>
-                </div>
-            </div>
-
-            <div class="step-title">Selecciona tu sucursal</div>
-            <div class="step-sub">Elige el local en el que trabajarás hoy</div>
-            <div class="sel-grid" id="grid-branches"></div>
-        </div>
-
-        <!-- ============================================================
-             PASO 3: Credenciales
+             PASO 2: Credenciales
              ============================================================ -->
         <div class="step <?= $prev_sucursal_id ? 'active' : '' ?>" id="step-creds">
 
             <button type="button" class="back-btn" onclick="goTo('step-branch')">
                 <i class="fas fa-arrow-left"></i> Cambiar sucursal
             </button>
-            <div class="sel-badge" id="badge-branch">
+            <div class="sel-badge">
                 <i class="fas fa-store"></i>
                 <div class="sel-badge-text">
-                    <div class="sel-badge-nombre" id="badge-branch-nombre"></div>
-                    <div class="sel-badge-sub" id="badge-branch-sub"></div>
+                    <div class="sel-badge-nombre" id="badge-branch-nombre">
+                        <?php
+                        if ($prev_sucursal_id) {
+                            foreach ($sucursales_raw as $s) {
+                                if ((int)$s['id'] === $prev_sucursal_id) {
+                                    echo htmlspecialchars($s['nombre']);
+                                    break;
+                                }
+                            }
+                        }
+                        ?>
+                    </div>
+                    <div class="sel-badge-sub" id="badge-branch-sub">
+                        <?php
+                        if ($prev_sucursal_id) {
+                            foreach ($sucursales_raw as $s) {
+                                if ((int)$s['id'] === $prev_sucursal_id) {
+                                    echo htmlspecialchars($s['direccion'] ?: $s['tenant_nombre']);
+                                    break;
+                                }
+                            }
+                        }
+                        ?>
+                    </div>
                 </div>
             </div>
 
@@ -373,70 +393,19 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
 </div>
 
 <script>
-const card          = document.getElementById('login-card');
-const SUCURSALES    = <?= json_encode($sucursales_por_tenant) ?>;
-const HAS_MANY_TEN  = <?= count($tenants) > 2 ? 'true' : 'false' ?>;
-
-let selectedTenantId   = <?= $prev_tenant_id   ?: 'null' ?>;
-let selectedTenantName = '';
-let selectedBranchId   = <?= $prev_sucursal_id ?: 'null' ?>;
-let selectedBranchName = '';
-
-// ---- Repoblar badges si hay errores de vuelta ----
-<?php if ($prev_tenant_id): ?>
-(function(){
-    <?php foreach ($tenants as $t): if ((int)$t['id'] === $prev_tenant_id): ?>
-    selectedTenantName = '<?= htmlspecialchars(addslashes($t['nombre'])) ?>';
-    document.getElementById('badge-tenant-nombre').textContent = selectedTenantName;
-    renderBranches(<?= $prev_tenant_id ?>);
-    <?php endif; endforeach; ?>
-    <?php if ($prev_sucursal_id): ?>
-    <?php foreach ($sucursales_raw as $s): if ((int)$s['id'] === $prev_sucursal_id): ?>
-    selectedBranchName = '<?= htmlspecialchars(addslashes($s['nombre'])) ?>';
-    document.getElementById('badge-branch-nombre').textContent = selectedBranchName;
-    document.getElementById('badge-branch-sub').textContent    = '<?= htmlspecialchars(addslashes($s['direccion'] ?? '')) ?>';
-    <?php endif; endforeach; ?>
-    <?php endif; ?>
-})();
-<?php endif; ?>
+const card = document.getElementById('login-card');
 
 function goTo(stepId) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
     document.getElementById(stepId).classList.add('active');
-    card.classList.toggle('wide', stepId === 'step-tenant' && HAS_MANY_TEN);
     if (stepId === 'step-creds') setTimeout(() => document.getElementById('inp-username').focus(), 80);
 }
 
-function selectTenant(id, nombre, slug) {
-    selectedTenantId = id;
-    selectedTenantName = nombre;
-    document.getElementById('h-tenant-id').value = id;
-    document.getElementById('badge-tenant-nombre').textContent = nombre;
-    renderBranches(id);
-    goTo('step-branch');
-}
-
-function renderBranches(tenantId) {
-    const branches = SUCURSALES[tenantId] || [];
-    const grid = document.getElementById('grid-branches');
-    if (!branches.length) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-store-slash" style="font-size:1.5rem;display:block;margin-bottom:8px"></i>No hay sucursales disponibles para esta empresa.</div>';
-        return;
-    }
-    grid.innerHTML = branches.map(b => `
-        <div class="sel-card" onclick="selectBranch(${b.id},'${esc(b.nombre)}','${esc(b.direccion||'')}')">
-            <div class="sel-icon branch"><i class="fas fa-store"></i></div>
-            <div class="sel-nombre">${esc(b.nombre)}</div>
-            ${b.direccion ? `<div class="sel-sub">${esc(b.direccion)}</div>` : ''}
-        </div>`).join('');
-}
-
-function selectBranch(id, nombre, dir) {
-    selectedBranchId = id;
-    selectedBranchName = nombre;
+function selectBranch(id, tenantId, nombre, dir, tenantNombre) {
     document.getElementById('h-sucursal-id').value = id;
+    document.getElementById('h-tenant-id').value   = tenantId;
     document.getElementById('badge-branch-nombre').textContent = nombre;
-    document.getElementById('badge-branch-sub').textContent    = dir || selectedTenantName;
+    document.getElementById('badge-branch-sub').textContent    = dir || tenantNombre;
     goTo('step-creds');
 }
 
@@ -445,10 +414,6 @@ function togglePass() {
     const icon = document.getElementById('icon-pass');
     inp.type   = inp.type === 'password' ? 'text' : 'password';
     icon.className = inp.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-}
-
-function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 </script>
 </body>
