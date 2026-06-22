@@ -101,7 +101,7 @@ input, select, textarea { font-family: var(--font); }
     z-index: 400; pointer-events: none;
 }
 
-/* ── OVERLAY (backdrop cuando sidebar se expande en móvil) ── */
+/* ── OVERLAY (backdrop cuando sidebar se abre en móvil) ── */
 .sidebar-overlay {
     display: none;
     position: fixed; inset: 0;
@@ -109,22 +109,9 @@ input, select, textarea { font-family: var(--font); }
     z-index: 199; cursor: pointer;
 }
 .sidebar-overlay.active { display: block; }
-
-/* ── MOBILE (≤ 768 px) ── */
-@media (max-width: 768px) {
-    /* Sidebar colapsado (64 px) es el estado base en móvil */
-    .main-content { margin-left: 64px !important; }
-    .topbar       { left: 64px !important; }
-
-    /* Cuando se expande en móvil, el sidebar flota sobre el contenido */
-    .sidebar:not(.collapsed) {
-        z-index: 300;
-        box-shadow: 8px 0 32px rgba(0,0,0,.2);
-    }
-}
 .sidebar-brand {
-    display: flex; align-items: center; gap: 12px;
-    padding: 18px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
     min-height: var(--topbar-h);
 }
 .brand-icon {
@@ -208,7 +195,7 @@ input, select, textarea { font-family: var(--font); }
 /* MAIN */
 .main-content {
     margin-left: var(--sidebar-w); margin-top: var(--topbar-h);
-    padding: 24px; flex: 1;
+    padding: 24px 64px; flex: 1;
     min-height: calc(100vh - var(--topbar-h));
     transition: margin-left var(--transition);
 }
@@ -481,11 +468,179 @@ tbody tr:last-child td { border-bottom: none; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 
+/* ============================================================
+   RESPONSIVE — TABLET (≤ 1024 px)
+   ============================================================ */
+@media (max-width: 1024px) {
+    .pos-layout { grid-template-columns: 1fr 320px; }
+    .products-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+}
+
+/* ============================================================
+   RESPONSIVE — TABLET PEQUEÑA / LANDSCAPE MÓVIL (≤ 900 px)
+   ============================================================ */
 @media (max-width: 900px) {
     .pos-layout { grid-template-columns: 1fr; height: auto; }
     .cart-panel { height: auto; max-height: 55vh; }
+    .stat-cards { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 640px) {
-    .main-content { padding: 16px; }
+
+/* ============================================================
+   RESPONSIVE — TABLET (≤ 768 px): sidebar colapsado a íconos
+   ============================================================ */
+@media (max-width: 768px) and (min-width: 541px) {
+    .sidebar { width: 64px !important; }
+    .sidebar .brand-text,
+    .sidebar .nav-label,
+    .sidebar .nav-item > span,
+    .sidebar .nav-item .badge-soon,
+    .sidebar .nav-sub,
+    .sidebar .user-name,
+    .sidebar .sucursal-label,
+    .sidebar .role-badge,
+    .sidebar .logout-btn { display: none !important; }
+    .sidebar .nav-item   { justify-content: center; padding: 10px 8px; }
+    .sidebar .nav-item i { width: auto; }
+    .sidebar .sidebar-brand { justify-content: center; padding: 18px 8px; }
+    .sidebar .user-info     { justify-content: center; }
+    .main-content { margin-left: 64px; padding: 18px; }
+    .topbar       { left: 64px; }
+}
+
+/* ============================================================
+   RESPONSIVE — MÓVIL (≤ 540 px): sidebar oculto con overlay
+   ============================================================ */
+@media (max-width: 540px) {
+    /* Sidebar completamente oculto por defecto */
+    .sidebar {
+        transform: translateX(-100%);
+        width: var(--sidebar-w) !important;
+        transition: transform var(--transition);
+        z-index: 300;
+        box-shadow: none;
+    }
+    .sidebar.mobile-open {
+        transform: translateX(0);
+        box-shadow: 8px 0 32px rgba(0,0,0,.22);
+    }
+    /* Texto siempre visible cuando el sidebar se abre */
+    .sidebar.mobile-open .brand-text,
+    .sidebar.mobile-open .nav-item > span,
+    .sidebar.mobile-open .nav-sub { display: revert !important; }
+
+    /* Topbar y contenido a ancho completo */
+    .topbar       { left: 0 !important; padding: 0 12px; }
+    .main-content { margin-left: 0 !important; padding: 14px; }
+
+    /* Ocultar fecha y breadcrumb en topbar (espacio reducido) */
+    .topbar-date  { display: none; }
+    .topbar-breadcrumb { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Page header en columna */
+    .page-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 18px; }
+    .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .page-actions .btn { flex: 1 1 auto; justify-content: center; min-width: 120px; }
+
+    /* Cards */
+    .card { padding: 14px; }
+    .card-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+    /* Stat cards: 2 col */
+    .stat-cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-value { font-size: 1.1rem; }
+
+    /* Grids */
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
+
+    /* Modales: full-screen desde abajo */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal, .modal.modal-lg {
+        max-width: 100% !important;
+        max-height: 94vh;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .modal-body { max-height: 72vh; overflow-y: auto; }
+
+    /* Toast full-width */
+    .toast-container { left: 10px; right: 10px; bottom: 14px; }
+    .toast { min-width: unset; width: 100%; }
+
+    /* Tablas: scroll táctil */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    thead th, tbody td { padding: 9px 10px; font-size: .8rem; }
+
+    /* POS en móvil */
+    .pos-layout { grid-template-columns: 1fr; height: auto; gap: 14px; }
+    .cart-panel { max-height: 50vh; }
+    .products-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+
+    /* Filtros de formulario: apilar */
+    .filters-bar { flex-direction: column; align-items: stretch; }
+
+    /* Título de página más compacto */
+    .page-title { font-size: 1.15rem; }
+}
+
+/* ============================================================
+   RESPONSIVE — OVERRIDES para grids/flex INLINE en móvil
+   Los módulos usan style="display:grid;grid-template-columns:..."
+   Esta sección los sobreescribe en viewports pequeños.
+   ============================================================ */
+@media (max-width: 540px) {
+    /* Grids dentro de modal-body y cards de filtros */
+    .modal-body  [style*="grid-template-columns"],
+    .modal-body  [style*="display:grid"],
+    .card > div[style*="grid-template-columns"],
+    .card > div[style*="display:grid"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    /* Flex rows con múltiples hijos — hacerlos wrap */
+    .modal-body  > div[style*="display:flex"],
+    .card > div[style*="display:flex"] {
+        flex-wrap: wrap !important;
+    }
+    /* Hijos con flex numérico dentro de filtros */
+    .card > div > [style*="flex:"],
+    .card > div > [style*="flex: "] { flex: 1 1 100% !important; min-width: 0 !important; }
+
+    /* Botón de acción en filtros: ancho completo */
+    .card > div > .btn { width: 100%; justify-content: center; }
+
+    /* Tab bars (Almacén, etc.) */
+    .alm-tabs { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Tabs de otros módulos con estilos similares */
+    [class$="-tabs"], [class*="-tabs "] {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        width: 100%;
+    }
+
+    /* Grids explícitos de 2-3 cols en subpáginas */
+    [style*="grid-template-columns: 1fr 1fr"],
+    [style*="grid-template-columns:1fr 1fr"],
+    [style*="grid-template-columns: 1fr 1fr 1fr"],
+    [style*="grid-template-columns:1fr 1fr 1fr"],
+    [style*="grid-template-columns: 2fr"],
+    [style*="grid-template-columns:2fr"],
+    [style*="grid-template-columns: 3fr"],
+    [style*="grid-template-columns:3fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Filas de totales (Nuevo Ingreso, etc.) que usan flex con justify */
+    [style*="justify-content:flex-end"] { justify-content: stretch !important; }
+    [style*="min-width:260px"] { min-width: 0 !important; width: 100% !important; }
+}
+
+/* ============================================================
+   RESPONSIVE — MÓVIL MUY PEQUEÑO (≤ 380 px)
+   ============================================================ */
+@media (max-width: 380px) {
+    .stat-cards { grid-template-columns: 1fr; }
+    .page-title { font-size: 1rem; }
+    .btn { padding: 8px 14px; font-size: .82rem; }
 }

@@ -41,6 +41,7 @@ conexion_sunat/bootstrap/cache/*.php
 # ─── Archivos subidos por usuarios ────────────────────────────
 assets/uploads/
 assets/img/logos/
+!assets/img/logos/favicon.png
 
 # ─── Sistema operativo ────────────────────────────────────────
 .DS_Store

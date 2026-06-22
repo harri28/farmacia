@@ -1005,14 +1005,8 @@ function renderLogoPreview(logoPath) {
 }
 
 function syncSidebarBrand() {
-    const brandName = document.getElementById('cfg-nombre').value.trim() || 'FarmaSystem';
-    const sidebarName = document.getElementById('sidebar-brand-name');
     const sidebarLogo = document.getElementById('sidebar-brand-logo');
     const sidebarIcon = document.getElementById('sidebar-brand-icon');
-
-    if (sidebarName) {
-        sidebarName.textContent = brandName;
-    }
 
     if (sidebarLogo) {
         if (_logoPathActual) {

@@ -7,20 +7,14 @@
 --   \i database/schema_sucursal.sql
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS categorias (
-    id          SERIAL PRIMARY KEY,
-    nombre      VARCHAR(100) NOT NULL,
-    descripcion TEXT,
-    activo      BOOLEAN DEFAULT TRUE,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Nota: categorias ya no es por sucursal, vive en public.categorias
 
 CREATE TABLE IF NOT EXISTS productos (
     id               SERIAL PRIMARY KEY,
     codigo           VARCHAR(50)    UNIQUE NOT NULL,
     nombre           VARCHAR(200)   NOT NULL,
     descripcion      TEXT,
-    categoria_id     INTEGER        REFERENCES categorias(id),
+    categoria_id     INTEGER        REFERENCES public.categorias(id),
     precio_compra    DECIMAL(10,2)  DEFAULT 0,
     precio_venta     DECIMAL(10,2)  NOT NULL,
     stock            INTEGER        DEFAULT 0,
@@ -234,22 +228,24 @@ CREATE TABLE IF NOT EXISTS gastos (
     created_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
--- Datos iniciales por sucursal
-INSERT INTO categorias (nombre, descripcion) VALUES
+-- Categorías iniciales en el schema global (compartidas por todas las sucursales)
+INSERT INTO public.categorias (nombre, descripcion) VALUES
     ('Medicamentos',          'Fármacos y medicamentos en general'),
     ('Vitaminas y Suplementos','Vitaminas, minerales y suplementos nutricionales'),
     ('Cuidado Personal',      'Productos de higiene y cuidado personal'),
     ('Primeros Auxilios',     'Materiales de curación y primeros auxilios'),
     ('Bebés y Niños',         'Productos para bebés y niños'),
     ('Genéricos',             'Medicamentos genéricos')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO clientes (nombres, apellidos, dni, telefono)
 VALUES ('Cliente', 'General', '00000000', '000000000')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO series_comprobantes (tipo, serie, ultimo_numero) VALUES
-    ('boleta',  'B001', 0),
-    ('factura', 'F001', 0),
-    ('nota_credito', 'NC01', 0)
+    ('boleta',               'B001', 0),
+    ('factura',              'F001', 0),
+    ('nota_credito',         'NC01', 0),
+    ('nota_credito_boleta',  'BC01', 0),
+    ('nota_credito_factura', 'FC01', 0)
 ON CONFLICT DO NOTHING;

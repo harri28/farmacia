@@ -50,118 +50,87 @@ try {
 // ---- POST: Procesar login ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
 
-    $is_superadmin = !empty($_POST['is_superadmin']);
     $username  = trim($_POST['username'] ?? '');
     $password  = $_POST['password'] ?? '';
+    $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
+    $tenant_id   = intval($_POST['tenant_id']   ?? 0);
 
     if (!$username || !$password) {
         $error = 'Ingresa usuario y contraseña.';
+    } elseif (!$sucursal_id || !$tenant_id) {
+        $error = 'Selecciona una empresa y una sucursal.';
     } else {
         try {
-            if ($is_superadmin) {
-                // ---- Login superadmin (tabla exclusiva) ----
-                $stmt = $db->prepare("
-                    SELECT id, nombre, apellido, username, password_hash
-                    FROM public.superadmins WHERE username = :u AND activo = TRUE
-                ");
-                $stmt->execute([':u' => $username]);
-                $user = $stmt->fetch();
+            $stmt = $db->prepare("
+                SELECT id, nombre, apellido, username, password_hash, tenant_id
+                FROM public.usuarios WHERE username = :u AND activo = TRUE
+            ");
+            $stmt->execute([':u' => $username]);
+            $user = $stmt->fetch();
 
-                if (!$user || !password_verify($password, $user['password_hash'])) {
-                    $error = 'Usuario o contraseña incorrectos.';
+            if (!$user || !password_verify($password, $user['password_hash'])) {
+                $error = 'Usuario o contraseña incorrectos.';
+                try {
+                    $db->prepare("INSERT INTO public.audit_log
+                        (tenant_id, username, accion, modulo, detalle, ip_address)
+                        VALUES (:tid, :uname, 'login_fallido', 'auth', :detalle, :ip)")
+                       ->execute([
+                           ':tid'    => $tenant_id ?: null,
+                           ':uname'  => $username,
+                           ':detalle'=> 'Credenciales incorrectas',
+                           ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
+                       ]);
+                } catch (Throwable $e) {}
+            } elseif ((int)$user['tenant_id'] !== $tenant_id) {
+                $error = 'No tienes acceso a esta empresa.';
+            } else {
+                $stmt2 = $db->prepare("
+                    SELECT us.rol, s.nombre AS sucursal_nombre, s.schema_name,
+                           t.nombre AS tenant_nombre, t.slug AS tenant_slug
+                    FROM public.usuario_sucursal us
+                    JOIN public.sucursales s ON s.id = us.sucursal_id
+                    JOIN public.tenants    t ON t.id = s.tenant_id
+                    WHERE us.usuario_id = :uid AND us.sucursal_id = :sid
+                      AND us.activo = TRUE AND s.activo = TRUE AND t.activo = TRUE
+                ");
+                $stmt2->execute([':uid' => $user['id'], ':sid' => $sucursal_id]);
+                $acceso = $stmt2->fetch();
+
+                if (!$acceso) {
+                    $error = 'No tienes acceso asignado a esta sucursal.';
                 } else {
                     session_regenerate_id(true);
-                    $_SESSION['usuario_id']    = $user['id'];
-                    $_SESSION['nombre']        = trim($user['nombre'] . ' ' . ($user['apellido'] ?? ''));
-                    $_SESSION['username']      = $user['username'];
-                    $_SESSION['rol']           = 'superadmin';
-                    $_SESSION['tenant_id']     = null;
-                    $_SESSION['tenant_nombre'] = 'Sistema';
-                    $_SESSION['tenant_slug']   = null;
-                    header('Location: ../superadmin/index.php');
-                    exit;
-                }
-
-            } else {
-                // ---- Login usuario de empresa/sucursal ----
-                $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
-                $tenant_id   = intval($_POST['tenant_id']   ?? 0);
-
-                if (!$sucursal_id || !$tenant_id) {
-                    $error = 'Selecciona una empresa y una sucursal.';
-                } else {
-                    $stmt = $db->prepare("
-                        SELECT id, nombre, apellido, username, password_hash, tenant_id
-                        FROM public.usuarios WHERE username = :u AND activo = TRUE
-                    ");
-                    $stmt->execute([':u' => $username]);
-                    $user = $stmt->fetch();
-
-                    if (!$user || !password_verify($password, $user['password_hash'])) {
-                        $error = 'Usuario o contraseña incorrectos.';
-                        try {
-                            $db->prepare("INSERT INTO public.audit_log
-                                (tenant_id, username, accion, modulo, detalle, ip_address)
-                                VALUES (:tid, :uname, 'login_fallido', 'auth', :detalle, :ip)")
-                               ->execute([
-                                   ':tid'    => $tenant_id ?: null,
-                                   ':uname'  => $username,
-                                   ':detalle'=> 'Credenciales incorrectas',
-                                   ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
-                               ]);
-                        } catch (Throwable $e) {}
-                    } elseif ((int)$user['tenant_id'] !== $tenant_id) {
-                        $error = 'No tienes acceso a esta empresa.';
+                    $_SESSION['usuario_id']      = $user['id'];
+                    $_SESSION['nombre']          = trim($user['nombre'] . ' ' . ($user['apellido'] ?? ''));
+                    $_SESSION['username']        = $user['username'];
+                    $_SESSION['rol']             = $acceso['rol'];
+                    $_SESSION['tenant_id']       = $tenant_id;
+                    $_SESSION['tenant_nombre']   = $acceso['tenant_nombre'];
+                    $_SESSION['tenant_slug']     = $acceso['tenant_slug'];
+                    $_SESSION['sucursal_id']     = $sucursal_id;
+                    $_SESSION['sucursal_nombre'] = $acceso['sucursal_nombre'];
+                    $_SESSION['sucursal_schema'] = $acceso['schema_name'];
+                    try {
+                        $db->prepare("INSERT INTO public.audit_log
+                            (tenant_id, sucursal_id, usuario_id, username, nombre_usuario, rol, accion, modulo, detalle, ip_address)
+                            VALUES (:tid, :sid, :uid, :uname, :nombre, :rol, 'login', 'auth', :detalle, :ip)")
+                           ->execute([
+                               ':tid'    => $tenant_id,
+                               ':sid'    => $sucursal_id,
+                               ':uid'    => $user['id'],
+                               ':uname'  => $user['username'],
+                               ':nombre' => trim($user['nombre'] . ' ' . ($user['apellido'] ?? '')),
+                               ':rol'    => $acceso['rol'],
+                               ':detalle'=> 'Ingresó a ' . $acceso['sucursal_nombre'],
+                               ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
+                           ]);
+                    } catch (Throwable $e) {}
+                    if (in_array($acceso['rol'], ['admin', 'gerente'], true)) {
+                        header('Location: ../dashboard/index.php');
                     } else {
-                        $stmt2 = $db->prepare("
-                            SELECT us.rol, s.nombre AS sucursal_nombre, s.schema_name,
-                                   t.nombre AS tenant_nombre, t.slug AS tenant_slug
-                            FROM public.usuario_sucursal us
-                            JOIN public.sucursales s ON s.id = us.sucursal_id
-                            JOIN public.tenants    t ON t.id = s.tenant_id
-                            WHERE us.usuario_id = :uid AND us.sucursal_id = :sid
-                              AND us.activo = TRUE AND s.activo = TRUE AND t.activo = TRUE
-                        ");
-                        $stmt2->execute([':uid' => $user['id'], ':sid' => $sucursal_id]);
-                        $acceso = $stmt2->fetch();
-
-                        if (!$acceso) {
-                            $error = 'No tienes acceso asignado a esta sucursal.';
-                        } else {
-                            session_regenerate_id(true);
-                            $_SESSION['usuario_id']      = $user['id'];
-                            $_SESSION['nombre']          = trim($user['nombre'] . ' ' . ($user['apellido'] ?? ''));
-                            $_SESSION['username']        = $user['username'];
-                            $_SESSION['rol']             = $acceso['rol'];
-                            $_SESSION['tenant_id']       = $tenant_id;
-                            $_SESSION['tenant_nombre']   = $acceso['tenant_nombre'];
-                            $_SESSION['tenant_slug']     = $acceso['tenant_slug'];
-                            $_SESSION['sucursal_id']     = $sucursal_id;
-                            $_SESSION['sucursal_nombre'] = $acceso['sucursal_nombre'];
-                            $_SESSION['sucursal_schema'] = $acceso['schema_name'];
-                            try {
-                                $db->prepare("INSERT INTO public.audit_log
-                                    (tenant_id, sucursal_id, usuario_id, username, nombre_usuario, rol, accion, modulo, detalle, ip_address)
-                                    VALUES (:tid, :sid, :uid, :uname, :nombre, :rol, 'login', 'auth', :detalle, :ip)")
-                                   ->execute([
-                                       ':tid'    => $tenant_id,
-                                       ':sid'    => $sucursal_id,
-                                       ':uid'    => $user['id'],
-                                       ':uname'  => $user['username'],
-                                       ':nombre' => trim($user['nombre'] . ' ' . ($user['apellido'] ?? '')),
-                                       ':rol'    => $acceso['rol'],
-                                       ':detalle'=> 'Ingresó a ' . $acceso['sucursal_nombre'],
-                                       ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
-                                   ]);
-                            } catch (Throwable $e) {}
-                            if (in_array($acceso['rol'], ['admin', 'gerente'], true)) {
-                                header('Location: ../dashboard/index.php');
-                            } else {
-                                header('Location: ../ventas/index.php');
-                            }
-                            exit;
-                        }
+                        header('Location: ../ventas/index.php');
                     }
+                    exit;
                 }
             }
         } catch (Exception $e) {
@@ -174,7 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
 $prev_tenant_id   = intval($_POST['tenant_id']   ?? 0);
 $prev_sucursal_id = intval($_POST['sucursal_id'] ?? 0);
 $prev_username    = htmlspecialchars($_POST['username'] ?? '');
-$prev_superadmin  = !empty($_POST['is_superadmin']);
 ?><!DOCTYPE html>
 <html lang="es">
 <head>
@@ -279,7 +247,7 @@ $prev_superadmin  = !empty($_POST['is_superadmin']);
     </style>
 </head>
 <body>
-<div class="card <?= (count($tenants) > 2 && !$prev_superadmin) ? 'wide' : '' ?>" id="login-card">
+<div class="card <?= count($tenants) > 2 ? 'wide' : '' ?>" id="login-card">
 
     <div class="card-header">
         <div class="brand-icon"><i class="fas fa-pills"></i></div>
@@ -293,14 +261,14 @@ $prev_superadmin  = !empty($_POST['is_superadmin']);
         <div class="alert" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d">
             <i class="fas fa-check-circle"></i> Contraseña actualizada correctamente. Ya puedes iniciar sesión.
         </div>
-        <?php elseif ($error && (!$prev_tenant_id || $prev_superadmin)): ?>
+        <?php elseif ($error && !$prev_tenant_id): ?>
         <div class="alert"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
         <!-- ============================================================
              PASO 1: Selección de empresa (tenant)
              ============================================================ -->
-        <div class="step <?= (!$prev_tenant_id && !$prev_superadmin) ? 'active' : '' ?>" id="step-tenant">
+        <div class="step <?= !$prev_tenant_id ? 'active' : '' ?>" id="step-tenant">
             <div class="step-title">¿Con qué empresa vas a trabajar?</div>
             <div class="step-sub">Selecciona tu empresa para continuar</div>
 
@@ -321,17 +289,12 @@ $prev_superadmin  = !empty($_POST['is_superadmin']);
             </div>
             <?php endif; ?>
 
-            <div class="sa-link">
-                <button type="button" onclick="showSuperadminLogin()">
-                    <i class="fas fa-lock" style="font-size:.7rem"></i> Acceso de sistema
-                </button>
-            </div>
         </div>
 
         <!-- ============================================================
              PASO 2: Selección de sucursal
              ============================================================ -->
-        <div class="step <?= ($prev_tenant_id && !$prev_sucursal_id && !$prev_superadmin) ? 'active' : '' ?>" id="step-branch">
+        <div class="step <?= ($prev_tenant_id && !$prev_sucursal_id) ? 'active' : '' ?>" id="step-branch">
             <button type="button" class="back-btn" onclick="goTo('step-tenant')">
                 <i class="fas fa-arrow-left"></i> Cambiar empresa
             </button>
@@ -352,9 +315,8 @@ $prev_superadmin  = !empty($_POST['is_superadmin']);
         <!-- ============================================================
              PASO 3: Credenciales
              ============================================================ -->
-        <div class="step <?= (($prev_sucursal_id && !$prev_superadmin) || ($prev_superadmin && $error)) ? 'active' : '' ?>" id="step-creds">
+        <div class="step <?= $prev_sucursal_id ? 'active' : '' ?>" id="step-creds">
 
-            <?php if (!$prev_superadmin): ?>
             <button type="button" class="back-btn" onclick="goTo('step-branch')">
                 <i class="fas fa-arrow-left"></i> Cambiar sucursal
             </button>
@@ -365,25 +327,14 @@ $prev_superadmin  = !empty($_POST['is_superadmin']);
                     <div class="sel-badge-sub" id="badge-branch-sub"></div>
                 </div>
             </div>
-            <?php else: ?>
-            <div class="sel-badge" style="background:#fef2f2;border-color:#fecaca">
-                <i class="fas fa-shield-alt" style="color:#6366f1"></i>
-                <div class="sel-badge-text">
-                    <div class="sel-badge-nombre" style="color:#4f46e5">Acceso de sistema</div>
-                    <div class="sel-badge-sub">Solo para administradores del sistema</div>
-                </div>
-                <button type="button" class="btn-cambiar" onclick="goTo('step-tenant')">Cancelar</button>
-            </div>
-            <?php endif; ?>
 
-            <?php if ($error && ($prev_sucursal_id || $prev_superadmin)): ?>
+            <?php if ($error && $prev_sucursal_id): ?>
             <div class="alert"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
             <form method="POST" id="form-login">
-                <input type="hidden" name="tenant_id"      id="h-tenant-id"    value="<?= $prev_tenant_id ?>">
-                <input type="hidden" name="sucursal_id"    id="h-sucursal-id"  value="<?= $prev_sucursal_id ?>">
-                <input type="hidden" name="is_superadmin"  id="h-superadmin"   value="<?= $prev_superadmin ? '1' : '' ?>">
+                <input type="hidden" name="tenant_id"   id="h-tenant-id"   value="<?= $prev_tenant_id ?>">
+                <input type="hidden" name="sucursal_id" id="h-sucursal-id" value="<?= $prev_sucursal_id ?>">
 
                 <div class="form-group">
                     <label class="form-label">Usuario</label>
@@ -432,7 +383,7 @@ let selectedBranchId   = <?= $prev_sucursal_id ?: 'null' ?>;
 let selectedBranchName = '';
 
 // ---- Repoblar badges si hay errores de vuelta ----
-<?php if ($prev_tenant_id && !$prev_superadmin): ?>
+<?php if ($prev_tenant_id): ?>
 (function(){
     <?php foreach ($tenants as $t): if ((int)$t['id'] === $prev_tenant_id): ?>
     selectedTenantName = '<?= htmlspecialchars(addslashes($t['nombre'])) ?>';
@@ -459,8 +410,7 @@ function goTo(stepId) {
 function selectTenant(id, nombre, slug) {
     selectedTenantId = id;
     selectedTenantName = nombre;
-    document.getElementById('h-tenant-id').value  = id;
-    document.getElementById('h-superadmin').value = '';
+    document.getElementById('h-tenant-id').value = id;
     document.getElementById('badge-tenant-nombre').textContent = nombre;
     renderBranches(id);
     goTo('step-branch');
@@ -487,13 +437,6 @@ function selectBranch(id, nombre, dir) {
     document.getElementById('h-sucursal-id').value = id;
     document.getElementById('badge-branch-nombre').textContent = nombre;
     document.getElementById('badge-branch-sub').textContent    = dir || selectedTenantName;
-    goTo('step-creds');
-}
-
-function showSuperadminLogin() {
-    document.getElementById('h-tenant-id').value   = '';
-    document.getElementById('h-sucursal-id').value = '';
-    document.getElementById('h-superadmin').value  = '1';
     goTo('step-creds');
 }
 

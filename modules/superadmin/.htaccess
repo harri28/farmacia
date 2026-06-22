@@ -1,0 +1,12 @@
+# Restringe el acceso al panel de superadmin por IP
+# Agrega aquí las IPs autorizadas (tu IP fija o la del servidor de gestión)
+
+Order Deny,Allow
+Deny from all
+
+# Tu IP fija — reemplaza con la IP real desde donde administras
+# Allow from 190.123.45.67
+
+# Para desarrollo local (siempre permitido)
+Allow from 127.0.0.1
+Allow from ::1

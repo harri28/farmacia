@@ -1,99 +1,197 @@
 <?php
 // ============================================================
 // ARCHIVO: farmacia/modules/almacen/index.php
-// MÓDULO:  Almacén → Ingresos de Stock
+// MÓDULO:  Almacén — Ingresos de Stock + Proveedores (tabs)
 // ============================================================
 
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin', 'gerente', 'cajero'];
 $current_module = 'almacen';
-$current_page   = 'ingresos';
-$page_title     = 'Ingresos de Stock — FarmaSystem';
-$breadcrumb     = '<strong>Almacén</strong> / Ingresos de Stock';
+$current_page   = 'almacen';
+$page_title     = 'Almacén — FarmaSystem';
+$breadcrumb     = '<strong>Almacén</strong>';
 
 include '../../includes/header.php';
 ?>
 
+<style>
+.alm-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: 5px;
+    width: fit-content;
+}
+.alm-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: calc(var(--radius) - 2px);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: .88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+}
+.alm-tab:hover { background: var(--surface); color: var(--text); }
+.alm-tab.active { background: var(--primary); color: #fff; }
+.alm-tab.active:hover { background: var(--primary-dark, var(--primary)); }
+</style>
+
 <div class="page-header">
     <div>
-        <div class="page-title"><i class="fas fa-truck-loading" style="color:var(--primary);margin-right:8px"></i>Ingresos de Stock</div>
-        <div class="page-subtitle">Registra la recepción de mercadería de proveedores</div>
+        <div class="page-title" id="alm-page-title">
+            <i class="fas fa-warehouse" style="color:var(--primary);margin-right:8px"></i>Almacén
+        </div>
+        <div class="page-subtitle" id="alm-page-subtitle">Registra la recepción de mercadería de proveedores</div>
     </div>
-    <div class="page-actions">
+    <div class="page-actions" id="alm-page-actions">
         <button class="btn btn-primary" onclick="openNuevoIngreso()">
             <i class="fas fa-plus"></i> Nuevo Ingreso
         </button>
     </div>
 </div>
 
-<!-- Stats -->
-<div class="stat-cards" id="stats-container">
-    <?php foreach (['blue','green','yellow','red'] as $c): ?>
-    <div class="stat-card">
-        <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
-        <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
-    </div>
-    <?php endforeach; ?>
+<!-- Tabs -->
+<div class="alm-tabs">
+    <button class="alm-tab active" id="tab-btn-ingresos" onclick="switchTab('ingresos')">
+        <i class="fas fa-truck-loading"></i> Ingresos de Stock
+    </button>
+    <button class="alm-tab" id="tab-btn-proveedores" onclick="switchTab('proveedores')">
+        <i class="fas fa-truck"></i> Proveedores
+    </button>
 </div>
 
-<!-- Filtros -->
-<div class="card" style="margin-bottom:20px">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group" style="margin:0;flex:1;min-width:140px">
-            <label class="form-label">Desde</label>
-            <input type="date" id="f-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
+<!-- ===================== TAB: INGRESOS ===================== -->
+<div id="tab-ingresos">
+
+    <!-- Stats -->
+    <div class="stat-cards" id="stats-container">
+        <?php foreach (['blue','green','yellow','red'] as $c): ?>
+        <div class="stat-card">
+            <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
+            <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
         </div>
-        <div class="form-group" style="margin:0;flex:1;min-width:140px">
-            <label class="form-label">Hasta</label>
-            <input type="date" id="f-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
-        </div>
-        <div class="form-group" style="margin:0;flex:1;min-width:140px">
-            <label class="form-label">Estado</label>
-            <select class="form-control" id="f-estado">
-                <option value="">Todos</option>
-                <option value="completado">Completado</option>
-                <option value="anulado">Anulado</option>
-            </select>
-        </div>
-        <div class="form-group" style="margin:0;flex:2;min-width:180px">
-            <label class="form-label">Buscar</label>
-            <div class="input-group">
-                <span class="input-group-icon"><i class="fas fa-search"></i></span>
-                <input type="text" id="f-q" class="form-control" placeholder="N° ingreso o proveedor...">
+        <?php endforeach; ?>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="f-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
             </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="f-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Estado</label>
+                <select class="form-control" id="f-estado">
+                    <option value="">Todos</option>
+                    <option value="completado">Completado</option>
+                    <option value="anulado">Anulado</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:2;min-width:180px">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="f-q" class="form-control" placeholder="N° ingreso o proveedor...">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="loadIngresos()"><i class="fas fa-search"></i> Buscar</button>
         </div>
-        <button class="btn btn-primary" onclick="loadIngresos()"><i class="fas fa-search"></i> Buscar</button>
+    </div>
+
+    <!-- Tabla de ingresos -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Historial de ingresos</div>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">Cargando...</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>N° Ingreso</th>
+                        <th>Fecha</th>
+                        <th>Origen</th>
+                        <th>Destino</th>
+                        <th>Motivo</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-body">
+                    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- Tabla de ingresos -->
-<div class="card">
-    <div class="card-header">
-        <div class="card-title">Historial de ingresos</div>
-        <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">Cargando...</span>
+<!-- ===================== TAB: PROVEEDORES ===================== -->
+<div id="tab-proveedores" style="display:none">
+
+    <!-- Filtro -->
+    <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:3">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="pf-q" class="form-control" placeholder="Razón social o RUC...">
+                </div>
+            </div>
+            <div class="form-group" style="margin:0;flex:1">
+                <label class="form-label">Estado</label>
+                <select class="form-control" id="pf-activos">
+                    <option value="">Todos</option>
+                    <option value="1">Solo activos</option>
+                </select>
+            </div>
+            <button class="btn btn-outline" onclick="resetFiltrosProveedores()"><i class="fas fa-times"></i> Limpiar</button>
+        </div>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>N° Ingreso</th>
-                    <th>Fecha</th>
-                    <th>Proveedor</th>
-                    <th>N° Factura</th>
-                    <th>Items</th>
-                    <th class="text-right">Total</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tabla-body">
-                <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </td></tr>
-            </tbody>
-        </table>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Proveedores registrados</div>
+            <span id="prov-count" style="font-size:.82rem;color:var(--text-muted)">Cargando...</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>RUC</th>
+                        <th>Razón Social</th>
+                        <th>Nombre Comercial</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Contacto</th>
+                        <th class="text-right">Ingresos</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="prov-body">
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -125,7 +223,6 @@ include '../../includes/header.php';
         </div>
         <div class="modal-body" style="max-height:75vh;overflow-y:auto">
 
-            <!-- Cabecera del ingreso -->
             <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:18px">
                 <div class="form-group" style="margin:0">
                     <label class="form-label">Proveedor</label>
@@ -143,7 +240,6 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <!-- Buscador de productos -->
             <div style="margin-bottom:12px">
                 <label class="form-label">
                     <i class="fas fa-barcode" style="color:var(--primary);margin-right:5px"></i>
@@ -163,7 +259,6 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <!-- Tabla de líneas -->
             <div class="table-wrap" style="margin-bottom:14px">
                 <table>
                     <thead>
@@ -187,7 +282,6 @@ include '../../includes/header.php';
                 </table>
             </div>
 
-            <!-- Totales -->
             <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
                 <div style="min-width:260px;background:var(--surface-2);border-radius:var(--radius);padding:12px 16px;font-size:.88rem">
                     <div style="display:flex;justify-content:space-between;padding:3px 0">
@@ -205,12 +299,10 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <!-- Observaciones -->
             <div class="form-group" style="margin:0">
                 <label class="form-label">Observaciones <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
                 <input type="text" id="n-obs" class="form-control" placeholder="Notas sobre el ingreso...">
             </div>
-
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal('modal-nuevo')">Cancelar</button>
@@ -221,16 +313,98 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Proveedor ===================== -->
+<div class="modal-overlay" id="modal-proveedor">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-proveedor-title">
+                <i class="fas fa-truck" style="color:var(--primary);margin-right:8px"></i>Nuevo Proveedor
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-proveedor')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <div class="form-group">
+                    <label class="form-label">RUC</label>
+                    <input type="text" id="p-ruc" class="form-control" placeholder="20100055858" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre Comercial</label>
+                    <input type="text" id="p-nombre-comercial" class="form-control" placeholder="Bayer">
+                </div>
+                <div class="form-group" style="grid-column:1/-1">
+                    <label class="form-label">Razón Social <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="p-razon-social" class="form-control" placeholder="LABORATORIOS BAYER S.A.">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" id="p-telefono" class="form-control" placeholder="01-6285500">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="p-email" class="form-control" placeholder="ventas@proveedor.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Persona de Contacto</label>
+                    <input type="text" id="p-contacto" class="form-control" placeholder="Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" id="p-direccion" class="form-control" placeholder="Av. Industrial 123, Lima">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-proveedor')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-proveedor" onclick="saveProveedor()">
+                <i class="fas fa-save"></i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-// ============================================================
-// Almacén — Ingresos JavaScript
-// ============================================================
-
 const BASE = '../../';
+const SUCURSAL_NOMBRE = <?= json_encode(sesionSucursal()) ?>;
 let currentIngresoId = null;
-let lines = [];   // { producto_id, codigo, nombre, cantidad, precio_unitario }
+let lines = [];
+let editingProveedorId = null;
+let proveedoresLoaded = false;
+
+// ---- Tabs ----
+const TAB_CONFIG = {
+    ingresos: {
+        title:    '<i class="fas fa-truck-loading" style="color:var(--primary);margin-right:8px"></i>Ingresos de Stock',
+        subtitle: 'Registra la recepción de mercadería de proveedores',
+        actions:  '<button class="btn btn-primary" onclick="openNuevoIngreso()"><i class="fas fa-plus"></i> Nuevo Ingreso</button>',
+    },
+    proveedores: {
+        title:    '<i class="fas fa-truck" style="color:var(--primary);margin-right:8px"></i>Proveedores',
+        subtitle: 'Gestiona los proveedores de mercadería',
+        actions:  '<button class="btn btn-primary" onclick="openProveedorModal()"><i class="fas fa-plus"></i> Nuevo Proveedor</button>',
+    },
+};
+
+function switchTab(tab) {
+    document.getElementById('tab-ingresos').style.display    = tab === 'ingresos'    ? '' : 'none';
+    document.getElementById('tab-proveedores').style.display = tab === 'proveedores' ? '' : 'none';
+    document.getElementById('tab-btn-ingresos').classList.toggle('active',    tab === 'ingresos');
+    document.getElementById('tab-btn-proveedores').classList.toggle('active', tab === 'proveedores');
+
+    const cfg = TAB_CONFIG[tab];
+    document.getElementById('alm-page-title').innerHTML    = cfg.title;
+    document.getElementById('alm-page-subtitle').textContent = cfg.subtitle;
+    document.getElementById('alm-page-actions').innerHTML  = cfg.actions;
+
+    location.hash = tab;
+
+    if (tab === 'proveedores' && !proveedoresLoaded) {
+        loadProveedores();
+        proveedoresLoaded = true;
+    }
+}
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
@@ -239,10 +413,17 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProveedoresSelect();
     setupProductoSearch();
     setupBarcodeScanner();
+    setupProveedoresSearch();
     document.getElementById('f-q').addEventListener('keyup', e => { if (e.key === 'Enter') loadIngresos(); });
+
+    const hash = location.hash.replace('#', '');
+    if (hash === 'proveedores') switchTab('proveedores');
 });
 
-// ---- Stats ----
+// ========================================================
+// INGRESOS
+// ========================================================
+
 function loadStats() {
     fetch(BASE + 'modules/almacen/api.php?action=stats_almacen')
         .then(r => r.json())
@@ -261,7 +442,6 @@ function loadStats() {
         });
 }
 
-// ---- Cargar historial ----
 function loadIngresos() {
     const params = new URLSearchParams({
         action: 'ingresos_listar',
@@ -271,7 +451,7 @@ function loadIngresos() {
         q:      document.getElementById('f-q').value,
     });
     document.getElementById('tabla-body').innerHTML =
-        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
 
     fetch(BASE + 'modules/almacen/api.php?' + params)
         .then(r => r.json())
@@ -279,33 +459,26 @@ function loadIngresos() {
             document.getElementById('result-count').textContent = data.length + ' registro(s)';
             if (!data.length) {
                 document.getElementById('tabla-body').innerHTML =
-                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron ingresos</td></tr>';
+                    '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron ingresos</td></tr>';
                 return;
             }
             document.getElementById('tabla-body').innerHTML = data.map(i => {
                 const esCls = i.estado === 'completado' ? 'badge-success' : 'badge-danger';
                 const dt    = new Date(i.created_at);
                 const fecha = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-                return `<tr>
+                return `<tr style="cursor:pointer" onclick="verDetalle(${i.id},'${i.numero_ingreso}','${i.estado}')">
                     <td><span style="font-weight:700;color:var(--primary)">${i.numero_ingreso}</span></td>
                     <td style="font-size:.82rem;color:var(--text-muted)">${fecha}</td>
-                    <td style="font-size:.85rem">${i.proveedor}</td>
-                    <td style="font-size:.82rem;color:var(--text-muted)">${i.numero_factura || '—'}</td>
-                    <td><span class="badge badge-gray">${i.num_items} items</span></td>
-                    <td class="text-right"><strong>S/ ${parseFloat(i.total).toFixed(2)}</strong></td>
+                    <td style="font-size:.85rem">${i.origen}</td>
+                    <td style="font-size:.85rem;color:var(--text-muted)">${SUCURSAL_NOMBRE}</td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${i.motivo || '—'}</td>
                     <td><span class="badge ${esCls}">${i.estado}</span></td>
-                    <td>
-                        <button class="btn btn-ghost btn-sm" onclick="verDetalle(${i.id},'${i.numero_ingreso}','${i.estado}')">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
                 </tr>`;
             }).join('');
         })
         .catch(() => showToast('Error al cargar ingresos', 'error'));
 }
 
-// ---- Detalle ----
 function verDetalle(id, numero, estado) {
     currentIngresoId = id;
     document.getElementById('detalle-titulo').innerHTML =
@@ -371,7 +544,6 @@ function anularIngreso() {
     .catch(() => showToast('Error al anular', 'error'));
 }
 
-// ---- Nuevo Ingreso ----
 function loadProveedoresSelect() {
     fetch(BASE + 'modules/almacen/api.php?action=proveedores_listar&activos=1&q=')
         .then(r => r.json())
@@ -397,7 +569,6 @@ function openNuevoIngreso() {
     setTimeout(() => document.getElementById('n-producto-search').focus(), 100);
 }
 
-// ---- Buscador de productos (autocomplete) ----
 function setupProductoSearch() {
     let timer;
     const input    = document.getElementById('n-producto-search');
@@ -462,46 +633,28 @@ function addLinea(p) {
     const existing = lines.findIndex(l => l.producto_id === pid);
     if (existing >= 0) {
         lines[existing].cantidad++;
-        lines[existing].subtotal = lines[existing].cantidad * lines[existing].precio_unitario;
     } else {
-        lines.push({
-            producto_id:    pid,
-            codigo:         p.codigo,
-            nombre:         p.nombre,
-            cantidad:       1,
-            precio_unitario: parseFloat(p.precio_compra) || 0,
-        });
+        lines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_compra) || 0 });
     }
     renderLineas();
     calcularTotales();
 }
 
 function updateLinea(idx, field, value) {
-    if (field === 'cantidad')       lines[idx].cantidad        = Math.max(1, parseInt(value) || 1);
+    if (field === 'cantidad')        lines[idx].cantidad        = Math.max(1, parseInt(value) || 1);
     if (field === 'precio_unitario') lines[idx].precio_unitario = parseFloat(value) || 0;
     renderLineas();
     calcularTotales();
 }
 
-function removeLinea(idx) {
-    lines.splice(idx, 1);
-    renderLineas();
-    calcularTotales();
-}
+function removeLinea(idx) { lines.splice(idx, 1); renderLineas(); calcularTotales(); }
 
 function renderLineas() {
     const tbody = document.getElementById('n-lineas-body');
     const empty = document.getElementById('n-lineas-empty');
-
-    // Quitar filas previas (excepto la fila vacía)
     tbody.querySelectorAll('.linea-row').forEach(r => r.remove());
-
-    if (!lines.length) {
-        empty.style.display = '';
-        return;
-    }
+    if (!lines.length) { empty.style.display = ''; return; }
     empty.style.display = 'none';
-
     lines.forEach((l, idx) => {
         const sub = l.cantidad * l.precio_unitario;
         const tr  = document.createElement('tr');
@@ -542,32 +695,22 @@ function calcularTotales() {
 
 function saveIngreso() {
     if (!lines.length) { showToast('Agrega al menos un producto', 'error'); return; }
-
     for (const l of lines) {
         if (l.cantidad <= 0)        { showToast('La cantidad debe ser mayor a 0',         'error'); return; }
         if (l.precio_unitario <= 0) { showToast('El precio de compra debe ser mayor a 0', 'error'); return; }
     }
-
     const payload = {
-        proveedor_id:    document.getElementById('n-proveedor').value || null,
-        numero_factura:  document.getElementById('n-factura').value,
-        fecha_factura:   document.getElementById('n-fecha').value,
-        observaciones:   document.getElementById('n-obs').value,
-        items: lines.map(l => ({
-            producto_id:    l.producto_id,
-            cantidad:       l.cantidad,
-            precio_unitario: l.precio_unitario,
-        })),
+        proveedor_id:   document.getElementById('n-proveedor').value || null,
+        numero_factura: document.getElementById('n-factura').value,
+        fecha_factura:  document.getElementById('n-fecha').value,
+        observaciones:  document.getElementById('n-obs').value,
+        items: lines.map(l => ({ producto_id: l.producto_id, cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
     };
-
     const btn = document.getElementById('btn-guardar-ingreso');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
-
     fetch(BASE + 'modules/almacen/api.php?action=registrar_ingreso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     })
     .then(r => r.json())
     .then(d => {
@@ -586,13 +729,11 @@ function saveIngreso() {
     });
 }
 
-// ---- Scanner de código de barras ----
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function(e) {
         const code      = e.detail.code.trim();
         const modalOpen = document.getElementById('modal-nuevo').classList.contains('open');
         if (!modalOpen) return;
-
         fetch(BASE + `modules/almacen/api.php?action=buscar_producto&q=${encodeURIComponent(code)}`)
             .then(r => r.json())
             .then(data => {
@@ -608,7 +749,143 @@ function setupBarcodeScanner() {
     });
 }
 
-// ---- Helpers ----
+// ========================================================
+// PROVEEDORES
+// ========================================================
+
+function loadProveedores() {
+    const params = new URLSearchParams({
+        action:  'proveedores_listar',
+        q:       document.getElementById('pf-q').value,
+        activos: document.getElementById('pf-activos').value,
+    });
+    document.getElementById('prov-body').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(BASE + 'modules/almacen/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('prov-count').textContent = data.length + ' proveedor(es)';
+            if (!data.length) {
+                document.getElementById('prov-body').innerHTML =
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-truck" style="font-size:1.3rem"></i><br><br>No se encontraron proveedores</td></tr>';
+                return;
+            }
+            document.getElementById('prov-body').innerHTML = data.map(p => {
+                const activo = (p.activo === true || p.activo === 't');
+                return `<tr>
+                    <td style="font-family:monospace;font-size:.82rem">${p.ruc || '—'}</td>
+                    <td style="font-weight:500;font-size:.88rem">${p.razon_social}</td>
+                    <td style="font-size:.85rem;color:var(--text-muted)">${p.nombre_comercial || '—'}</td>
+                    <td style="font-size:.82rem">${p.telefono || '—'}</td>
+                    <td style="font-size:.82rem">${p.email || '—'}</td>
+                    <td style="font-size:.82rem">${p.contacto_nombre || '—'}</td>
+                    <td class="text-right"><span class="badge badge-gray">${p.total_ingresos}</span></td>
+                    <td>${activo ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-danger">Inactivo</span>'}</td>
+                    <td>
+                        <div style="display:flex;gap:4px">
+                            <button class="btn btn-ghost btn-sm" title="Editar" onclick='openProveedorModal(${JSON.stringify(p)})'>
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-sm"
+                                title="${activo ? 'Desactivar' : 'Activar'}"
+                                onclick="toggleProveedor(${p.id})"
+                                style="color:${activo ? 'var(--danger)' : 'var(--success)'}">
+                                <i class="fas fa-${activo ? 'toggle-on' : 'toggle-off'}"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar proveedores', 'error'));
+}
+
+function setupProveedoresSearch() {
+    let timer;
+    document.getElementById('pf-q').addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(loadProveedores, 250);
+    });
+    document.getElementById('pf-activos').addEventListener('change', loadProveedores);
+}
+
+function resetFiltrosProveedores() {
+    document.getElementById('pf-q').value      = '';
+    document.getElementById('pf-activos').value = '';
+    loadProveedores();
+}
+
+function openProveedorModal(p = null) {
+    editingProveedorId = p ? p.id : null;
+    document.getElementById('modal-proveedor-title').innerHTML = editingProveedorId
+        ? '<i class="fas fa-edit" style="color:var(--primary);margin-right:8px"></i>Editar Proveedor'
+        : '<i class="fas fa-plus" style="color:var(--primary);margin-right:8px"></i>Nuevo Proveedor';
+    document.getElementById('p-ruc').value              = p?.ruc              ?? '';
+    document.getElementById('p-razon-social').value     = p?.razon_social     ?? '';
+    document.getElementById('p-nombre-comercial').value = p?.nombre_comercial ?? '';
+    document.getElementById('p-telefono').value         = p?.telefono         ?? '';
+    document.getElementById('p-email').value            = p?.email            ?? '';
+    document.getElementById('p-contacto').value         = p?.contacto_nombre  ?? '';
+    document.getElementById('p-direccion').value        = p?.direccion        ?? '';
+    openModal('modal-proveedor');
+    setTimeout(() => document.getElementById('p-ruc').focus(), 100);
+}
+
+function saveProveedor() {
+    const razon_social = document.getElementById('p-razon-social').value.trim();
+    if (!razon_social) { showToast('La razón social es requerida', 'error'); return; }
+    const payload = {
+        id:               editingProveedorId,
+        ruc:              document.getElementById('p-ruc').value.trim(),
+        razon_social,
+        nombre_comercial: document.getElementById('p-nombre-comercial').value.trim(),
+        telefono:         document.getElementById('p-telefono').value.trim(),
+        email:            document.getElementById('p-email').value.trim(),
+        contacto_nombre:  document.getElementById('p-contacto').value.trim(),
+        direccion:        document.getElementById('p-direccion').value.trim(),
+    };
+    const action = editingProveedorId ? 'proveedor_actualizar' : 'proveedor_crear';
+    const btn    = document.getElementById('btn-guardar-proveedor');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    fetch(BASE + `modules/almacen/api.php?action=${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        if (d.error) { showToast(d.message, 'error'); return; }
+        showToast(d.message, 'success');
+        closeModal('modal-proveedor');
+        loadProveedores();
+        loadProveedoresSelect();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        showToast('Error al guardar', 'error');
+    });
+}
+
+function toggleProveedor(id) {
+    fetch(BASE + 'modules/almacen/api.php?action=proveedor_toggle_activo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showToast(d.message, 'error'); return; }
+        const estado = (d.activo === true || d.activo === 't') ? 'activado' : 'desactivado';
+        showToast('Proveedor ' + estado, 'success');
+        loadProveedores();
+    })
+    .catch(() => showToast('Error al cambiar estado', 'error'));
+}
+
+// ========================================================
+// HELPERS
+// ========================================================
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 

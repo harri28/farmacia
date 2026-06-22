@@ -699,7 +699,7 @@ switch ($action) {
             $tiene_ce = true;
         } catch (Exception $e) {}
 
-        $join_ce  = $tiene_ce ? "LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id" : "";
+        $join_ce  = $tiene_ce ? "LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id AND ce.tipo IN ('boleta', 'factura')" : "";
         $sel_ce   = $tiene_ce
             ? "COALESCE(ce.id, 0)               AS comprobante_id,
                COALESCE(ce.numero_completo, '') AS comprobante_numero,
@@ -769,7 +769,7 @@ switch ($action) {
             $tiene_ce_exp = true;
         } catch (Exception $e) {}
 
-        $join_ce_exp  = $tiene_ce_exp ? "LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id" : "";
+        $join_ce_exp  = $tiene_ce_exp ? "LEFT JOIN comprobantes_electronicos ce ON ce.venta_id = v.id AND ce.tipo IN ('boleta', 'factura')" : "";
         $sel_ce_exp   = $tiene_ce_exp
             ? "COALESCE(ce.numero_completo, '') AS \"N° Comprobante\",
                COALESCE(ce.estado_sunat, '')    AS \"Estado SUNAT\","
@@ -912,7 +912,7 @@ switch ($action) {
         header('Content-Type: application/json; charset=UTF-8');
         try {
             echo json_encode($db->query(
-                "SELECT id, nombre FROM categorias WHERE activo = TRUE ORDER BY nombre"
+                "SELECT id, nombre FROM public.categorias WHERE activo = TRUE ORDER BY nombre"
             )->fetchAll());
         } catch (Exception $e) { echo json_encode([]); }
         break;
@@ -978,7 +978,7 @@ switch ($action) {
                 FROM ventas v
                 JOIN venta_detalles vd ON vd.venta_id = v.id
                 JOIN productos p       ON p.id = vd.producto_id
-                LEFT JOIN categorias cat ON cat.id = p.categoria_id
+                LEFT JOIN public.categorias cat ON cat.id = p.categoria_id
                 WHERE v.estado = 'completada'
                   AND v.created_at BETWEEN :desde AND :hasta
                 $where
@@ -1019,7 +1019,7 @@ switch ($action) {
                 FROM ventas v
                 JOIN venta_detalles vd ON vd.venta_id = v.id
                 JOIN productos p       ON p.id = vd.producto_id
-                LEFT JOIN categorias cat ON cat.id = p.categoria_id
+                LEFT JOIN public.categorias cat ON cat.id = p.categoria_id
                 WHERE v.estado = 'completada'
                   AND v.created_at BETWEEN :desde AND :hasta
                 $where

@@ -254,7 +254,7 @@ switch ($action) {
                 a.tipo AS afectacion_tipo, a.descripcion AS afectacion_descripcion,
                 c.nombre AS categoria
             FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
             LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
             WHERE p.activo = TRUE
             ORDER BY p.favorito DESC, p.nombre ASC
@@ -895,7 +895,7 @@ switch ($action) {
                 p.id, p.nombre, p.laboratorio, p.total_vendido, p.precio_venta,
                 p.favorito, c.nombre AS categoria
             FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
             WHERE p.activo = TRUE AND p.total_vendido > 0
             ORDER BY p.total_vendido DESC
             LIMIT :lim
@@ -911,7 +911,7 @@ switch ($action) {
                 p.id, p.nombre, p.laboratorio, p.total_vendido, p.precio_venta, p.stock,
                 c.nombre AS categoria
             FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
             WHERE p.activo = TRUE AND p.favorito = TRUE
             ORDER BY p.total_vendido DESC
         ");

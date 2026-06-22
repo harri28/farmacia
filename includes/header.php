@@ -67,6 +67,27 @@ $_brand_logo_abs = $_brand_logo
             align-self: center;
         }
         .logout-btn:hover { color: #dc2626; background: #fef2f2; }
+        .sidebar-logo-wrap {
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-logo-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,.45);
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity .15s;
+            color: #fff;
+            font-size: 1rem;
+        }
+        .sidebar-logo-wrap:hover .sidebar-logo-overlay { opacity: 1; }
     </style>
 </head>
 <body>
@@ -74,16 +95,18 @@ $_brand_logo_abs = $_brand_logo
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-        <?php if ($_brand_logo_abs && file_exists($_brand_logo_abs)): ?>
-            <img id="sidebar-brand-logo" src="<?= ($base_path ?? '') . htmlspecialchars($_brand_logo) ?>"
-                 alt="Logo" style="height:36px;width:auto;object-fit:contain;flex-shrink:0">
-            <span class="brand-name" id="sidebar-brand-name"><?= $_brand_name ?></span>
-        <?php else: ?>
-            <div class="brand-icon" id="sidebar-brand-icon"><i class="fas fa-pills"></i></div>
-            <div class="brand-text" id="sidebar-brand-text">
-                <span class="brand-name" id="sidebar-brand-name"><?= $_brand_name ?></span>
-                <span class="brand-sub" id="sidebar-brand-sub">v1.0</span>
-            </div>
+        <?php if (isAdmin()): ?><label for="sidebar-logo-input" class="sidebar-logo-wrap"><?php endif; ?>
+        <img id="sidebar-brand-logo"
+             src="<?= ($_brand_logo_abs && file_exists($_brand_logo_abs)) ? ($base_path ?? '') . htmlspecialchars($_brand_logo) : '' ?>"
+             alt="Logo"
+             style="height:65px;width:auto;max-width:210px;object-fit:contain;flex-shrink:0<?= ($_brand_logo_abs && file_exists($_brand_logo_abs)) ? '' : ';display:none' ?>">
+        <div class="brand-icon" id="sidebar-brand-icon"<?= ($_brand_logo_abs && file_exists($_brand_logo_abs)) ? ' style="display:none"' : '' ?>><i class="fas fa-pills"></i></div>
+        <?php if (isAdmin()): ?>
+            <div class="sidebar-logo-overlay"><i class="fas fa-camera"></i></div>
+        </label>
+        <input type="file" id="sidebar-logo-input"
+               accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+               style="display:none" onchange="sidebarUploadLogo(this)">
         <?php endif; ?>
     </div>
 
@@ -132,23 +155,12 @@ $_brand_logo_abs = $_brand_logo
             </a>
 
             <!-- Almacén -->
-            <div class="nav-group">
-                <a href="<?= $base_path ?? '' ?>modules/almacen/index.php" class="nav-item"
-                   data-tooltip="Almacén">
-                    <i class="fas fa-warehouse"></i>
-                    <span>Almacén</span>
-                </a>
-                <div class="nav-sub <?= $current_module === 'almacen' ? 'open' : '' ?>">
-                    <a href="<?= $base_path ?? '' ?>modules/almacen/index.php"
-                       class="<?= $current_page === 'ingresos' ? 'active' : '' ?>">
-                        <i class="fas fa-truck-loading"></i> Ingresos de Stock
-                    </a>
-                    <a href="<?= $base_path ?? '' ?>modules/almacen/proveedores.php"
-                       class="<?= $current_page === 'proveedores' ? 'active' : '' ?>">
-                        <i class="fas fa-truck"></i> Proveedores
-                    </a>
-                </div>
-            </div>
+            <a href="<?= $base_path ?? '' ?>modules/almacen/index.php"
+               class="nav-item <?= ($current_module ?? '') === 'almacen' ? 'active' : '' ?>"
+               data-tooltip="Almacén">
+                <i class="fas fa-warehouse"></i>
+                <span>Almacén</span>
+            </a>
 
             <a href="<?= $base_path ?? '' ?>modules/compras/index.php"
                class="nav-item <?= ($current_module ?? '') === 'compras' ? 'active' : '' ?>"
@@ -165,27 +177,12 @@ $_brand_logo_abs = $_brand_logo
             </a>
 
             <!-- Facturación -->
-            <div class="nav-group">
-                <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php" class="nav-item"
-                   data-tooltip="Facturación">
-                    <i class="fas fa-file-invoice"></i>
-                    <span>Facturación</span>
-                </a>
-                <div class="nav-sub <?= $current_module === 'facturacion' ? 'open' : '' ?>">
-                    <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
-                       class="<?= $current_page === 'reporte' ? 'active' : '' ?>">
-                        <i class="fas fa-chart-bar"></i> Reporte de Ventas
-                    </a>
-                    <a href="<?= $base_path ?? '' ?>modules/facturacion/notas_credito.php"
-                       class="<?= $current_page === 'notas_credito' ? 'active' : '' ?>">
-                        <i class="fas fa-receipt"></i> Notas de crédito
-                    </a>
-                    <a href="<?= $base_path ?? '' ?>modules/facturacion/rentabilidad.php"
-                       class="<?= $current_page === 'rentabilidad' ? 'active' : '' ?>">
-                        <i class="fas fa-chart-pie"></i> Rentabilidad
-                    </a>
-                </div>
-            </div>
+            <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
+               class="nav-item <?= $current_module === 'facturacion' ? 'active' : '' ?>"
+               data-tooltip="Facturación">
+                <i class="fas fa-file-invoice"></i>
+                <span>Facturación</span>
+            </a>
 
             <?php if (isAdmin()): ?>
             <span class="nav-label" style="margin-top:12px">SISTEMA</span>
@@ -235,6 +232,30 @@ $_brand_logo_abs = $_brand_logo
     </div>
 </aside>
 
+<?php if (isAdmin()): ?>
+<script>
+(function(){
+    const _bp = '<?= addslashes($base_path ?? '') ?>';
+    window.sidebarUploadLogo = function(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const form = new FormData();
+        form.append('logo', file);
+        fetch(_bp + 'modules/admin/api.php?action=logo_subir', { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.message); return; }
+                const img  = document.getElementById('sidebar-brand-logo');
+                const icon = document.getElementById('sidebar-brand-icon');
+                if (img)  { img.src = _bp + data.logo_path + '?t=' + Date.now(); img.style.display = ''; }
+                if (icon) { icon.style.display = 'none'; }
+            })
+            .catch(() => alert('Error al subir logo'));
+        input.value = '';
+    };
+})();
+</script>
+<?php endif; ?>
 <!-- Overlay para cerrar sidebar en móvil -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 

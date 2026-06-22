@@ -181,20 +181,10 @@ switch ($action) {
             SELECT
                 i.id,
                 i.numero_ingreso,
-                {$selNumeroFactura},
-                {$selFechaFactura},
-                {$selSubtotal},
-                {$selIgv},
-                i.total,
                 i.estado,
-                {$selUsuario},
                 i.created_at,
-                COALESCE(p.nombre_comercial, p.razon_social, 'Sin proveedor') AS proveedor,
-                COALESCE((
-                    SELECT COUNT(*)
-                    FROM ingreso_detalles d
-                    WHERE d.ingreso_id = i.id
-                ), 0) AS num_items
+                COALESCE(p.nombre_comercial, p.razon_social, 'Sin proveedor') AS origen,
+                COALESCE(i.observaciones, '') AS motivo
             FROM ingresos i
             LEFT JOIN proveedores p ON p.id = i.proveedor_id
             WHERE " . implode(' AND ', $where) . "

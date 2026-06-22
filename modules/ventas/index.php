@@ -23,7 +23,7 @@ if (sesionTenantId()) {
 }
 
 // Categorías para filtro
-$categorias = $db->query("SELECT id, nombre FROM categorias WHERE activo = TRUE ORDER BY nombre")->fetchAll();
+$categorias = $db->query("SELECT id, nombre FROM public.categorias WHERE activo = TRUE ORDER BY nombre")->fetchAll();
 
 include '../../includes/header.php';
 ?>
@@ -322,23 +322,43 @@ include '../../includes/header.php';
     flex-direction:column;
     height:calc(100vh - var(--topbar-h) - 48px);
 }
-.pos-page-wrap .page-header { margin-bottom:16px; flex-shrink:0; }
+.vt-tabs {
+    display:flex; gap:6px; margin-bottom:16px;
+    background:var(--surface-2); border-radius:var(--radius);
+    padding:5px; width:fit-content; flex-shrink:0;
+}
+.vt-tab {
+    display:flex; align-items:center; gap:7px; padding:8px 20px;
+    border:none; border-radius:calc(var(--radius) - 2px);
+    background:transparent; color:var(--text-muted);
+    font-size:.88rem; font-weight:500; cursor:pointer;
+    transition:background .15s,color .15s; white-space:nowrap;
+}
+.vt-tab:hover { background:var(--surface); color:var(--text); }
+.vt-tab.active { background:var(--primary); color:#fff; }
+.vt-tab.active:hover { background:var(--primary-dark,var(--primary)); }
 </style>
 
 <div class="pos-page-wrap">
 
-<div class="page-header">
+<div class="page-header" style="flex-shrink:0">
     <div>
         <div class="page-title"><i class="fas fa-store" style="color:var(--primary);margin-right:8px"></i>Punto de Venta</div>
         <div class="page-subtitle">Registra ventas rápidamente — <?= date('d/m/Y H:i') ?></div>
     </div>
-    <div class="page-actions">
-        <a href="historial.php" class="btn btn-outline btn-sm">
-            <i class="fas fa-history"></i> Historial
-        </a>
-    </div>
 </div>
 
+<div class="vt-tabs">
+    <button class="vt-tab active" id="tab-btn-pos" onclick="switchTab('pos')">
+        <i class="fas fa-store"></i> Punto de Venta
+    </button>
+    <button class="vt-tab" id="tab-btn-ventas" onclick="switchTab('ventas')">
+        <i class="fas fa-history"></i> Ventas
+    </button>
+</div>
+
+<!-- TAB: POS -->
+<div id="tab-pos" style="flex:1;min-height:0;display:flex;flex-direction:column">
 <div class="pos-layout" style="flex:1;min-height:0;height:auto">
     <!-- COLUMNA IZQUIERDA: búsqueda + productos -->
     <div class="pos-left">
@@ -416,7 +436,93 @@ include '../../includes/header.php';
     </div>
 </div>
 
+</div><!-- /tab-pos -->
+
+<!-- TAB: VENTAS (historial) -->
+<div id="tab-ventas" style="display:none;flex:1;overflow-y:auto">
+
+    <div class="stat-cards" id="h-stats-container" style="margin-top:4px">
+        <?php foreach (['blue','green','yellow','red'] as $c): ?>
+        <div class="stat-card"><div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div><div><div class="stat-value">—</div><div class="stat-label">...</div></div></div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="h-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="h-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Estado</label>
+                <select class="form-control" id="h-estado">
+                    <option value="">Todos</option>
+                    <option value="completada">Completada</option>
+                    <option value="anulada">Anulada</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:2;min-width:200px">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="h-q" class="form-control" placeholder="N° venta o cliente...">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="loadHistorial()"><i class="fas fa-search"></i> Buscar</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Ventas registradas</div>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="h-result-count">—</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>N° Venta</th>
+                        <th>Fecha / Hora</th>
+                        <th>Cliente</th>
+                        <th>Items</th>
+                        <th>Pago</th>
+                        <th>Comp.</th>
+                        <th class="text-right">Total</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="h-tabla-body">
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /tab-ventas -->
+
 </div><!-- /.pos-page-wrap -->
+
+<!-- MODAL: Detalle de venta (historial) -->
+<div class="modal-overlay" id="modal-detalle-h">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title" id="h-detalle-titulo">Detalle de Venta</h3>
+            <button class="modal-close" onclick="closeModal('modal-detalle-h')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="h-detalle-body"></div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-detalle-h')">Cerrar</button>
+            <button class="btn btn-danger" id="h-btn-anular" style="display:none" onclick="anularVenta()">
+                <i class="fas fa-ban"></i> Anular Venta
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL: Cobro / Pago -->
 <div class="modal-overlay" id="modal-cobro">
@@ -568,19 +674,6 @@ include '../../includes/header.php';
                         <div class="label">Restante</div>
                         <div class="value" id="credit-remaining">S/ 0.00</div>
                     </div>
-                </div>
-            </div>
-
-            <div style="margin-bottom:12px">
-                <label class="form-label" style="font-size:.71rem">Descuento general</label>
-                <div class="input-group">
-                    <span class="input-group-icon" style="font-size:.82rem;font-weight:700;color:var(--success)">S/</span>
-                    <input type="number" id="cobro-descuento" class="form-control" placeholder="0.00"
-                        step="0.10" min="0" oninput="onDescuentoChange()"
-                        style="font-size:.92rem;padding-left:28px;font-weight:700;border-color:var(--success)">
-                </div>
-                <div style="font-size:.72rem;color:var(--text-muted);margin-top:5px">
-                    Se resta al total de la venta.
                 </div>
             </div>
 
@@ -878,13 +971,52 @@ function loadSeriesDisponibles() {
         .catch(() => {});
 }
 
+// ---- Smart product sort (localStorage) ----
+const USAGE_KEY = 'pos_usage_<?= (int)sesionSucursal() ?>';
+
+function getProductUsage() {
+    try { return JSON.parse(localStorage.getItem(USAGE_KEY) || '{}'); } catch { return {}; }
+}
+
+function updateProductUsage(productIds) {
+    const usage = getProductUsage();
+    const now   = Date.now();
+    productIds.forEach(id => {
+        if (!usage[id]) usage[id] = { count: 0, lastUsed: 0 };
+        usage[id].count++;
+        usage[id].lastUsed = now;
+    });
+    localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
+}
+
+function sortProductsSmart(products) {
+    const usage    = getProductUsage();
+    const now      = Date.now();
+    const DECAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+
+    const counts  = Object.values(usage).map(u => u.count);
+    const maxCount = counts.length ? Math.max(...counts) : 1;
+
+    return [...products].sort((a, b) => {
+        const ua = usage[a.id], ub = usage[b.id];
+        if (!ua && !ub) return a.nombre.localeCompare(b.nombre, 'es');
+        if (!ua) return 1;
+        if (!ub) return -1;
+        const recA   = Math.max(0, 1 - (now - ua.lastUsed) / DECAY_MS);
+        const recB   = Math.max(0, 1 - (now - ub.lastUsed) / DECAY_MS);
+        const scoreA = 0.7 * (ua.count / maxCount) + 0.3 * recA;
+        const scoreB = 0.7 * (ub.count / maxCount) + 0.3 * recB;
+        return scoreB - scoreA || a.nombre.localeCompare(b.nombre, 'es');
+    });
+}
+
 // ---- Cargar Productos ----
 function loadProducts() {
     fetch(BASE + 'modules/ventas/api.php?action=productos')
         .then(r => r.json())
         .then(data => {
-            allProducts = data;
-            renderProducts(allProducts);
+            allProducts = data.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+            renderProducts(sortProductsSmart(allProducts));
         })
         .catch(() => showToast('Error al cargar productos', 'error'));
 }
@@ -942,7 +1074,7 @@ function filterProducts(query, catId) {
             (p.laboratorio && p.laboratorio.toLowerCase().includes(q))
         );
     }
-    renderProducts(filtered);
+    renderProducts(sortProductsSmart(filtered));
 }
 
 // ---- Carrito ----
@@ -1989,7 +2121,6 @@ function procesarVenta() {
     document.getElementById('cobro-total').textContent       = totalStr;
     document.getElementById('monto-recibido').value          = totalFinal.toFixed(2); // display readonly
     document.getElementById('monto-cliente').value           = totalFinal.toFixed(2);
-    document.getElementById('cobro-descuento').value         = '0.00';
     document.getElementById('tipo-pago').value               = 'efectivo';
     document.getElementById('tipo-comprobante').value        = 'boleta';
     document.getElementById('cobro-observacion').value       = '';
@@ -2382,6 +2513,7 @@ function confirmarVenta() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Pagar y emitir comprobante';
         if (data.error) { showToast(data.message, 'error'); return; }
+        updateProductUsage(cart.map(i => i.id));
         closeModal('modal-cobro');
         showTicket(data);
         showToast('Venta registrada correctamente', 'success');
@@ -2602,6 +2734,155 @@ async function guardarNuevoCliente() {
 }
 
 // ---- Modal / Toast helpers ----
+// ---- Tabs Ventas ----
+let historialLoaded = false;
+
+function switchTab(tab) {
+    document.getElementById('tab-pos').style.display    = tab === 'pos'    ? 'flex' : 'none';
+    document.getElementById('tab-ventas').style.display = tab === 'ventas' ? 'block' : 'none';
+    document.getElementById('tab-btn-pos').classList.toggle('active',    tab === 'pos');
+    document.getElementById('tab-btn-ventas').classList.toggle('active', tab === 'ventas');
+
+    if (tab === 'ventas' && !historialLoaded) {
+        historialLoaded = true;
+        loadVentasStats();
+        loadHistorial();
+        document.getElementById('h-q').addEventListener('keyup', e => { if (e.key === 'Enter') loadHistorial(); });
+    }
+}
+
+function loadVentasStats() {
+    fetch(BASE + 'modules/ventas/api.php?action=stats_dia')
+        .then(r => r.json())
+        .then(d => {
+            const cfg = [
+                { icon:'cash-register', color:'blue',   val: d.total_ventas,   label:'Ventas hoy' },
+                { icon:'dollar-sign',   color:'green',  val: 'S/ '+parseFloat(d.ingresos).toFixed(2), label:'Ingresos hoy' },
+                { icon:'chart-line',    color:'yellow', val: 'S/ '+parseFloat(d.ticket_promedio).toFixed(2), label:'Ticket promedio' },
+                { icon:'ban',           color:'red',    val: d.anuladas,       label:'Anuladas hoy' },
+            ];
+            document.getElementById('h-stats-container').innerHTML = cfg.map(c => `
+                <div class="stat-card">
+                    <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
+                    <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
+                </div>`).join('');
+        });
+}
+
+function loadHistorial() {
+    const params = new URLSearchParams({
+        action: 'historial',
+        desde:  document.getElementById('h-desde').value,
+        hasta:  document.getElementById('h-hasta').value,
+        estado: document.getElementById('h-estado').value,
+        q:      document.getElementById('h-q').value,
+    });
+    document.getElementById('h-tabla-body').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>';
+
+    fetch(BASE + 'modules/ventas/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('h-result-count').textContent = data.length + ' resultado(s)';
+            if (!data.length) {
+                document.getElementById('h-tabla-body').innerHTML =
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron ventas</td></tr>';
+                return;
+            }
+            const pagoIcon = { efectivo:'💵', yape:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Yape" style="height:18px;vertical-align:middle;border-radius:3px">`, plin:`<img src="${BASE}assets/img/yape_plin.jpg" alt="Plin" style="height:18px;vertical-align:middle;border-radius:3px">`, tarjeta:'💳', transferencia:'🏦' };
+            document.getElementById('h-tabla-body').innerHTML = data.map(v => {
+                const esCls = v.estado === 'completada' ? 'badge-success' : 'badge-danger';
+                const dt = new Date(v.created_at);
+                const fechaStr = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+                return `<tr>
+                    <td><span style="font-weight:700;color:var(--primary)">${v.numero_venta}</span></td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${fechaStr}</td>
+                    <td style="font-size:.85rem">${v.cliente}</td>
+                    <td><span class="badge badge-gray">${v.num_items} items</span></td>
+                    <td style="font-size:.82rem">${pagoIcon[v.tipo_pago]||''} ${v.tipo_pago}</td>
+                    <td><span class="badge badge-primary" style="text-transform:capitalize">${v.tipo_comprobante}</span></td>
+                    <td class="text-right"><strong>S/ ${parseFloat(v.total).toFixed(2)}</strong></td>
+                    <td><span class="badge ${esCls}">${v.estado}</span></td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" onclick="verDetalleVenta(${v.id},'${v.numero_venta}','${v.estado}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar historial','error'));
+}
+
+let currentVentaId = null;
+
+function verDetalleVenta(id, numero, estado) {
+    currentVentaId = id;
+    document.getElementById('h-detalle-titulo').textContent = 'Detalle: ' + numero;
+    document.getElementById('h-btn-anular').style.display = estado === 'completada' ? 'inline-flex' : 'none';
+    document.getElementById('h-detalle-body').innerHTML =
+        '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--text-light)"></i></div>';
+    openModal('modal-detalle-h');
+
+    fetch(BASE + `modules/ventas/api.php?action=detalle_venta&id=${id}`)
+        .then(r => r.json())
+        .then(items => {
+            if (!items.length) {
+                document.getElementById('h-detalle-body').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Sin detalles disponibles</p>';
+                return;
+            }
+            const total = items.reduce((s,i) => s + parseFloat(i.subtotal), 0);
+            document.getElementById('h-detalle-body').innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Código</th><th>Producto</th><th class="text-right">Cant.</th><th class="text-right">P. Unit.</th><th class="text-right">Subtotal</th></tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(i => `
+                            <tr>
+                                <td style="font-size:.8rem;color:var(--text-muted)">${i.codigo}</td>
+                                <td style="font-size:.85rem;font-weight:500">${i.producto_nombre}</td>
+                                <td class="text-right">${i.cantidad}</td>
+                                <td class="text-right">S/ ${parseFloat(i.precio_unitario).toFixed(2)}</td>
+                                <td class="text-right"><strong>S/ ${parseFloat(i.subtotal).toFixed(2)}</strong></td>
+                            </tr>`).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background:var(--surface-2)">
+                                <td colspan="4" style="padding:10px 14px;font-weight:700;text-align:right">TOTAL</td>
+                                <td style="padding:10px 14px;font-weight:700;text-align:right;color:var(--success);font-size:1rem">S/ ${total.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>`;
+        });
+}
+
+function anularVenta() {
+    if (!currentVentaId || !confirm('¿Anular esta venta? El stock será repuesto.')) return;
+
+    fetch(BASE + 'modules/ventas/api.php?action=anular_venta', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id: currentVentaId })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showToast(d.message,'error'); return; }
+        showToast('Venta anulada correctamente','success');
+        closeModal('modal-detalle-h');
+        loadHistorial();
+        loadVentasStats();
+    })
+    .catch(() => showToast('Error al anular la venta','error'));
+}
+
+// ---- Si se llega desde historial.php con ?tab=ventas ----
+if (new URLSearchParams(location.search).get('tab') === 'ventas') {
+    document.addEventListener('DOMContentLoaded', () => switchTab('ventas'));
+}
+
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 

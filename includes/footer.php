@@ -7,7 +7,11 @@
 </main>
 
 <script>
-// Elementos del sidebar que deben ocultarse en modo collapsed
+// Breakpoints sincronizados con style.css
+const BP_MOBILE = 540;   // sidebar oculto con overlay
+const BP_TABLET = 768;   // sidebar icon-only (CSS lo maneja)
+
+// Elementos de texto que se ocultan en modo collapsed (desktop)
 const SIDEBAR_TEXT_SEL = [
     '#sidebar .nav-item > span',
     '#sidebar .nav-label',
@@ -21,86 +25,101 @@ const SIDEBAR_TEXT_SEL = [
     '#sidebar .sidebar-footer .logout-btn',
 ].join(',');
 
-function applyCollapsed(collapsed) {
-    const sidebar = document.getElementById('sidebar');
+function isMobileView()  { return window.innerWidth <= BP_MOBILE; }
+function isTabletView()  { return window.innerWidth > BP_MOBILE && window.innerWidth <= BP_TABLET; }
+function isDesktopView() { return window.innerWidth > BP_TABLET; }
 
-    // 1. Clase en el sidebar
+// ── Desktop: colapsar/expandir sidebar (icon-only ↔ texto) ──
+function applyCollapsedDesktop(collapsed) {
+    const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('collapsed', collapsed);
 
-    // 2. Ocultar/mostrar texto directamente via inline style (infalible)
     document.querySelectorAll(SIDEBAR_TEXT_SEL).forEach(el => {
         el.style.display = collapsed ? 'none' : '';
     });
-
-    // 3. Centrar / alinear items
     document.querySelectorAll('#sidebar .nav-item').forEach(el => {
         el.style.justifyContent = collapsed ? 'center' : '';
         el.style.padding        = collapsed ? '10px 8px' : '';
     });
-
-    // 4. Brand
-    const brand = sidebar.querySelector('.sidebar-brand');
-    if (brand) brand.style.justifyContent = collapsed ? 'center' : '';
-
-    // 5. Footer user-info
+    const brand    = sidebar.querySelector('.sidebar-brand');
     const userInfo = sidebar.querySelector('.sidebar-footer .user-info');
+    if (brand)    brand.style.justifyContent    = collapsed ? 'center' : '';
     if (userInfo) userInfo.style.justifyContent = collapsed ? 'center' : '';
+
+    const main   = document.getElementById('main-content');
+    const topbar = document.querySelector('.topbar');
+    if (main)   main.classList.toggle('expanded', collapsed);
+    if (topbar) topbar.style.left = collapsed ? '64px' : 'var(--sidebar-w)';
 }
 
-function toggleSidebar() {
-    const sidebar   = document.getElementById('sidebar');
-    const overlay   = document.getElementById('sidebarOverlay');
-    const isMobile  = window.innerWidth <= 768;
-    const collapsed = !sidebar.classList.contains('collapsed'); // nuevo estado
-
-    applyCollapsed(collapsed);
-
-    if (isMobile) {
-        overlay.classList.toggle('active', !collapsed);
-    } else {
-        const main   = document.getElementById('main-content');
-        const topbar = document.querySelector('.topbar');
-        if (main)   main.classList.toggle('expanded', collapsed);
-        if (topbar) topbar.style.left = collapsed ? '64px' : 'var(--sidebar-w)';
-        try { localStorage.setItem('sb_collapsed', collapsed ? '1' : '0'); } catch(e) {}
-    }
+// ── Móvil: abrir/cerrar sidebar con overlay ──
+function openMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.add('mobile-open');
+    overlay.classList.add('active');
 }
-
 function closeMobileSidebar() {
-    applyCollapsed(true);
-    document.getElementById('sidebarOverlay').classList.remove('active');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('active');
 }
 
-// ── Estado inicial ──
-(function() {
-    const isMobile = window.innerWidth <= 768;
-    const main     = document.getElementById('main-content');
-    const topbar   = document.querySelector('.topbar');
-
-    if (isMobile) {
-        applyCollapsed(true);
-    } else {
+// ── Botón hamburguesa (llamado desde header) ──
+function toggleSidebar() {
+    if (isMobileView()) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar.classList.contains('mobile-open')) {
+            closeMobileSidebar();
+        } else {
+            openMobileSidebar();
+        }
+    } else if (isDesktopView()) {
         let savedCollapsed = false;
         try { savedCollapsed = localStorage.getItem('sb_collapsed') === '1'; } catch(e) {}
-        applyCollapsed(savedCollapsed);
-        if (savedCollapsed) {
-            if (main)   main.classList.add('expanded');
-            if (topbar) topbar.style.left = '64px';
-        }
+        const newCollapsed = !savedCollapsed;
+        applyCollapsedDesktop(newCollapsed);
+        try { localStorage.setItem('sb_collapsed', newCollapsed ? '1' : '0'); } catch(e) {}
     }
+    // tablet (541–768): CSS lo maneja automáticamente, no necesita JS
+}
+
+// ── Estado inicial según viewport ──
+(function init() {
+    if (isDesktopView()) {
+        let savedCollapsed = false;
+        try { savedCollapsed = localStorage.getItem('sb_collapsed') === '1'; } catch(e) {}
+        applyCollapsedDesktop(savedCollapsed);
+    }
+    // móvil y tablet: el CSS aplica los estilos correctos automáticamente
 })();
 
-// Al redimensionar de móvil a desktop, cerrar overlay y ajustar márgenes
+// ── Al redimensionar: limpiar clases residuales ──
 window.addEventListener('resize', function() {
-    const overlay  = document.getElementById('sidebarOverlay');
-    const sidebar  = document.getElementById('sidebar');
-    const main     = document.getElementById('main-content');
-    const topbar   = document.querySelector('.topbar');
-    if (window.innerWidth > 768) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const main    = document.getElementById('main-content');
+    const topbar  = document.querySelector('.topbar');
+
+    if (isDesktopView()) {
+        // Cerrar overlay móvil si venía de móvil
         overlay.classList.remove('active');
-        const col = sidebar.classList.contains('collapsed');
-        if (main)   main.classList.toggle('expanded', col);
-        if (topbar) topbar.style.left = col ? '64px' : 'var(--sidebar-w)';
+        sidebar.classList.remove('mobile-open');
+        // Restaurar estado guardado
+        let savedCollapsed = false;
+        try { savedCollapsed = localStorage.getItem('sb_collapsed') === '1'; } catch(e) {}
+        applyCollapsedDesktop(savedCollapsed);
+    } else if (isMobileView()) {
+        // En móvil, quitar clases de desktop
+        sidebar.classList.remove('collapsed');
+        document.querySelectorAll(SIDEBAR_TEXT_SEL).forEach(el => { el.style.display = ''; });
+        document.querySelectorAll('#sidebar .nav-item').forEach(el => {
+            el.style.justifyContent = '';
+            el.style.padding = '';
+        });
+        if (main)   { main.classList.remove('expanded'); main.style.marginLeft = ''; }
+        if (topbar) topbar.style.left = '';
     }
 });
 

@@ -133,7 +133,7 @@ switch ($action) {
                        ELSE 'bajo'
                    END AS alerta
             FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
             WHERE p.activo = TRUE AND p.stock <= p.stock_minimo
             ORDER BY p.stock ASC, p.nombre ASC
             LIMIT 20
@@ -147,7 +147,7 @@ switch ($action) {
             SELECT p.id, p.nombre, p.laboratorio, p.total_vendido,
                    p.precio_venta, c.nombre AS categoria
             FROM productos p
-            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
             WHERE p.activo = TRUE AND p.total_vendido > 0
             ORDER BY p.total_vendido DESC
             LIMIT 5

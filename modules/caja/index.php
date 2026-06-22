@@ -63,7 +63,8 @@ include '../../includes/header.php';
                     <span class="input-group-icon"><i class="fas fa-user"></i></span>
                     <input type="text" id="ap-usuario" class="form-control"
                         placeholder="Nombre del cajero" autocomplete="off"
-                        list="usuarios-list" style="padding-left:36px">
+                        list="usuarios-list" style="padding-left:36px"
+                        value="<?= htmlspecialchars(sesionNombre()) ?>">
                 </div>
                 <datalist id="usuarios-list">
                     <?php foreach ($usuarios_previos as $u): ?>
@@ -78,6 +79,7 @@ include '../../includes/header.php';
                     <span class="input-group-icon" style="font-weight:700;font-size:.85rem;color:var(--text)">S/</span>
                     <input type="number" id="ap-monto" class="form-control"
                         value="0.00" min="0" step="0.50" placeholder="0.00"
+                        onfocus="this.select()"
                         style="font-size:1.2rem;font-weight:700;text-align:right">
                 </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap" id="montos-rapidos">

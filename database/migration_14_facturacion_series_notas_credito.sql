@@ -22,9 +22,8 @@ BEGIN
     FOR schema_rec IN
         SELECT schema_name
         FROM information_schema.schemata
-        WHERE schema_name NOT IN ('information_schema', 'pg_catalog')
-          AND schema_name NOT LIKE 'pg_toast%'
-          AND schema_name NOT LIKE 'pg_temp_%'
+        WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'public')
+          AND schema_name NOT LIKE 'pg_%'
     LOOP
         EXECUTE format(
             'INSERT INTO %I.series_comprobantes (
