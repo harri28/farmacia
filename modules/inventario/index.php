@@ -447,6 +447,60 @@ include '../../includes/header.php';
 </div>
 
 
+<!-- ===================== MODAL: Confirmar Eliminación ===================== -->
+<div class="modal-overlay" id="modal-confirmar-eliminar">
+    <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-trash" style="color:var(--danger);margin-right:8px"></i>Eliminar categoría
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-confirmar-eliminar')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.93rem;color:var(--text)">
+                ¿Estás seguro de que deseas eliminar la categoría
+                <strong id="confirmar-eliminar-nombre" style="color:var(--danger)"></strong>?
+            </p>
+            <p style="font-size:.82rem;color:var(--text-muted);margin-top:8px">
+                Esta acción no se puede deshacer. Solo se puede eliminar si ningún producto activo la usa.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-confirmar-eliminar')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-eliminar" onclick="confirmarEliminarCategoria()">
+                <i class="fas fa-trash"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: Nueva Categoría ===================== -->
+<div class="modal-overlay" id="modal-nueva-categoria">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-tag" style="color:var(--primary);margin-right:8px"></i>Nueva Categoría
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-nueva-categoria')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="nueva-cat-modal-nombre" class="form-control"
+                       placeholder="Ej: Antibióticos"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();guardarNuevaCategoriaModal();}
+                                  if(event.key==='Escape'){closeModal('modal-nueva-categoria');}">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-nueva-categoria')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-nueva-cat" onclick="guardarNuevaCategoriaModal()">
+                <i class="fas fa-save"></i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
@@ -1045,22 +1099,40 @@ function renderCatTabla() {
 }
 
 function abrirNuevaCategoria() {
-    const nombre = prompt('Nombre de la nueva categoría:');
-    if (!nombre || !nombre.trim()) return;
+    document.getElementById('nueva-cat-modal-nombre').value = '';
+    openModal('modal-nueva-categoria');
+    setTimeout(() => document.getElementById('nueva-cat-modal-nombre').focus(), 80);
+}
+
+function guardarNuevaCategoriaModal() {
+    const nombre = document.getElementById('nueva-cat-modal-nombre').value.trim();
+    if (!nombre) { showToast('Escribe un nombre para la categoría', 'error'); return; }
+
+    const btn = document.getElementById('btn-guardar-nueva-cat');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
     fetch(BASE + 'modules/inventario/api.php?action=crear_categoria', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombre.trim() }),
+        body: JSON.stringify({ nombre }),
     })
     .then(r => r.json())
     .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
         if (data.error) { showToast(data.message, 'error'); return; }
         categorias.push({ id: data.id, nombre: data.nombre });
         categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
         actualizarSelectoresCategorias();
         renderCatTabla();
+        closeModal('modal-nueva-categoria');
         showToast('Categoría "' + data.nombre + '" creada', 'success');
     })
-    .catch(() => showToast('Error al crear categoría', 'error'));
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        showToast('Error al crear categoría', 'error');
+    });
 }
 
 function iniciarEdicion(id) {
@@ -1104,22 +1176,41 @@ function confirmarEdicion(id) {
     .catch(() => showToast('Error al editar', 'error'));
 }
 
+let _eliminarCatId = null;
+
 function eliminarCategoria(id, nombre) {
-    if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return;
+    _eliminarCatId = id;
+    document.getElementById('confirmar-eliminar-nombre').textContent = nombre;
+    openModal('modal-confirmar-eliminar');
+}
+
+function confirmarEliminarCategoria() {
+    if (!_eliminarCatId) return;
+    const btn = document.getElementById('btn-confirmar-eliminar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
 
     fetch(BASE + 'modules/inventario/api.php?action=eliminar_categoria', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: _eliminarCatId }),
     })
     .then(r => r.json())
     .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
         if (data.error) { showToast(data.message, 'error'); return; }
-        categorias = categorias.filter(c => c.id != id);
+        categorias = categorias.filter(c => c.id != _eliminarCatId);
+        _eliminarCatId = null;
         actualizarSelectoresCategorias();
         renderCatTabla();
+        closeModal('modal-confirmar-eliminar');
         showToast('Categoría eliminada', 'success');
     })
-    .catch(() => showToast('Error al eliminar', 'error'));
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+        showToast('Error al eliminar', 'error');
+    });
 }
 
 function actualizarSelectoresCategorias() {
