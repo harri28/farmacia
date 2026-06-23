@@ -214,15 +214,20 @@ input, select, textarea { font-family: var(--font); }
 .card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow);
+    display: block; /* Override Bootstrap display:flex */
+    color: var(--text); /* Override Bootstrap card color inherit */
 }
 .card-header {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 18px; gap: 12px;
+    background-color: transparent; /* Override Bootstrap card-header bg */
+    border-bottom: none; /* Override Bootstrap card-header border */
+    border-radius: 0; padding: 0;
 }
 .card-title { font-size: .95rem; font-weight: 600; color: var(--text); }
 
 /* STAT CARDS */
-.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+/* .stat-cards grid removed — all modules now use Bootstrap row g-3 */
 .stat-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 18px; display: flex; align-items: center; gap: 14px;
@@ -267,6 +272,7 @@ input, select, textarea { font-family: var(--font); }
     width: 100%; padding: 9px 12px; border: 1px solid var(--border);
     border-radius: var(--radius-sm); font-size: .875rem; color: var(--text);
     background: var(--surface); transition: border-color var(--transition), box-shadow var(--transition); outline: none;
+    appearance: auto; /* Restore native select arrow removed by Bootstrap */
 }
 .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 .form-control::placeholder { color: var(--text-light); }
@@ -306,6 +312,13 @@ tbody tr:last-child td { border-bottom: none; }
     background: var(--surface); border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg); width: 100%; max-width: 560px;
     max-height: 90vh; overflow-y: auto; animation: modalIn .2s ease;
+    /* Override Bootstrap: .modal { position:fixed; display:none; top:0; left:0; z-index:1055; width:100%; height:100%; } */
+    position: relative !important;
+    display: block !important;
+    top: auto !important; left: auto !important;
+    z-index: auto !important;
+    height: auto !important;
+    overflow-x: visible !important;
 }
 @keyframes modalIn {
     from { opacity: 0; transform: translateY(-16px) scale(.97); }
@@ -315,16 +328,24 @@ tbody tr:last-child td { border-bottom: none; }
 .modal-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 22px; border-bottom: 1px solid var(--border);
+    background-color: transparent; /* Override Bootstrap */
+    border-radius: 0; /* Override Bootstrap border-top-*-radius */
 }
-.modal-title { font-size: 1rem; font-weight: 700; }
+.modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 0; }
 .modal-close {
     background: none; border: none; color: var(--text-muted);
     font-size: 1.1rem; padding: 4px; border-radius: var(--radius-sm);
     transition: background var(--transition);
 }
 .modal-close:hover { background: var(--surface-2); color: var(--text); }
-.modal-body   { padding: 22px; }
-.modal-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.modal-body   { padding: 22px; flex: none; } /* flex:none counters Bootstrap flex:1 1 auto */
+.modal-footer {
+    padding: 16px 22px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px;
+    background-color: transparent; /* Override Bootstrap */
+    border-radius: 0; /* Override Bootstrap border-bottom-*-radius */
+    flex-wrap: nowrap;
+}
 
 /* EMPTY STATE */
 .empty-state { padding: 56px 20px; text-align: center; color: var(--text-muted); }
@@ -465,8 +486,7 @@ tbody tr:last-child td { border-bottom: none; }
 .w-100 { width: 100%; }
 .hidden { display: none; }
 .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+/* .grid-2/.grid-3 removed — use Bootstrap row g-3 col-* instead */
 
 /* ============================================================
    RESPONSIVE — TABLET (≤ 1024 px)
@@ -482,7 +502,6 @@ tbody tr:last-child td { border-bottom: none; }
 @media (max-width: 900px) {
     .pos-layout { grid-template-columns: 1fr; height: auto; }
     .cart-panel { height: auto; max-height: 55vh; }
-    .stat-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ============================================================
@@ -545,12 +564,7 @@ tbody tr:last-child td { border-bottom: none; }
     .card { padding: 14px; }
     .card-header { flex-direction: column; align-items: flex-start; gap: 6px; }
 
-    /* Stat cards: 2 col */
-    .stat-cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
     .stat-value { font-size: 1.1rem; }
-
-    /* Grids */
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
 
     /* Modales: full-screen desde abajo */
     .modal-overlay { padding: 0; align-items: flex-end; }
@@ -640,7 +654,6 @@ tbody tr:last-child td { border-bottom: none; }
    RESPONSIVE — MÓVIL MUY PEQUEÑO (≤ 380 px)
    ============================================================ */
 @media (max-width: 380px) {
-    .stat-cards { grid-template-columns: 1fr; }
     .page-title { font-size: 1rem; }
     .btn { padding: 8px 14px; font-size: .82rem; }
 }

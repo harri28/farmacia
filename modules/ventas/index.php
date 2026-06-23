@@ -441,9 +441,9 @@ include '../../includes/header.php';
 <!-- TAB: VENTAS (historial) -->
 <div id="tab-ventas" style="display:none;flex:1;overflow-y:auto">
 
-    <div class="stat-cards" id="h-stats-container" style="margin-top:4px">
+    <div class="row g-3 mb-3" id="h-stats-container" style="margin-top:4px">
         <?php foreach (['blue','green','yellow','red'] as $c): ?>
-        <div class="stat-card"><div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div><div><div class="stat-value">—</div><div class="stat-label">...</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div><div><div class="stat-value">—</div><div class="stat-label">...</div></div></div></div>
         <?php endforeach; ?>
     </div>
 
@@ -2762,10 +2762,10 @@ function loadVentasStats() {
                 { icon:'ban',           color:'red',    val: d.anuladas,       label:'Anuladas hoy' },
             ];
             document.getElementById('h-stats-container').innerHTML = cfg.map(c => `
-                <div class="stat-card">
+                <div class="col-6 col-md-3"><div class="stat-card">
                     <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
                     <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
-                </div>`).join('');
+                </div></div>`).join('');
         });
 }
 

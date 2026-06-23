@@ -151,54 +151,64 @@ include '../../includes/header.php';
 </div>
 
 <!-- Stats del turno -->
-<div class="stat-cards" style="margin-bottom:24px">
-    <div class="stat-card">
-        <div class="stat-icon blue"><i class="fas fa-cash-register"></i></div>
-        <div>
-            <div class="stat-value"><?= intval($ventas['count']) ?></div>
-            <div class="stat-label">Ventas del turno</div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-cash-register"></i></div>
+            <div>
+                <div class="stat-value"><?= intval($ventas['count']) ?></div>
+                <div class="stat-label">Ventas del turno</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
-        <div>
-            <div class="stat-value">S/ <?= number_format(floatval($ventas['total']), 2) ?></div>
-            <div class="stat-label">Ingresos por ventas</div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
+            <div>
+                <div class="stat-value">S/ <?= number_format(floatval($ventas['total']), 2) ?></div>
+                <div class="stat-label">Ingresos por ventas</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon yellow"><i class="fas fa-hand-holding-usd"></i></div>
-        <div>
-            <div class="stat-value">S/ <?= number_format($saldo_esperado, 2) ?></div>
-            <div class="stat-label">Total esperado en caja</div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="fas fa-hand-holding-usd"></i></div>
+            <div>
+                <div class="stat-value">S/ <?= number_format($saldo_esperado, 2) ?></div>
+                <div class="stat-label">Total esperado en caja</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon <?= $egresos > 0 ? 'red' : 'blue' ?>"><i class="fas fa-exchange-alt"></i></div>
-        <div>
-            <div class="stat-value"><?= $ingresos_adic + $egresos > 0 ? ($ingresos_adic + $egresos) : '0' ?></div>
-            <div class="stat-label">Movimientos adicionales</div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon <?= $egresos > 0 ? 'red' : 'blue' ?>"><i class="fas fa-exchange-alt"></i></div>
+            <div>
+                <div class="stat-value"><?= $ingresos_adic + $egresos > 0 ? ($ingresos_adic + $egresos) : '0' ?></div>
+                <div class="stat-label">Movimientos adicionales</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card" style="cursor:pointer" onclick="document.getElementById('section-gastos').scrollIntoView({behavior:'smooth'})">
-        <div class="stat-icon red"><i class="fas fa-receipt"></i></div>
-        <div>
-            <div class="stat-value" id="stat-gastos-total">S/ 0.00</div>
-            <div class="stat-label">Gastos del turno</div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card" style="cursor:pointer" onclick="document.getElementById('section-gastos').scrollIntoView({behavior:'smooth'})">
+            <div class="stat-icon red"><i class="fas fa-receipt"></i></div>
+            <div>
+                <div class="stat-value" id="stat-gastos-total">S/ 0.00</div>
+                <div class="stat-label">Gastos del turno</div>
+            </div>
         </div>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start">
+<div class="row g-4 align-items-start">
 
     <!-- Columna izquierda: movimientos -->
-    <div>
+    <div class="col-12 col-lg-8">
         <div class="card">
             <div class="card-header">
                 <div class="card-title">Movimientos del turno</div>
                 <span id="movs-count" style="font-size:.82rem;color:var(--text-muted)"></span>
             </div>
-            <div class="table-wrap">
+            <div class="table-wrap table-responsive">
                 <table>
                     <thead>
                         <tr>
@@ -220,7 +230,7 @@ include '../../includes/header.php';
     </div>
 
     <!-- Columna derecha: resumen + nuevo movimiento -->
-    <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="col-12 col-lg-4"><div class="d-flex flex-column gap-4">
 
         <!-- Resumen financiero -->
         <div class="card">
@@ -256,7 +266,7 @@ include '../../includes/header.php';
         </div>
 
     </div>
-</div>
+</div><!-- /row g-4 -->
 
 <!-- ---- MODAL: Cerrar Caja ---- -->
 <div class="modal-overlay" id="modal-cerrar">
@@ -385,9 +395,9 @@ include '../../includes/header.php';
 <div class="card" style="margin-top:28px" id="section-gastos">
     <div class="card-header">
         <div class="card-title"><i class="fas fa-receipt" style="color:var(--danger);margin-right:6px"></i>Gastos Operativos</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-            <input type="date" id="g-filtro-desde" class="form-control" style="width:140px;font-size:.82rem" value="<?= date('Y-m-d') ?>">
-            <input type="date" id="g-filtro-hasta" class="form-control" style="width:140px;font-size:.82rem" value="<?= date('Y-m-d') ?>">
+        <div class="d-flex flex-wrap gap-2 align-items-center ms-auto">
+            <input type="date" id="g-filtro-desde" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
+            <input type="date" id="g-filtro-hasta" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
             <button class="btn btn-ghost btn-sm" onclick="loadGastos()"><i class="fas fa-search"></i></button>
             <button class="btn btn-outline btn-sm" onclick="openModal('modal-gasto')"
                     style="border-color:var(--danger);color:var(--danger)">
@@ -395,7 +405,7 @@ include '../../includes/header.php';
             </button>
         </div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap table-responsive">
         <table>
             <thead>
                 <tr>
@@ -423,7 +433,7 @@ include '../../includes/header.php';
     <div class="card-header">
         <div class="card-title">Historial de sesiones</div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap table-responsive">
         <table>
             <thead>
                 <tr>

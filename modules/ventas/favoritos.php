@@ -39,9 +39,9 @@ include '../../includes/header.php';
 
 <!-- TAB: Más Vendidos -->
 <div id="tab-mas-vendidos">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="row g-4">
         <!-- Ranking Top 10 -->
-        <div class="card">
+        <div class="col-12 col-lg-6"><div class="card">
             <div class="card-header">
                 <div class="card-title"><i class="fas fa-trophy" style="color:#F59E0B;margin-right:7px"></i>Ranking Top 10</div>
                 <select class="form-control" style="width:auto;font-size:.8rem" id="limite-top" onchange="loadTopVendidos()">
@@ -53,10 +53,10 @@ include '../../includes/header.php';
             <div id="top-list">
                 <div style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
             </div>
-        </div>
+        </div></div>
 
         <!-- Stats generales -->
-        <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="col-12 col-lg-6"><div class="d-flex flex-column gap-4">
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><i class="fas fa-chart-bar" style="color:var(--primary);margin-right:7px"></i>Resumen General</div>
@@ -74,7 +74,7 @@ include '../../includes/header.php';
                     <div style="text-align:center;padding:20px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
                 </div>
             </div>
-        </div>
+        </div></div>
     </div>
 
     <!-- Tabla completa -->
@@ -86,7 +86,7 @@ include '../../includes/header.php';
                 <input type="text" id="search-top" class="form-control" placeholder="Buscar..." oninput="filterTop(this.value)">
             </div>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table id="tabla-top">
                 <thead>
                     <tr>
@@ -225,23 +225,23 @@ function loadResumenGeneral() {
             const totalIngs = data.reduce((s,p) => s + parseFloat(p.precio_venta)*parseInt(p.total_vendido), 0);
             const conVentas = data.filter(p => parseInt(p.total_vendido) > 0).length;
             document.getElementById('resumen-general').innerHTML = `
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div style="background:var(--primary-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                <div class="row g-2 p-3">
+                    <div class="col-6"><div style="background:var(--primary-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
                         <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${totalUds.toLocaleString()}</div>
                         <div style="font-size:.75rem;color:var(--text-muted);margin-top:3px">Unidades totales vendidas</div>
-                    </div>
-                    <div style="background:var(--success-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                    </div></div>
+                    <div class="col-6"><div style="background:var(--success-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
                         <div style="font-size:1.2rem;font-weight:800;color:var(--success)">S/ ${totalIngs.toFixed(0)}</div>
                         <div style="font-size:.75rem;color:var(--text-muted);margin-top:3px">Ingresos estimados</div>
-                    </div>
-                    <div style="background:var(--warning-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                    </div></div>
+                    <div class="col-6"><div style="background:var(--warning-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
                         <div style="font-size:1.4rem;font-weight:800;color:var(--warning)">${conVentas}</div>
                         <div style="font-size:.75rem;color:var(--text-muted);margin-top:3px">Productos con ventas</div>
-                    </div>
-                    <div style="background:var(--info-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                    </div></div>
+                    <div class="col-6"><div style="background:var(--info-light);border-radius:var(--radius-sm);padding:14px;text-align:center">
                         <div style="font-size:1.2rem;font-weight:800;color:var(--info)">${conVentas ? (totalUds/conVentas).toFixed(1) : 0}</div>
                         <div style="font-size:.75rem;color:var(--text-muted);margin-top:3px">Promedio uds/producto</div>
-                    </div>
+                    </div></div>
                 </div>`;
         });
 }

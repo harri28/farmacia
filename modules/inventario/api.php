@@ -142,7 +142,14 @@ switch ($action) {
         break;
 
     case 'categorias':
-        $rows = $db->query("SELECT id, nombre FROM public.categorias WHERE activo = TRUE ORDER BY nombre")->fetchAll();
+        $rows = $db->query("
+            SELECT c.id, c.nombre, COUNT(p.id) AS total_productos
+            FROM public.categorias c
+            LEFT JOIN productos p ON p.categoria_id = c.id AND p.activo = TRUE
+            WHERE c.activo = TRUE
+            GROUP BY c.id, c.nombre
+            ORDER BY c.nombre
+        ")->fetchAll();
         echo json_encode($rows);
         break;
 

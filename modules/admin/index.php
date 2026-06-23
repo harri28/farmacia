@@ -52,7 +52,7 @@ include '../../includes/header.php';
                 <i class="fas fa-plus"></i> Nuevo usuario
             </button>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -82,7 +82,7 @@ include '../../includes/header.php';
                 <i class="fas fa-plus"></i> Nueva sucursal
             </button>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -114,14 +114,18 @@ include '../../includes/header.php';
         </div>
         <div class="modal-body">
             <input type="hidden" id="u-id">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">Nombre *</label>
-                    <input type="text" id="u-nombre" class="form-control" placeholder="Nombre">
+            <div class="row g-3">
+                <div class="col-12 col-sm-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" id="u-nombre" class="form-control" placeholder="Nombre">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Apellido</label>
-                    <input type="text" id="u-apellido" class="form-control" placeholder="Apellido">
+                <div class="col-12 col-sm-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Apellido</label>
+                        <input type="text" id="u-apellido" class="form-control" placeholder="Apellido">
+                    </div>
                 </div>
             </div>
             <div class="form-group">
@@ -139,20 +143,24 @@ include '../../includes/header.php';
             <div style="font-size:.82rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:12px">
                 Acceso a sucursal
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div class="form-group" style="margin:0">
-                    <label class="form-label">Sucursal</label>
-                    <select id="u-sucursal" class="form-control">
-                        <option value="">— Sin asignar —</option>
-                    </select>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Sucursal</label>
+                        <select id="u-sucursal" class="form-control">
+                            <option value="">— Sin asignar —</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group" style="margin:0">
-                    <label class="form-label">Rol</label>
-                    <select id="u-rol" class="form-control">
-                        <option value="cajero">Cajero</option>
-                        <option value="admin">Administrador</option>
-                        <option value="gerente">Superadmin</option>
-                    </select>
+                <div class="col-12 col-sm-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Rol</label>
+                        <select id="u-rol" class="form-control">
+                            <option value="cajero">Cajero</option>
+                            <option value="admin">Administrador</option>
+                            <option value="gerente">Superadmin</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div style="font-size:.76rem;color:var(--text-muted);margin-top:8px">
@@ -243,13 +251,12 @@ include '../../includes/header.php';
                 <label class="form-label">Nombre de la sucursal *</label>
                 <input type="text" id="s-nombre" class="form-control" placeholder="Ej: Farmacia Central">
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">Teléfono</label>
-                    <input type="text" id="s-telefono" class="form-control" placeholder="01-123-4567">
-                </div>
-                <div class="form-group">
-                    <!-- Placeholder para mantener el grid -->
+            <div class="row g-3">
+                <div class="col-12 col-sm-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" id="s-telefono" class="form-control" placeholder="01-123-4567">
+                    </div>
                 </div>
             </div>
             <div class="form-group">
@@ -315,76 +322,98 @@ include '../../includes/header.php';
             <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:14px">
                 Datos principales
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">Razon social para emitir *</label>
-                    <input type="text" id="cfg-business-name" class="form-control" maxlength="255"
-                           placeholder="MYTEMS E.I.R.L.">
-                    <small style="color:var(--text-muted);font-size:.76rem">
-                        Es el nombre legal que saldra en la boleta o factura.
-                    </small>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Razon social para emitir *</label>
+                        <input type="text" id="cfg-business-name" class="form-control" maxlength="255"
+                               placeholder="MYTEMS E.I.R.L.">
+                        <small style="color:var(--text-muted);font-size:.76rem">
+                            Es el nombre legal que saldra en la boleta o factura.
+                        </small>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Nombre del negocio</label>
-                    <input type="text" id="cfg-trade-name" class="form-control" maxlength="255"
-                           placeholder="Generic Pharma">
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">RUC</label>
-                    <input type="text" id="cfg-ruc" class="form-control" inputmode="numeric" maxlength="11"
-                           placeholder="20610316884">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Correo</label>
-                    <input type="email" id="cfg-email" class="form-control" maxlength="150"
-                           placeholder="admin@mytems.cloud">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Telefono</label>
-                    <input type="text" id="cfg-telefono" class="form-control" maxlength="20"
-                           placeholder="950772205">
+                <div class="col-12 col-md-6">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Nombre del negocio</label>
+                        <input type="text" id="cfg-trade-name" class="form-control" maxlength="255"
+                               placeholder="Generic Pharma">
+                    </div>
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">Direccion principal</label>
-                    <input type="text" id="cfg-direccion" class="form-control"
-                           placeholder="Alonso de Alvarado 209, Tarapoto">
+            <div class="row g-3 mt-1">
+                <div class="col-12 col-md-4">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">RUC</label>
+                        <input type="text" id="cfg-ruc" class="form-control" inputmode="numeric" maxlength="11"
+                               placeholder="20610316884">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Codigo pais</label>
-                    <input type="text" id="cfg-country-code" class="form-control" maxlength="2"
-                           placeholder="PE">
+                <div class="col-12 col-md-4">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Correo</label>
+                        <input type="email" id="cfg-email" class="form-control" maxlength="150"
+                               placeholder="admin@mytems.cloud">
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Telefono</label>
+                        <input type="text" id="cfg-telefono" class="form-control" maxlength="20"
+                               placeholder="950772205">
+                    </div>
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px">
-                <div class="form-group">
-                    <label class="form-label">Ubigeo</label>
-                    <input type="text" id="cfg-ubigeo" class="form-control" inputmode="numeric" maxlength="6"
-                           placeholder="220901">
-                    <small id="cfg-ubigeo-help" style="color:var(--text-muted);font-size:.76rem">
-                        Ejemplo: 220901 corresponde a Tarapoto.
-                    </small>
+            <div class="row g-3 mt-1">
+                <div class="col-12 col-md-9">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Direccion principal</label>
+                        <input type="text" id="cfg-direccion" class="form-control"
+                               placeholder="Alonso de Alvarado 209, Tarapoto">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Departamento</label>
-                    <input type="text" id="cfg-departamento" class="form-control" maxlength="100"
-                           placeholder="San Martin">
+                <div class="col-12 col-md-3">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Codigo pais</label>
+                        <input type="text" id="cfg-country-code" class="form-control" maxlength="2"
+                               placeholder="PE">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Provincia</label>
-                    <input type="text" id="cfg-provincia" class="form-control" maxlength="100"
-                           placeholder="San Martin">
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-6 col-md-3">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Ubigeo</label>
+                        <input type="text" id="cfg-ubigeo" class="form-control" inputmode="numeric" maxlength="6"
+                               placeholder="220901">
+                        <small id="cfg-ubigeo-help" style="color:var(--text-muted);font-size:.76rem">
+                            Ejemplo: 220901 corresponde a Tarapoto.
+                        </small>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Distrito</label>
-                    <input type="text" id="cfg-distrito" class="form-control" maxlength="100"
-                           placeholder="Tarapoto">
+                <div class="col-6 col-md-3">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Departamento</label>
+                        <input type="text" id="cfg-departamento" class="form-control" maxlength="100"
+                               placeholder="San Martin">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Provincia</label>
+                        <input type="text" id="cfg-provincia" class="form-control" maxlength="100"
+                               placeholder="San Martin">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Distrito</label>
+                        <input type="text" id="cfg-distrito" class="form-control" maxlength="100"
+                               placeholder="Tarapoto">
+                    </div>
                 </div>
             </div>
 
@@ -471,47 +500,63 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                    <div class="form-group">
-                        <label class="form-label">Nombre del negocio</label>
-                        <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Nombre del negocio</label>
+                            <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Usuario SOL</label>
-                        <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL">
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-                    <div class="form-group">
-                        <label class="form-label">Clave SOL</label>
-                        <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Clave certificado</label>
-                        <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Vencimiento certificado</label>
-                        <input type="date" id="cfg-certificate-expires-at" class="form-control">
+                    <div class="col-12 col-md-6">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Usuario SOL</label>
+                            <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL">
+                        </div>
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-                    <div class="form-group">
-                        <label class="form-label">GRE Client ID</label>
-                        <input type="text" id="cfg-gre-client-id" class="form-control" placeholder="Client ID GRE">
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Clave SOL</label>
+                            <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">GRE Client Secret</label>
-                        <input type="text" id="cfg-gre-client-secret" class="form-control" placeholder="Client Secret GRE">
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Clave certificado</label>
+                            <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Certificado digital (.pfx)</label>
-                        <input type="text" id="cfg-certificate-path" class="form-control" placeholder="Ruta del certificado .pfx">
-                        <small id="cfg-certificate-current" style="color:var(--text-muted);font-size:.76rem;display:block;margin-top:6px">
-                            Archivo actual: no configurado
-                        </small>
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Vencimiento certificado</label>
+                            <input type="date" id="cfg-certificate-expires-at" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">GRE Client ID</label>
+                            <input type="text" id="cfg-gre-client-id" class="form-control" placeholder="Client ID GRE">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">GRE Client Secret</label>
+                            <input type="text" id="cfg-gre-client-secret" class="form-control" placeholder="Client Secret GRE">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Certificado digital (.pfx)</label>
+                            <input type="text" id="cfg-certificate-path" class="form-control" placeholder="Ruta del certificado .pfx">
+                            <small id="cfg-certificate-current" style="color:var(--text-muted);font-size:.76rem;display:block;margin-top:6px">
+                                Archivo actual: no configurado
+                            </small>
+                        </div>
                     </div>
                 </div>
 
@@ -528,18 +573,22 @@ include '../../includes/header.php';
                     </small>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                    <div class="form-group">
-                        <label class="form-label">Entorno SUNAT</label>
-                        <select id="cfg-sunat-server" class="form-control">
-                            <option value="3">Beta / Pruebas</option>
-                            <option value="1">Produccion</option>
-                        </select>
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-6">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Entorno SUNAT</label>
+                            <select id="cfg-sunat-server" class="form-control">
+                                <option value="3">Beta / Pruebas</option>
+                                <option value="1">Produccion</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Estado</label>
-                        <div style="padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-size:.84rem">
-                            Estos datos se usan para emitir comprobantes desde esta empresa.
+                    <div class="col-12 col-md-6">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Estado</label>
+                            <div style="padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-size:.84rem">
+                                Estos datos se usan para emitir comprobantes desde esta empresa.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -597,7 +646,7 @@ include '../../includes/header.php';
             </div>
             <span id="aud-count" style="font-size:.82rem;color:var(--text-muted)"></span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>

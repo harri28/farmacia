@@ -149,8 +149,7 @@ include '../../includes/header.php';
 .sunat-cell .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 76px; max-width: 76px; padding: 6px 10px; font-size: .72rem !important; line-height: 1; }
 
 /* ---- Notas ---- */
-.nota-resumen { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
-.nota-resumen .box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.nota-resumen-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .nota-resumen .label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
 .nota-resumen .value { margin-top: 4px; font-size: .9rem; font-weight: 700; color: var(--text-primary); }
 .nota-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; }
@@ -236,21 +235,25 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por método de pago</div>
-            </div>
-            <div style="padding:0 8px 8px" id="rpt-resumen-pago">
-                <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por método de pago</div>
+                </div>
+                <div style="padding:0 8px 8px" id="rpt-resumen-pago">
+                    <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fas fa-file-invoice" style="color:var(--primary)"></i> Por tipo de comprobante</div>
-            </div>
-            <div style="padding:0 8px 8px" id="rpt-resumen-comp">
-                <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-file-invoice" style="color:var(--primary)"></i> Por tipo de comprobante</div>
+                </div>
+                <div style="padding:0 8px 8px" id="rpt-resumen-comp">
+                    <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
             </div>
         </div>
     </div>
@@ -326,10 +329,10 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="nota-resumen">
-        <div class="box"><div class="label">Notas emitidas</div><div class="value" id="nota-total-emitidas">-</div></div>
-        <div class="box"><div class="label">Total referenciado</div><div class="value" id="nota-total-monto">S/ 0.00</div></div>
-        <div class="box"><div class="label">Envío SUNAT</div><div class="value" id="nota-total-sunat">-</div></div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-4"><div class="nota-resumen-box box"><div class="label">Notas emitidas</div><div class="value" id="nota-total-emitidas">-</div></div></div>
+        <div class="col-6 col-md-4"><div class="nota-resumen-box box"><div class="label">Total referenciado</div><div class="value" id="nota-total-monto">S/ 0.00</div></div></div>
+        <div class="col-6 col-md-4"><div class="nota-resumen-box box"><div class="label">Envío SUNAT</div><div class="value" id="nota-total-sunat">-</div></div></div>
     </div>
 
     <div class="card">
@@ -399,30 +402,36 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="stat-cards" id="rent-stats-container">
+    <div class="row g-3 mb-4" id="rent-stats-container">
         <?php foreach (range(0,4) as $_): ?>
-        <div class="stat-card">
-            <div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
-            <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div>
+        <div class="col-6 col-md-4 col-lg">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div>
+                <div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div>
+            </div>
         </div>
         <?php endforeach; ?>
     </div>
 
-    <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px">
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fas fa-tags" style="color:var(--primary)"></i> Rentabilidad por categoría</div>
-            </div>
-            <div id="rent-tabla-categorias">
-                <div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-7">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-tags" style="color:var(--primary)"></i> Rentabilidad por categoría</div>
+                </div>
+                <div id="rent-tabla-categorias">
+                    <div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fas fa-trophy" style="color:#f59e0b"></i> Top 10 más rentables</div>
-            </div>
-            <div id="rent-tabla-top">
-                <div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+        <div class="col-12 col-lg-5">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-trophy" style="color:#f59e0b"></i> Top 10 más rentables</div>
+                </div>
+                <div id="rent-tabla-top">
+                    <div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1270,7 +1279,7 @@ function rentBuscar() { rentLoadStats(); rentLoadCategorias(); rentLoadTop(); re
 
 function rentLoadStats() {
     document.getElementById('rent-stats-container').innerHTML=[0,1,2,3,4].map(()=>
-        `<div class="stat-card"><div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div><div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div></div>`
+        `<div class="col-6 col-md-4 col-lg"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-spinner fa-spin"></i></div><div><div class="stat-value">—</div><div class="stat-label">Cargando...</div></div></div></div>`
     ).join('');
     fetch(BASE+'modules/facturacion/api.php?'+rentBuildQuery({action:'rentabilidad_stats'}))
         .then(r=>r.json())
@@ -1287,7 +1296,7 @@ function rentLoadStats() {
                 {icon:'redo',         color:rCls,    val:n(d.roi_pct).toFixed(1)+'%',  label:'ROI estimado'},
             ];
             document.getElementById('rent-stats-container').innerHTML=cards.map(c=>
-                `<div class="stat-card"><div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div><div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div></div>`
+                `<div class="col-6 col-md-4 col-lg"><div class="stat-card"><div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div><div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div></div></div>`
             ).join('');
         })
         .catch(()=>showToast('Error al cargar estadísticas','error'));

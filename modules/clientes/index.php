@@ -97,36 +97,42 @@ include '../../includes/header.php';
     </button>
 </div>
 
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon si-blue"><i class="fas fa-users"></i></div>
-        <div><div class="stat-val" id="sTotal">-</div><div class="stat-lbl">Total registrados</div></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon si-blue"><i class="fas fa-users"></i></div>
+            <div><div class="stat-val" id="sTotal">-</div><div class="stat-lbl">Total registrados</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-green"><i class="fas fa-user-check"></i></div>
-        <div><div class="stat-val" id="sActivos">-</div><div class="stat-lbl">Clientes activos</div></div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon si-green"><i class="fas fa-user-check"></i></div>
+            <div><div class="stat-val" id="sActivos">-</div><div class="stat-lbl">Clientes activos</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-indigo"><i class="fas fa-user-plus"></i></div>
-        <div><div class="stat-val" id="sNuevos">-</div><div class="stat-lbl">Nuevos este mes</div></div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon si-indigo"><i class="fas fa-user-plus"></i></div>
+            <div><div class="stat-val" id="sNuevos">-</div><div class="stat-lbl">Nuevos este mes</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-amber"><i class="fas fa-receipt"></i></div>
-        <div><div class="stat-val" id="sFacturado">-</div><div class="stat-lbl">Total vendido</div></div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon si-amber"><i class="fas fa-receipt"></i></div>
+            <div><div class="stat-val" id="sFacturado">-</div><div class="stat-lbl">Total vendido</div></div>
+        </div>
     </div>
 </div>
 
 <div class="toolbar">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <div class="search-wrap">
-            <i class="fas fa-search"></i>
-            <input type="text" id="inputBuscar" placeholder="Nombre, documento, telefono o correo..." oninput="debouncarBusqueda()">
-        </div>
+    <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" id="inputBuscar" placeholder="Nombre, documento, telefono o correo..." oninput="debouncarBusqueda()">
     </div>
     <span id="contadorLabel" style="font-size:.8rem;color:var(--text-muted)"></span>
 </div>
 
-<div class="table-wrap">
+<div class="table-wrap table-responsive">
     <table class="data-table">
         <thead>
             <tr>

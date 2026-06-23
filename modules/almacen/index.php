@@ -73,27 +73,29 @@ include '../../includes/header.php';
 <div id="tab-ingresos">
 
     <!-- Stats -->
-    <div class="stat-cards" id="stats-container">
+    <div class="row g-3 mb-4" id="stats-container">
         <?php foreach (['blue','green','yellow','red'] as $c): ?>
-        <div class="stat-card">
-            <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
-            <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
+                <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
+            </div>
         </div>
         <?php endforeach; ?>
     </div>
 
     <!-- Filtros -->
-    <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+    <div class="card mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Desde</label>
                 <input type="date" id="f-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
             </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Hasta</label>
                 <input type="date" id="f-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
             </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Estado</label>
                 <select class="form-control" id="f-estado">
                     <option value="">Todos</option>
@@ -101,14 +103,16 @@ include '../../includes/header.php';
                     <option value="anulado">Anulado</option>
                 </select>
             </div>
-            <div class="form-group" style="margin:0;flex:2;min-width:180px">
+            <div class="col-12 col-md-4">
                 <label class="form-label">Buscar</label>
                 <div class="input-group">
                     <span class="input-group-icon"><i class="fas fa-search"></i></span>
                     <input type="text" id="f-q" class="form-control" placeholder="N° ingreso o proveedor...">
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="loadIngresos()"><i class="fas fa-search"></i> Buscar</button>
+            <div class="col-6 col-md-auto">
+                <button class="btn btn-primary w-100" onclick="loadIngresos()"><i class="fas fa-search"></i> Buscar</button>
+            </div>
         </div>
     </div>
 
@@ -118,7 +122,7 @@ include '../../includes/header.php';
             <div class="card-title">Historial de ingresos</div>
             <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">Cargando...</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -144,23 +148,25 @@ include '../../includes/header.php';
 <div id="tab-proveedores" style="display:none">
 
     <!-- Filtro -->
-    <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;gap:12px;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:3">
+    <div class="card mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-7">
                 <label class="form-label">Buscar</label>
                 <div class="input-group">
                     <span class="input-group-icon"><i class="fas fa-search"></i></span>
                     <input type="text" id="pf-q" class="form-control" placeholder="Razón social o RUC...">
                 </div>
             </div>
-            <div class="form-group" style="margin:0;flex:1">
+            <div class="col-6 col-md-3">
                 <label class="form-label">Estado</label>
                 <select class="form-control" id="pf-activos">
                     <option value="">Todos</option>
                     <option value="1">Solo activos</option>
                 </select>
             </div>
-            <button class="btn btn-outline" onclick="resetFiltrosProveedores()"><i class="fas fa-times"></i> Limpiar</button>
+            <div class="col-6 col-md-auto">
+                <button class="btn btn-outline w-100" onclick="resetFiltrosProveedores()"><i class="fas fa-times"></i> Limpiar</button>
+            </div>
         </div>
     </div>
 
@@ -170,7 +176,7 @@ include '../../includes/header.php';
             <div class="card-title">Proveedores registrados</div>
             <span id="prov-count" style="font-size:.82rem;color:var(--text-muted)">Cargando...</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -435,9 +441,11 @@ function loadStats() {
                 { icon: 'ban',           color: 'red',    val: d.anulados_mes,         label: 'Anulados este mes' },
             ];
             document.getElementById('stats-container').innerHTML = cfg.map(c => `
-                <div class="stat-card">
-                    <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
-                    <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
+                        <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
+                    </div>
                 </div>`).join('');
         });
 }

@@ -74,32 +74,34 @@ include '../../includes/header.php';
 <div id="tab-inventario">
 
 <!-- Stat cards -->
-<div class="stat-cards" id="stats-container">
+<div class="row g-3 mb-4" id="stats-container">
     <?php foreach (['blue','green','yellow','red'] as $c): ?>
-    <div class="stat-card">
-        <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
-        <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon <?= $c ?>"><i class="fas fa-spinner fa-spin"></i></div>
+            <div><div class="stat-value">—</div><div class="stat-label">...</div></div>
+        </div>
     </div>
     <?php endforeach; ?>
 </div>
 
 <!-- Filtros -->
-<div class="card" style="margin-bottom:20px">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group" style="margin:0;flex:3;min-width:200px">
+<div class="card mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-5">
             <label class="form-label">Buscar</label>
             <div class="input-group">
                 <span class="input-group-icon"><i class="fas fa-search"></i></span>
                 <input type="text" id="f-q" class="form-control" placeholder="Nombre, código o laboratorio...">
             </div>
         </div>
-        <div class="form-group" style="margin:0;flex:2;min-width:160px">
+        <div class="col-6 col-md-3">
             <label class="form-label">Categoría</label>
             <select class="form-control" id="f-categoria">
                 <option value="0">Todas</option>
             </select>
         </div>
-        <div class="form-group" style="margin:0;flex:2;min-width:160px">
+        <div class="col-6 col-md-3">
             <label class="form-label">Estado de stock</label>
             <select class="form-control" id="f-stock">
                 <option value="">Activos</option>
@@ -109,9 +111,11 @@ include '../../includes/header.php';
                 <option value="inactivo">Inactivos</option>
             </select>
         </div>
-        <button class="btn btn-outline" onclick="resetFiltros()" style="margin-bottom:0">
-            <i class="fas fa-times"></i> Limpiar
-        </button>
+        <div class="col-12 col-md-auto">
+            <button class="btn btn-outline w-100" onclick="resetFiltros()">
+                <i class="fas fa-times"></i> Limpiar
+            </button>
+        </div>
     </div>
 </div>
 
@@ -121,7 +125,7 @@ include '../../includes/header.php';
         <div class="card-title">Productos</div>
         <span style="font-size:.82rem;color:var(--text-muted)" id="result-count">Cargando...</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap table-responsive">
         <table>
             <thead>
                 <tr>
@@ -149,15 +153,11 @@ include '../../includes/header.php';
 <!-- ===================== TAB: CATEGORÍAS ===================== -->
 <div id="tab-categorias" style="display:none">
 
-    <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;gap:12px;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:3;min-width:200px">
-                <label class="form-label">Buscar categoría</label>
-                <div class="input-group">
-                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
-                    <input type="text" id="cat-q" class="form-control" placeholder="Nombre...">
-                </div>
-            </div>
+    <div class="card mb-4">
+        <label class="form-label">Buscar categoría</label>
+        <div class="input-group">
+            <span class="input-group-icon"><i class="fas fa-search"></i></span>
+            <input type="text" id="cat-q" class="form-control" placeholder="Nombre...">
         </div>
     </div>
 
@@ -166,16 +166,17 @@ include '../../includes/header.php';
             <div class="card-title">Categorías de productos</div>
             <span style="font-size:.82rem;color:var(--text-muted)" id="cat-count">—</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
                         <th>Nombre</th>
+                        <th style="text-align:center;width:120px">Productos</th>
                         <th style="width:140px">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="cat-tabla-body">
-                    <tr><td colspan="2" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -594,9 +595,11 @@ function loadStats() {
                 { icon: 'times-circle',   color: 'red',    val: d.agotados,      label: 'Agotados' },
             ];
             document.getElementById('stats-container').innerHTML = cfg.map(c => `
-                <div class="stat-card" style="cursor:pointer" onclick="filtrarPor('${c.label}')">
-                    <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
-                    <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card" style="cursor:pointer" onclick="filtrarPor('${c.label}')">
+                        <div class="stat-icon ${c.color}"><i class="fas fa-${c.icon}"></i></div>
+                        <div><div class="stat-value">${c.val}</div><div class="stat-label">${c.label}</div></div>
+                    </div>
                 </div>`).join('');
         });
 }
@@ -1064,7 +1067,7 @@ function renderCatTabla() {
     document.getElementById('cat-count').textContent = lista.length + ' categoría(s)';
 
     if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="2"><div class="empty-state"><i class="fas fa-tags"></i>${q ? 'Sin resultados para "' + q + '"' : 'Sin categorías aún'}</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><i class="fas fa-tags"></i>${q ? 'Sin resultados para "' + q + '"' : 'Sin categorías aún'}</div></td></tr>`;
         return;
     }
 
@@ -1075,6 +1078,11 @@ function renderCatTabla() {
                 <input class="form-control gcat-input" style="display:none;max-width:320px;font-size:14px" value="${c.nombre}"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarEdicion(${c.id});}
                                   if(event.key==='Escape'){cancelarEdicion(${c.id});}">
+            </td>
+            <td style="text-align:center">
+                <span style="font-weight:600;color:${parseInt(c.total_productos) > 0 ? 'var(--primary)' : 'var(--text-muted)'}">
+                    ${c.total_productos}
+                </span>
             </td>
             <td>
                 <div class="gcat-actions" style="display:flex;gap:4px">

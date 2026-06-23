@@ -19,7 +19,7 @@ require_once '../../includes/header.php';
 .toolbar-filters{display:flex;gap:8px;flex-wrap:wrap}
 .filter-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:none;font-size:.78rem;font-weight:600;color:var(--text-muted);cursor:pointer;transition:.15s}
 .filter-btn:hover{border-color:var(--primary);color:var(--primary)}.filter-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
-.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;overflow-y:hidden}
 .data-table{width:100%;border-collapse:collapse}
 .data-table thead th{background:var(--surface-2);padding:11px 16px;font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);text-align:left}
 .data-table tbody tr{border-top:1px solid var(--border);transition:background .1s}.data-table tbody tr:hover{background:var(--surface-2)}
@@ -59,11 +59,19 @@ require_once '../../includes/header.php';
     </button>
 </div>
 
-<div class="stats-grid">
-    <div class="stat-card"><div class="stat-icon si-indigo"><i class="fas fa-file-alt"></i></div><div><div class="stat-value" id="sTotalTraslados">—</div><div class="stat-label">Traslados registrados</div></div></div>
-    <div class="stat-card"><div class="stat-icon si-amber"><i class="fas fa-paper-plane"></i></div><div><div class="stat-value" id="sEnviados">—</div><div class="stat-label">Pendientes por recibir</div></div></div>
-    <div class="stat-card"><div class="stat-icon si-green"><i class="fas fa-check-circle"></i></div><div><div class="stat-value" id="sRecibidos">—</div><div class="stat-label">Recibidos</div></div></div>
-    <div class="stat-card"><div class="stat-icon si-red"><i class="fas fa-ban"></i></div><div><div class="stat-value" id="sAnulados">—</div><div class="stat-label">Anulados</div></div></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-icon si-indigo"><i class="fas fa-file-alt"></i></div><div><div class="stat-value" id="sTotalTraslados">—</div><div class="stat-label">Traslados registrados</div></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-icon si-amber"><i class="fas fa-paper-plane"></i></div><div><div class="stat-value" id="sEnviados">—</div><div class="stat-label">Pendientes por recibir</div></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-icon si-green"><i class="fas fa-check-circle"></i></div><div><div class="stat-value" id="sRecibidos">—</div><div class="stat-label">Recibidos</div></div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-icon si-red"><i class="fas fa-ban"></i></div><div><div class="stat-value" id="sAnulados">—</div><div class="stat-label">Anulados</div></div></div>
+    </div>
 </div>
 
 <div class="toolbar">
@@ -74,12 +82,12 @@ require_once '../../includes/header.php';
         <button class="filter-btn" onclick="filtrarEstado('recibido', this)">Recibido</button>
         <button class="filter-btn" onclick="filtrarEstado('anulado', this)">Anulado</button>
     </div>
-    <div class="form-group" style="margin:0;min-width:260px">
+    <div class="form-group" style="margin:0;min-width:260px;flex:1 1 260px;max-width:400px">
         <input type="text" id="f-q" class="form-control" placeholder="Buscar número o sucursal...">
     </div>
 </div>
 
-<div class="table-wrap">
+<div class="table-wrap table-responsive">
     <table class="data-table">
         <thead><tr>
             <th>N° Traslado</th>

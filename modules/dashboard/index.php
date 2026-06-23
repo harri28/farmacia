@@ -138,81 +138,93 @@ include '../../includes/header.php';
     <!-- KPI Row -->
     <div>
         <p class="section-title">Resumen del día · <span id="fecha-hoy"></span></p>
-        <div class="kpi-grid" id="kpi-grid">
+        <div class="row g-3" id="kpi-grid">
             <!-- Skeleton placeholders -->
             <?php for ($i = 0; $i < 6; $i++): ?>
-            <div class="kpi-card">
-                <div class="accent skel" style="background:transparent"></div>
-                <div class="skel" style="width:40px;height:40px;margin-bottom:12px"></div>
-                <div class="skel" style="width:60%;height:.78rem;margin-bottom:6px"></div>
-                <div class="skel" style="width:80%;height:1.6rem"></div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="kpi-card">
+                    <div class="accent skel" style="background:transparent"></div>
+                    <div class="skel" style="width:40px;height:40px;margin-bottom:12px"></div>
+                    <div class="skel" style="width:60%;height:.78rem;margin-bottom:6px"></div>
+                    <div class="skel" style="width:80%;height:1.6rem"></div>
+                </div>
             </div>
             <?php endfor; ?>
         </div>
     </div>
 
     <!-- Charts + Caja row -->
-    <div class="dash-cols">
+    <div class="row g-4">
         <!-- Ventas últimos 7 días -->
-        <div class="d-card">
-            <div class="d-card-head">
-                <h3><i class="fas fa-chart-line" style="color:var(--primary)"></i> Ventas últimos 7 días</h3>
-                <select id="sel-periodo" onchange="loadChart()" style="font-size:.78rem;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;background:var(--surface);color:var(--text)">
-                    <option value="7">7 días</option>
-                    <option value="14">14 días</option>
-                    <option value="30">30 días</option>
-                </select>
-            </div>
-            <div class="d-card-body">
-                <div class="chart-wrap"><canvas id="chart-ventas"></canvas></div>
+        <div class="col-12 col-lg-8">
+            <div class="d-card">
+                <div class="d-card-head">
+                    <h3><i class="fas fa-chart-line" style="color:var(--primary)"></i> Ventas últimos 7 días</h3>
+                    <select id="sel-periodo" onchange="loadChart()" style="font-size:.78rem;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;background:var(--surface);color:var(--text)">
+                        <option value="7">7 días</option>
+                        <option value="14">14 días</option>
+                        <option value="30">30 días</option>
+                    </select>
+                </div>
+                <div class="d-card-body">
+                    <div class="chart-wrap"><canvas id="chart-ventas"></canvas></div>
+                </div>
             </div>
         </div>
 
         <!-- Caja actual -->
-        <div class="d-card">
-            <div class="d-card-head">
-                <h3><i class="fas fa-cash-register" style="color:var(--success)"></i> Estado de Caja</h3>
-                <span id="caja-badge" class="kpi-badge badge-muted">Cargando…</span>
-            </div>
-            <div class="d-card-body" id="caja-body">
-                <div class="caja-closed"><i class="fas fa-lock"></i>Cargando…</div>
+        <div class="col-12 col-lg-4">
+            <div class="d-card">
+                <div class="d-card-head">
+                    <h3><i class="fas fa-cash-register" style="color:var(--success)"></i> Estado de Caja</h3>
+                    <span id="caja-badge" class="kpi-badge badge-muted">Cargando…</span>
+                </div>
+                <div class="d-card-body" id="caja-body">
+                    <div class="caja-closed"><i class="fas fa-lock"></i>Cargando…</div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Métodos de pago + Top vendidos + Alertas stock -->
-    <div class="dash-cols-3">
+    <div class="row g-4">
 
         <!-- Métodos de pago -->
-        <div class="d-card">
-            <div class="d-card-head">
-                <h3><i class="fas fa-wallet" style="color:var(--info)"></i> Métodos de Pago</h3>
-                <span style="font-size:.72rem;color:var(--text-muted)">Hoy</span>
-            </div>
-            <div class="d-card-body" id="metodo-body">
-                <div class="skel" style="height:140px"></div>
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="d-card">
+                <div class="d-card-head">
+                    <h3><i class="fas fa-wallet" style="color:var(--info)"></i> Métodos de Pago</h3>
+                    <span style="font-size:.72rem;color:var(--text-muted)">Hoy</span>
+                </div>
+                <div class="d-card-body" id="metodo-body">
+                    <div class="skel" style="height:140px"></div>
+                </div>
             </div>
         </div>
 
         <!-- Top 5 vendidos -->
-        <div class="d-card">
-            <div class="d-card-head">
-                <h3><i class="fas fa-fire" style="color:var(--warning)"></i> Top 5 Productos</h3>
-                <span style="font-size:.72rem;color:var(--text-muted)">Por unidades</span>
-            </div>
-            <div class="d-card-body" id="top-body" style="padding:0">
-                <div class="skel" style="height:200px;margin:20px"></div>
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="d-card">
+                <div class="d-card-head">
+                    <h3><i class="fas fa-fire" style="color:var(--warning)"></i> Top 5 Productos</h3>
+                    <span style="font-size:.72rem;color:var(--text-muted)">Por unidades</span>
+                </div>
+                <div class="d-card-body" id="top-body" style="padding:0">
+                    <div class="skel" style="height:200px;margin:20px"></div>
+                </div>
             </div>
         </div>
 
         <!-- Alertas de stock -->
-        <div class="d-card">
-            <div class="d-card-head">
-                <h3><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i> Alertas de Stock</h3>
-                <span id="alerta-count" class="kpi-badge badge-danger" style="display:none"></span>
-            </div>
-            <div class="d-card-body" id="alerta-body" style="padding:0">
-                <div class="skel" style="height:200px;margin:20px"></div>
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="d-card">
+                <div class="d-card-head">
+                    <h3><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i> Alertas de Stock</h3>
+                    <span id="alerta-count" class="kpi-badge badge-danger" style="display:none"></span>
+                </div>
+                <div class="d-card-body" id="alerta-body" style="padding:0">
+                    <div class="skel" style="height:200px;margin:20px"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -328,14 +340,16 @@ async function loadResumen() {
 
     const grid = document.getElementById('kpi-grid');
     grid.innerHTML = kpiData.map(k => `
-        <div class="kpi-card">
-            <div class="accent" style="background:${k.accent}"></div>
-            <div class="kpi-icon" style="background:${k.iconBg};color:${k.iconColor}">
-                <i class="${k.icon}"></i>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="accent" style="background:${k.accent}"></div>
+                <div class="kpi-icon" style="background:${k.iconBg};color:${k.iconColor}">
+                    <i class="${k.icon}"></i>
+                </div>
+                <div class="kpi-label">${k.label}</div>
+                <div class="kpi-value">${k.value}</div>
+                <div class="kpi-sub">${k.sub}</div>
             </div>
-            <div class="kpi-label">${k.label}</div>
-            <div class="kpi-value">${k.value}</div>
-            <div class="kpi-sub">${k.sub}</div>
         </div>
     `).join('');
 

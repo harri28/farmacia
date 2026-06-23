@@ -42,7 +42,7 @@ require_once '../../includes/header.php';
 .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 
 /* ---- Table ---- */
-.table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow-x:auto; overflow-y:hidden; }
 .data-table { width:100%; border-collapse:collapse; }
 .data-table thead th { background:var(--surface-2); padding:11px 16px; font-size:.73rem; font-weight:700;
                        text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); text-align:left; }
@@ -139,26 +139,36 @@ require_once '../../includes/header.php';
 </div>
 
 <!-- Stats -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon si-indigo"><i class="fas fa-file-alt"></i></div>
-        <div><div class="stat-value" id="sOrdenesActivas">—</div><div class="stat-label">Órdenes activas</div></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon si-indigo"><i class="fas fa-file-alt"></i></div>
+            <div><div class="stat-value" id="sOrdenesActivas">—</div><div class="stat-label">Órdenes activas</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-amber"><i class="fas fa-clock"></i></div>
-        <div><div class="stat-value" id="sOrdenesPendientes">—</div><div class="stat-label">Por aprobar</div></div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon si-amber"><i class="fas fa-clock"></i></div>
+            <div><div class="stat-value" id="sOrdenesPendientes">—</div><div class="stat-label">Por aprobar</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-red"><i class="fas fa-exclamation-circle"></i></div>
-        <div><div class="stat-value" id="sCuentasVencidas">—</div><div class="stat-label">Cuentas vencidas</div></div>
+    <div class="col-6 col-md-4 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon si-red"><i class="fas fa-exclamation-circle"></i></div>
+            <div><div class="stat-value" id="sCuentasVencidas">—</div><div class="stat-label">Cuentas vencidas</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-blue"><i class="fas fa-hand-holding-usd"></i></div>
-        <div><div class="stat-value" id="sTotalPorPagar">—</div><div class="stat-label">Total por pagar</div></div>
+    <div class="col-6 col-md-6 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon si-blue"><i class="fas fa-hand-holding-usd"></i></div>
+            <div><div class="stat-value" id="sTotalPorPagar">—</div><div class="stat-label">Total por pagar</div></div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon si-green"><i class="fas fa-shopping-cart"></i></div>
-        <div><div class="stat-value" id="sComprasMes">—</div><div class="stat-label">Compras este mes</div></div>
+    <div class="col-6 col-md-6 col-lg">
+        <div class="stat-card">
+            <div class="stat-icon si-green"><i class="fas fa-shopping-cart"></i></div>
+            <div><div class="stat-value" id="sComprasMes">—</div><div class="stat-label">Compras este mes</div></div>
+        </div>
     </div>
 </div>
 
@@ -235,18 +245,24 @@ require_once '../../includes/header.php';
 <!-- TAB: Cuentas por cobrar -->
 <div class="tab-pane" id="tab-cobrar">
     <!-- Mini stats -->
-    <div class="stats-grid" style="margin-bottom:20px">
-        <div class="stat-card">
-            <div class="stat-icon si-indigo"><i class="fas fa-clock"></i></div>
-            <div><div class="stat-value" id="sCobrarPendientes">—</div><div class="stat-label">Cuentas pendientes</div></div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon si-indigo"><i class="fas fa-clock"></i></div>
+                <div><div class="stat-value" id="sCobrarPendientes">—</div><div class="stat-label">Cuentas pendientes</div></div>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-icon si-blue"><i class="fas fa-file-invoice-dollar"></i></div>
-            <div><div class="stat-value" id="sTotalPorCobrar">—</div><div class="stat-label">Total por cobrar</div></div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon si-blue"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div><div class="stat-value" id="sTotalPorCobrar">—</div><div class="stat-label">Total por cobrar</div></div>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-icon si-red"><i class="fas fa-exclamation-circle"></i></div>
-            <div><div class="stat-value" id="sCobrarVencidas">—</div><div class="stat-label">Cuentas vencidas</div></div>
+        <div class="col-6 col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon si-red"><i class="fas fa-exclamation-circle"></i></div>
+                <div><div class="stat-value" id="sCobrarVencidas">—</div><div class="stat-label">Cuentas vencidas</div></div>
+            </div>
         </div>
     </div>
     <!-- Toolbar -->
