@@ -68,7 +68,7 @@ function closeMobileSidebar() {
 
 // ── Botón hamburguesa (llamado desde header) ──
 function toggleSidebar() {
-    if (isMobileView()) {
+    if (isMobileView() || isTabletView()) {
         const sidebar = document.getElementById('sidebar');
         if (sidebar.classList.contains('mobile-open')) {
             closeMobileSidebar();
@@ -82,7 +82,6 @@ function toggleSidebar() {
         applyCollapsedDesktop(newCollapsed);
         try { localStorage.setItem('sb_collapsed', newCollapsed ? '1' : '0'); } catch(e) {}
     }
-    // tablet (541–768): CSS lo maneja automáticamente, no necesita JS
 }
 
 // ── Estado inicial según viewport ──
@@ -102,16 +101,15 @@ window.addEventListener('resize', function() {
     const main    = document.getElementById('main-content');
     const topbar  = document.querySelector('.topbar');
 
+    // Siempre cerrar el overlay al redimensionar
+    overlay.classList.remove('active');
+    sidebar.classList.remove('mobile-open');
+
     if (isDesktopView()) {
-        // Cerrar overlay móvil si venía de móvil
-        overlay.classList.remove('active');
-        sidebar.classList.remove('mobile-open');
-        // Restaurar estado guardado
         let savedCollapsed = false;
         try { savedCollapsed = localStorage.getItem('sb_collapsed') === '1'; } catch(e) {}
         applyCollapsedDesktop(savedCollapsed);
     } else if (isMobileView()) {
-        // En móvil, quitar clases de desktop
         sidebar.classList.remove('collapsed');
         document.querySelectorAll(SIDEBAR_TEXT_SEL).forEach(el => { el.style.display = ''; });
         document.querySelectorAll('#sidebar .nav-item').forEach(el => {
@@ -121,6 +119,25 @@ window.addEventListener('resize', function() {
         if (main)   { main.classList.remove('expanded'); main.style.marginLeft = ''; }
         if (topbar) topbar.style.left = '';
     }
+});
+
+// ── Panel usuario/sucursales en footer del sidebar ──
+function toggleUserPanel() {
+    const panel   = document.getElementById('userSucPanel');
+    const chevron = document.getElementById('userSucChevron');
+    if (!panel) return;
+    const open = panel.classList.toggle('open');
+    if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+document.addEventListener('click', function(e) {
+    const panel   = document.getElementById('userSucPanel');
+    const footer  = document.querySelector('.sidebar-footer');
+    if (!panel || !panel.classList.contains('open')) return;
+    if (footer && (footer.contains(e.target) || panel.contains(e.target))) return;
+    panel.classList.remove('open');
+    const chevron = document.getElementById('userSucChevron');
+    if (chevron) chevron.style.transform = '';
 });
 
 // Fecha actual

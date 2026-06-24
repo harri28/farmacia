@@ -84,16 +84,43 @@ switch ($action) {
 
         if (!$usuario) jsonResponse(['error' => true, 'message' => 'El nombre del usuario es requerido'], 400);
 
-        // Verificar que no haya caja abierta
+        // Verificar que no haya caja abierta en esta sucursal
         $abierta = $db->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1")->fetch();
-        if ($abierta) jsonResponse(['error' => true, 'message' => 'Ya hay una caja abierta'], 409);
+        if ($abierta) jsonResponse(['error' => true, 'message' => 'Ya hay una caja abierta en esta sucursal'], 409);
+
+        // Verificar que el usuario no tenga caja abierta en OTRA sucursal
+        $uid_sesion = (int)sesionId();
+        if ($uid_sesion > 0) {
+            try {
+                $suc_chk = $db->prepare("
+                    SELECT nombre, schema_name FROM public.sucursales
+                    WHERE tenant_id = :tid AND activo = TRUE AND schema_name IS NOT NULL
+                ");
+                $suc_chk->execute([':tid' => sesionTenantId()]);
+                $cur_schema = sesionSchema();
+
+                foreach ($suc_chk->fetchAll() as $_os) {
+                    if ($_os['schema_name'] === $cur_schema) continue;
+                    $sq = str_replace('"', '""', $_os['schema_name']);
+                    $chk = $db->query(
+                        "SELECT id FROM \"{$sq}\".cajas WHERE estado = 'abierta' AND usuario_id = {$uid_sesion} LIMIT 1"
+                    )->fetch();
+                    if ($chk) {
+                        jsonResponse([
+                            'error'   => true,
+                            'message' => 'Ya tienes una caja abierta en "' . $_os['nombre'] . '". Ciérrala antes de aperturar en otra sucursal.'
+                        ], 409);
+                    }
+                }
+            } catch (Throwable $_te) {}
+        }
 
         $stmt = $db->prepare("
-            INSERT INTO cajas (nombre, saldo_inicial, saldo_actual, estado, apertura_at, usuario_apertura)
-            VALUES ('Caja Principal', :monto, :monto, 'abierta', NOW(), :usuario)
+            INSERT INTO cajas (nombre, saldo_inicial, saldo_actual, estado, apertura_at, usuario_apertura, usuario_id)
+            VALUES ('Caja Principal', :monto, :monto, 'abierta', NOW(), :usuario, :uid)
             RETURNING id
         ");
-        $stmt->execute([':monto' => $monto, ':usuario' => $usuario]);
+        $stmt->execute([':monto' => $monto, ':usuario' => $usuario, ':uid' => $uid_sesion ?: null]);
         $id = $stmt->fetch()['id'];
         jsonResponse(['error' => false, 'message' => 'Caja aperturada correctamente', 'id' => $id]);
 

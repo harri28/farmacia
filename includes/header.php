@@ -13,6 +13,35 @@ $current_page   = $current_page   ?? '';
 
 $_inicial = strtoupper(substr(sesionNombre(), 0, 1)) ?: 'U';
 
+// Sucursales accesibles por el usuario (para el panel del footer)
+$_suc_lista = [];
+if (!isSuperadmin() && sesionId() > 0) {
+    try {
+        if (isAdmin()) {
+            // Admin/gerente ven todas las sucursales activas del tenant
+            $_suc_stmt = getDB()->prepare("
+                SELECT id, nombre
+                FROM public.sucursales
+                WHERE tenant_id = :tid AND activo = TRUE
+                ORDER BY nombre ASC
+            ");
+            $_suc_stmt->execute([':tid' => sesionTenantId()]);
+        } else {
+            // Cajero: solo las sucursales que tiene asignadas
+            $_suc_stmt = getDB()->prepare("
+                SELECT s.id, s.nombre
+                FROM public.sucursales s
+                JOIN public.usuario_sucursal us ON us.sucursal_id = s.id
+                WHERE us.usuario_id = :uid AND s.tenant_id = :tid
+                  AND s.activo = TRUE AND us.activo = TRUE
+                ORDER BY s.nombre ASC
+            ");
+            $_suc_stmt->execute([':uid' => sesionId(), ':tid' => sesionTenantId()]);
+        }
+        $_suc_lista = $_suc_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $_e) {}
+}
+
 $_brand      = getTenantConfig();
 $_brand_name = htmlspecialchars($_brand['nombre_sistema'] ?: 'FarmaSystem');
 $_brand_logo = $_brand['logo_path'] ?? null;
@@ -170,13 +199,6 @@ $_brand_logo_abs = $_brand_logo
                 <span>Compras</span>
             </a>
 
-            <a href="<?= $base_path ?? '' ?>modules/traslados/index.php"
-               class="nav-item <?= ($current_module ?? '') === 'traslados' ? 'active' : '' ?>"
-               data-tooltip="Traslados">
-                <i class="fas fa-exchange-alt"></i>
-                <span>Traslados</span>
-            </a>
-
             <!-- Facturación -->
             <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
                class="nav-item <?= $current_module === 'facturacion' ? 'active' : '' ?>"
@@ -205,7 +227,34 @@ $_brand_logo_abs = $_brand_logo
         </div>
     </nav>
 
-    <div class="sidebar-footer">
+    <!-- Panel de sucursales (se despliega al clickear el usuario) -->
+    <div class="user-suc-panel" id="userSucPanel">
+        <?php if (!empty($_suc_lista)): ?>
+        <div class="user-suc-header">
+            <i class="fas fa-building" style="font-size:.75rem"></i>
+            Sucursales
+        </div>
+        <?php foreach ($_suc_lista as $_suc): ?>
+        <form method="post" action="<?= $base_path ?? '' ?>modules/auth/switch_sucursal.php" style="margin:0">
+            <input type="hidden" name="sucursal_id" value="<?= $_suc['id'] ?>">
+            <button type="submit" class="user-suc-item<?= (int)$_suc['id'] === sesionSucursalId() ? ' current' : '' ?>">
+                <i class="fas fa-store"></i>
+                <span><?= htmlspecialchars($_suc['nombre']) ?></span>
+                <?php if ((int)$_suc['id'] === sesionSucursalId()): ?>
+                <i class="fas fa-check" style="margin-left:auto;font-size:.75rem;color:var(--primary)"></i>
+                <?php endif; ?>
+            </button>
+        </form>
+        <?php endforeach; ?>
+        <div class="user-suc-divider"></div>
+        <?php endif; ?>
+        <a href="<?= $base_path ?? '' ?>modules/auth/logout.php" class="user-suc-item logout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Cerrar sesión</span>
+        </a>
+    </div>
+
+    <div class="sidebar-footer" onclick="toggleUserPanel()" style="cursor:pointer">
         <div class="user-info" style="display:flex;align-items:center;gap:10px;width:100%">
             <div class="user-avatar"><?= $_inicial ?></div>
             <div style="flex:1;min-width:0">
@@ -225,10 +274,8 @@ $_brand_logo_abs = $_brand_logo
                     <?= htmlspecialchars(sesionSucursal()) ?>
                 </div>
             </div>
-            <a href="<?= $base_path ?? '' ?>modules/auth/logout.php"
-               class="logout-btn" title="Cerrar sesión">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
+            <i class="fas fa-chevron-up" id="userSucChevron"
+               style="color:var(--text-light);font-size:.75rem;transition:transform .2s;flex-shrink:0"></i>
         </div>
     </div>
 </aside>
@@ -279,6 +326,18 @@ $_brand_logo_abs = $_brand_logo
 <!-- MAIN CONTENT -->
 <main class="main-content" id="main-content">
 <?php
+// Flash error (ej: caja abierta al intentar cambiar de sucursal)
+if (!empty($_SESSION['flash_error'])):
+    $_flash_msg = $_SESSION['flash_error'];
+    unset($_SESSION['flash_error']);
+?>
+<div style="background:#fef2f2;border-bottom:2px solid #ef4444;padding:10px 24px;display:flex;align-items:center;gap:10px;font-size:.88rem;color:#991b1b">
+    <i class="fas fa-ban" style="color:#ef4444"></i>
+    <span><?= htmlspecialchars($_flash_msg) ?></span>
+</div>
+<?php
+endif;
+
 if (isCajero()) {
     try {
         $_caja_row = getDB()->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1")->fetch();

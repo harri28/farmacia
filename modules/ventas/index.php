@@ -360,21 +360,22 @@ include '../../includes/header.php';
 <!-- TAB: POS -->
 <div id="tab-pos" style="flex:1;min-height:0;display:flex;flex-direction:column">
 <div class="pos-layout" style="flex:1;min-height:0;height:auto">
-    <!-- COLUMNA IZQUIERDA: búsqueda + productos -->
+    <!-- COLUMNA CATEGORÍAS -->
+    <div class="pos-cats">
+        <div class="filter-chips" id="cat-chips">
+            <span class="chip active" data-cat="0">Todos</span>
+            <?php foreach ($categorias as $cat): ?>
+            <span class="chip" data-cat="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nombre']) ?></span>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <!-- COLUMNA PRODUCTOS: búsqueda + grilla -->
     <div class="pos-left">
-        <!-- Barra de búsqueda + filtros -->
-        <div>
-            <div class="input-group" style="margin-bottom:10px">
-                <span class="input-group-icon"><i class="fas fa-search"></i></span>
-                <input type="text" id="search-input" class="form-control"
-                    placeholder="Buscar producto por nombre o código..." autocomplete="off">
-            </div>
-            <div class="filter-chips" id="cat-chips">
-                <span class="chip active" data-cat="0">Todos</span>
-                <?php foreach ($categorias as $cat): ?>
-                <span class="chip" data-cat="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nombre']) ?></span>
-                <?php endforeach; ?>
-            </div>
+        <div class="input-group">
+            <span class="input-group-icon"><i class="fas fa-search"></i></span>
+            <input type="text" id="search-input" class="form-control"
+                placeholder="Buscar producto por nombre o código..." autocomplete="off">
         </div>
 
         <!-- Grilla de productos -->
@@ -391,6 +392,7 @@ include '../../includes/header.php';
         <div class="cart-panel">
             <div class="cart-header">
                 <div class="cart-title"><i class="fas fa-shopping-cart" style="margin-right:7px;color:var(--primary)"></i>Carrito</div>
+                <button class="cart-drawer-close" onclick="closeCartDrawer()" title="Cerrar"><i class="fas fa-chevron-down"></i></button>
                 <span class="cart-count" id="cart-count">0</span>
             </div>
 
@@ -436,10 +438,16 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- FAB carrito (solo móvil) -->
+<button class="cart-fab" id="cart-fab" onclick="openCartDrawer()">
+    <i class="fas fa-shopping-cart"></i>
+    <span class="cart-fab-badge" id="cart-fab-badge">0</span>
+</button>
+<div class="cart-drawer-backdrop" id="cart-drawer-backdrop" onclick="closeCartDrawer()"></div>
 </div><!-- /tab-pos -->
 
 <!-- TAB: VENTAS (historial) -->
-<div id="tab-ventas" style="display:none;flex:1;overflow-y:auto">
+<div id="tab-ventas" style="display:none">
 
     <div class="row g-3 mb-3" id="h-stats-container" style="margin-top:4px">
         <?php foreach (['blue','green','yellow','red'] as $c): ?>
@@ -447,17 +455,17 @@ include '../../includes/header.php';
         <?php endforeach; ?>
     </div>
 
-    <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+    <div class="card mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Desde</label>
                 <input type="date" id="h-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
             </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Hasta</label>
                 <input type="date" id="h-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
             </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+            <div class="col-6 col-md-2">
                 <label class="form-label">Estado</label>
                 <select class="form-control" id="h-estado">
                     <option value="">Todos</option>
@@ -465,14 +473,16 @@ include '../../includes/header.php';
                     <option value="anulada">Anulada</option>
                 </select>
             </div>
-            <div class="form-group" style="margin:0;flex:2;min-width:200px">
+            <div class="col-12 col-md-4">
                 <label class="form-label">Buscar</label>
                 <div class="input-group">
                     <span class="input-group-icon"><i class="fas fa-search"></i></span>
                     <input type="text" id="h-q" class="form-control" placeholder="N° venta o cliente...">
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="loadHistorial()"><i class="fas fa-search"></i> Buscar</button>
+            <div class="col-6 col-md-auto">
+                <button class="btn btn-primary w-100" onclick="loadHistorial()"><i class="fas fa-search"></i> Buscar</button>
+            </div>
         </div>
     </div>
 
@@ -481,7 +491,7 @@ include '../../includes/header.php';
             <div class="card-title">Ventas registradas</div>
             <span style="font-size:.82rem;color:var(--text-muted)" id="h-result-count">—</span>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -1118,6 +1128,15 @@ function clearCart() {
     renderCart();
 }
 
+function openCartDrawer() {
+    document.querySelector('.pos-right').classList.add('cart-open');
+    document.getElementById('cart-drawer-backdrop').classList.add('active');
+}
+function closeCartDrawer() {
+    document.querySelector('.pos-right').classList.remove('cart-open');
+    document.getElementById('cart-drawer-backdrop').classList.remove('active');
+}
+
 function renderCart() {
     const itemsEl   = document.getElementById('cart-items');
     const emptyEl   = document.getElementById('cart-empty');
@@ -1125,7 +1144,10 @@ function renderCart() {
     const countEl   = document.getElementById('cart-count');
     const btnVender = document.getElementById('btn-vender');
 
-    countEl.textContent = cart.reduce((s, i) => s + i.qty, 0);
+    const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+    countEl.textContent = totalQty;
+    const fabBadge = document.getElementById('cart-fab-badge');
+    if (fabBadge) { fabBadge.textContent = totalQty; fabBadge.classList.toggle('has-items', totalQty > 0); }
 
     if (!cart.length) {
         emptyEl.style.display = 'flex';
@@ -2583,6 +2605,7 @@ function enviarWhatsApp() {
 
 function resetPOS() {
     cart = [];
+    closeCartDrawer();
     clearCliente();
     splitPaymentEnabled = false;
     splitPaymentRows = [];
@@ -2742,6 +2765,10 @@ function switchTab(tab) {
     document.getElementById('tab-ventas').style.display = tab === 'ventas' ? 'block' : 'none';
     document.getElementById('tab-btn-pos').classList.toggle('active',    tab === 'pos');
     document.getElementById('tab-btn-ventas').classList.toggle('active', tab === 'ventas');
+
+    // POS necesita altura fija para el grid; Ventas scrollea la página normalmente.
+    const wrap = document.querySelector('.pos-page-wrap');
+    if (wrap) wrap.style.height = tab === 'ventas' ? 'auto' : '';
 
     if (tab === 'ventas' && !historialLoaded) {
         historialLoaded = true;

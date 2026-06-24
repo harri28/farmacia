@@ -85,17 +85,36 @@ include '../../includes/header.php';
 .empty-state i { font-size:2.4rem; display:block; margin-bottom:12px; }
 .btn-sm { padding:6px 12px; font-size:.78rem; }
 .btn-icon { padding:6px 9px; }
+
+.cl-tabs { display:flex; gap:6px; margin-bottom:20px; background:var(--surface-2); border-radius:var(--radius); padding:5px; width:fit-content; }
+.cl-tab  { display:flex; align-items:center; gap:7px; padding:8px 20px; border:none; border-radius:calc(var(--radius) - 2px); background:transparent; color:var(--text-muted); font-size:.88rem; font-weight:500; cursor:pointer; transition:background .15s,color .15s; white-space:nowrap; }
+.cl-tab:hover { background:var(--surface); color:var(--text); }
+.cl-tab.active { background:var(--primary); color:#fff; }
 </style>
 
 <div class="page-header">
     <div>
-        <h1 class="page-title">Clientes</h1>
-        <p class="page-subtitle">Administra tus clientes y consulta sus datos tributarios antes de vender o facturar.</p>
+        <h1 class="page-title" id="cl-page-title">Clientes</h1>
+        <p class="page-subtitle" id="cl-page-subtitle">Administra tus clientes y consulta sus datos tributarios antes de vender o facturar.</p>
     </div>
-    <button class="btn btn-primary" onclick="abrirModal()">
-        <i class="fas fa-user-plus"></i> Nuevo Cliente
+    <div id="cl-page-actions">
+        <button class="btn btn-primary" onclick="abrirModal()">
+            <i class="fas fa-user-plus"></i> Nuevo Cliente
+        </button>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="cl-tabs">
+    <button class="cl-tab active" id="tab-btn-clientes" onclick="switchTab('clientes')">
+        <i class="fas fa-users"></i> Clientes
+    </button>
+    <button class="cl-tab" id="tab-btn-proveedores" onclick="switchTab('proveedores')">
+        <i class="fas fa-truck"></i> Proveedores
     </button>
 </div>
+
+<div id="tab-clientes">
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
@@ -149,6 +168,113 @@ include '../../includes/header.php';
             <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
         </tbody>
     </table>
+</div>
+
+</div><!-- /tab-clientes -->
+
+<!-- ===================== TAB: PROVEEDORES ===================== -->
+<div id="tab-proveedores" style="display:none">
+
+    <div class="card mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-7">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="pf-q" class="form-control" placeholder="Razón social o RUC...">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Estado</label>
+                <select class="form-control" id="pf-activos">
+                    <option value="">Todos</option>
+                    <option value="1">Solo activos</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-auto">
+                <button class="btn btn-outline w-100" onclick="resetFiltrosProveedores()"><i class="fas fa-times"></i> Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Proveedores registrados</div>
+            <span id="prov-count" style="font-size:.82rem;color:var(--text-muted)">Cargando...</span>
+        </div>
+        <div class="table-wrap table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>RUC</th>
+                        <th>Razón Social</th>
+                        <th>Nombre Comercial</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Contacto</th>
+                        <th class="text-right">Ingresos</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="prov-body">
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-proveedores -->
+
+<!-- ===================== MODAL: Proveedor ===================== -->
+<div class="modal-overlay" id="modal-proveedor">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <span class="modal-title" id="modal-proveedor-title">
+                <i class="fas fa-truck" style="color:var(--primary);margin-right:8px"></i>Nuevo Proveedor
+            </span>
+            <button class="modal-close" onclick="cerrarModal('modal-proveedor')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row c2">
+                <div class="form-group">
+                    <label>RUC</label>
+                    <input type="text" id="p-ruc" placeholder="20100055858" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Nombre Comercial</label>
+                    <input type="text" id="p-nombre-comercial" placeholder="Bayer">
+                </div>
+                <div class="form-group" style="grid-column:1/-1">
+                    <label>Razón Social *</label>
+                    <input type="text" id="p-razon-social" placeholder="LABORATORIOS BAYER S.A.">
+                </div>
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" id="p-telefono" placeholder="01-6285500">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="p-email" placeholder="ventas@proveedor.com">
+                </div>
+                <div class="form-group">
+                    <label>Persona de Contacto</label>
+                    <input type="text" id="p-contacto" placeholder="Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <input type="text" id="p-direccion" placeholder="Av. Industrial 123, Lima">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="cerrarModal('modal-proveedor')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-proveedor" onclick="saveProveedor()">
+                <i class="fas fa-save"></i> Guardar
+            </button>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="overlayForm">
@@ -238,10 +364,167 @@ include '../../includes/header.php';
 </div>
 
 <script>
-const API = '<?= $base_path ?>modules/clientes/api.php';
+const API          = '<?= $base_path ?>modules/clientes/api.php';
+const ALMACEN_API  = '<?= $base_path ?>modules/almacen/api.php';
 let debounceBusqueda;
 let tiposDocumento = [];
-let clientesCache = [];
+let clientesCache  = [];
+let proveedoresLoaded  = false;
+let editingProveedorId = null;
+
+// ---- Tabs ----
+const CL_TAB_CFG = {
+    clientes: {
+        title:    'Clientes',
+        subtitle: 'Administra tus clientes y consulta sus datos tributarios antes de vender o facturar.',
+        actions:  '<button class="btn btn-primary" onclick="abrirModal()"><i class="fas fa-user-plus"></i> Nuevo Cliente</button>',
+    },
+    proveedores: {
+        title:    'Proveedores',
+        subtitle: 'Gestiona los proveedores de mercadería',
+        actions:  '<button class="btn btn-primary" onclick="openProveedorModal()"><i class="fas fa-plus"></i> Nuevo Proveedor</button>',
+    },
+};
+
+function switchTab(tab) {
+    document.getElementById('tab-clientes').style.display    = tab === 'clientes'    ? '' : 'none';
+    document.getElementById('tab-proveedores').style.display = tab === 'proveedores' ? '' : 'none';
+    document.getElementById('tab-btn-clientes').classList.toggle('active',    tab === 'clientes');
+    document.getElementById('tab-btn-proveedores').classList.toggle('active', tab === 'proveedores');
+    const cfg = CL_TAB_CFG[tab];
+    document.getElementById('cl-page-title').textContent    = cfg.title;
+    document.getElementById('cl-page-subtitle').textContent = cfg.subtitle;
+    document.getElementById('cl-page-actions').innerHTML    = cfg.actions;
+    if (tab === 'proveedores' && !proveedoresLoaded) {
+        loadProveedores();
+        setupProveedoresSearch();
+        proveedoresLoaded = true;
+    }
+}
+
+// ---- Proveedores ----
+function loadProveedores() {
+    const params = new URLSearchParams({
+        action:  'proveedores_listar',
+        q:       document.getElementById('pf-q').value,
+        activos: document.getElementById('pf-activos').value,
+    });
+    document.getElementById('prov-body').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    fetch(ALMACEN_API + '?' + params)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('prov-count').textContent = data.length + ' proveedor(es)';
+            if (!data.length) {
+                document.getElementById('prov-body').innerHTML =
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)"><i class="fas fa-truck" style="font-size:1.3rem;display:block;margin-bottom:8px"></i>No se encontraron proveedores</td></tr>';
+                return;
+            }
+            document.getElementById('prov-body').innerHTML = data.map(p => {
+                const activo = (p.activo === true || p.activo === 't');
+                return `<tr>
+                    <td style="font-family:monospace;font-size:.82rem">${esc(p.ruc || '—')}</td>
+                    <td class="td-nombre">${esc(p.razon_social)}</td>
+                    <td style="color:var(--text-muted);font-size:.85rem">${esc(p.nombre_comercial || '—')}</td>
+                    <td style="font-size:.82rem">${esc(p.telefono || '—')}</td>
+                    <td style="font-size:.82rem">${esc(p.email || '—')}</td>
+                    <td style="font-size:.82rem">${esc(p.contacto_nombre || '—')}</td>
+                    <td style="text-align:right"><span class="badge b-pendiente">${p.total_ingresos}</span></td>
+                    <td>${activo ? '<span class="badge b-activo">Activo</span>' : '<span class="badge b-inactivo">Inactivo</span>'}</td>
+                    <td>
+                        <div style="display:flex;gap:5px;justify-content:flex-end">
+                            <button class="btn btn-secondary btn-sm btn-icon" title="Editar" onclick='openProveedorModal(${JSON.stringify(p)})'>
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-secondary btn-sm btn-icon"
+                                title="${activo ? 'Desactivar' : 'Activar'}"
+                                onclick="toggleProveedor(${p.id})"
+                                style="color:${activo ? 'var(--danger)' : 'var(--success)'}">
+                                <i class="fas fa-${activo ? 'toggle-on' : 'toggle-off'}"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => toast('Error al cargar proveedores', 'err'));
+}
+
+function setupProveedoresSearch() {
+    let timer;
+    document.getElementById('pf-q').addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(loadProveedores, 250);
+    });
+    document.getElementById('pf-activos').addEventListener('change', loadProveedores);
+}
+
+function resetFiltrosProveedores() {
+    document.getElementById('pf-q').value       = '';
+    document.getElementById('pf-activos').value = '';
+    loadProveedores();
+}
+
+function openProveedorModal(p = null) {
+    editingProveedorId = p ? p.id : null;
+    document.getElementById('modal-proveedor-title').innerHTML = editingProveedorId
+        ? '<i class="fas fa-edit" style="color:var(--primary);margin-right:8px"></i>Editar Proveedor'
+        : '<i class="fas fa-truck" style="color:var(--primary);margin-right:8px"></i>Nuevo Proveedor';
+    document.getElementById('p-ruc').value              = p?.ruc              ?? '';
+    document.getElementById('p-razon-social').value     = p?.razon_social     ?? '';
+    document.getElementById('p-nombre-comercial').value = p?.nombre_comercial ?? '';
+    document.getElementById('p-telefono').value         = p?.telefono         ?? '';
+    document.getElementById('p-email').value            = p?.email            ?? '';
+    document.getElementById('p-contacto').value         = p?.contacto_nombre  ?? '';
+    document.getElementById('p-direccion').value        = p?.direccion        ?? '';
+    document.getElementById('modal-proveedor').classList.add('active');
+    setTimeout(() => document.getElementById('p-ruc').focus(), 100);
+}
+
+function saveProveedor() {
+    const razon_social = document.getElementById('p-razon-social').value.trim();
+    if (!razon_social) { toast('La razón social es requerida', 'err'); return; }
+    const payload = {
+        id:               editingProveedorId,
+        ruc:              document.getElementById('p-ruc').value.trim(),
+        razon_social,
+        nombre_comercial: document.getElementById('p-nombre-comercial').value.trim(),
+        telefono:         document.getElementById('p-telefono').value.trim(),
+        email:            document.getElementById('p-email').value.trim(),
+        contacto_nombre:  document.getElementById('p-contacto').value.trim(),
+        direccion:        document.getElementById('p-direccion').value.trim(),
+    };
+    const action = editingProveedorId ? 'proveedor_actualizar' : 'proveedor_crear';
+    const btn = document.getElementById('btn-guardar-proveedor');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    fetch(ALMACEN_API + '?action=' + action, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        if (d.error) { toast(d.message, 'err'); return; }
+        toast(d.message || 'Proveedor guardado');
+        cerrarModal('modal-proveedor');
+        loadProveedores();
+    })
+    .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar'; toast('Error al guardar', 'err'); });
+}
+
+function toggleProveedor(id) {
+    fetch(ALMACEN_API + '?action=proveedor_toggle_activo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { toast(d.message, 'err'); return; }
+        toast('Proveedor ' + ((d.activo === true || d.activo === 't') ? 'activado' : 'desactivado'));
+        loadProveedores();
+    })
+    .catch(() => toast('Error al cambiar estado', 'err'));
+}
 
 init();
 
