@@ -60,8 +60,13 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- Botón Regresar (solo visible al crear/editar producto) -->
+<button id="btn-regresar" onclick="cerrarTabProducto()" style="display:none;align-items:center;gap:7px;padding:6px 14px;margin-bottom:12px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--surface-2);color:var(--text-muted);font-size:.85rem;font-weight:500;cursor:pointer;transition:background .15s,color .15s">
+    <i class="fas fa-arrow-left"></i> Regresar
+</button>
+
 <!-- Tabs -->
-<div class="inv-tabs">
+<div class="inv-tabs" id="inv-tabs-bar">
     <button class="inv-tab active" id="tab-btn-inventario" onclick="switchTab('inventario')">
         <i class="fas fa-boxes"></i> Inventario
     </button>
@@ -186,87 +191,105 @@ include '../../includes/header.php';
 
 </div><!-- /tab-categorias -->
 
-<!-- ===================== MODAL: Agregar / Editar Producto ===================== -->
-<div class="modal-overlay" id="modal-producto">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3 class="modal-title" id="modal-producto-title">
-                <i class="fas fa-box" style="color:var(--primary);margin-right:8px"></i>Nuevo Producto
-            </h3>
-            <button class="modal-close" onclick="closeModal('modal-producto')"><i class="fas fa-times"></i></button>
+<!-- ===================== TAB: NUEVO / EDITAR PRODUCTO ===================== -->
+<div id="tab-producto" style="display:none">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title" id="tab-producto-card-title">
+                <i class="fas fa-plus" style="color:var(--primary);margin-right:8px"></i>Nuevo Producto
+            </div>
         </div>
-        <div class="modal-body">
+        <div style="padding:20px">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 
-                <div class="form-group">
-                    <label class="form-label">Código <span style="color:var(--danger)">*</span></label>
-                    <div class="input-group">
-                        <span class="input-group-icon" title="Escanea el código de barras o escríbelo manualmente">
-                            <i class="fas fa-barcode" style="color:var(--primary)"></i>
-                        </span>
-                        <input type="text" id="p-codigo" class="form-control" placeholder="MED001 o escanea el código">
+                <!-- Bloque superior: campos izquierda + imagen derecha -->
+                <div style="grid-column:1/-1;display:flex;gap:14px;align-items:stretch">
+
+                    <!-- Columna izquierda: Código+SKU, Categoría, Barcode, Nombre -->
+                    <div style="flex:3;display:flex;flex-direction:column;gap:14px">
+                        <div style="display:flex;gap:14px">
+                            <div class="form-group" style="flex:1;margin-bottom:0">
+                                <label class="form-label">Código <span style="color:var(--danger)">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-icon" title="Escanea el código de barras o escríbelo manualmente">
+                                        <i class="fas fa-barcode" style="color:var(--primary)"></i>
+                                    </span>
+                                    <input type="text" id="p-codigo" class="form-control" placeholder="MED001 o escanea el código">
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:1;margin-bottom:0">
+                                <label class="form-label">SKU <span style="font-size:.78rem;color:var(--text-muted)">(código interno)</span></label>
+                                <input type="text" id="p-sku" class="form-control" placeholder="Ej: FAR-001">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                                Categoría
+                                <span style="display:flex;gap:10px">
+                                    <button type="button" onclick="toggleNuevaCategoria()"
+                                            style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                        <i class="fas fa-plus-circle"></i> Nueva
+                                    </button>
+                                    <button type="button" onclick="cerrarTabProducto();switchTab('categorias')"
+                                            style="font-size:.75rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                        <i class="fas fa-cog"></i> Gestionar
+                                    </button>
+                                </span>
+                            </label>
+                            <select id="p-categoria" class="form-control">
+                                <option value="">Sin categoría</option>
+                            </select>
+                            <div id="nueva-cat-form" style="display:none;margin-top:8px">
+                                <div style="display:flex;gap:6px">
+                                    <input type="text" id="nueva-cat-nombre" class="form-control"
+                                           placeholder="Nombre de la categoría"
+                                           style="flex:1;font-size:.85rem"
+                                           onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoria();}
+                                                      if(event.key==='Escape'){toggleNuevaCategoria();}">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarCategoria()" title="Guardar">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaCategoria()" title="Cancelar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">Código de barras</label>
+                            <input type="text" id="p-codigo-barras" class="form-control" placeholder="Opcional para lector o etiqueta">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="p-nombre" class="form-control" placeholder="Paracetamol 500mg x 10 tab">
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">SKU <span style="font-size:.78rem;color:var(--text-muted)">(código interno)</span></label>
-                    <input type="text" id="p-sku" class="form-control" placeholder="Ej: FAR-001">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-                        Categoría
-                        <span style="display:flex;gap:10px">
-                            <button type="button" onclick="toggleNuevaCategoria()"
-                                    style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
-                                <i class="fas fa-plus-circle"></i> Nueva
-                            </button>
-                            <button type="button" onclick="closeModal('modal-producto');switchTab('categorias')"
-                                    style="font-size:.75rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
-                                <i class="fas fa-cog"></i> Gestionar
-                            </button>
-                        </span>
-                    </label>
-                    <select id="p-categoria" class="form-control">
-                        <option value="">Sin categoría</option>
-                    </select>
-                    <!-- Mini-form nueva categoría -->
-                    <div id="nueva-cat-form" style="display:none;margin-top:8px">
-                        <div style="display:flex;gap:6px">
-                            <input type="text" id="nueva-cat-nombre" class="form-control"
-                                   placeholder="Nombre de la categoría"
-                                   style="flex:1;font-size:.85rem"
-                                   onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoria();}
-                                              if(event.key==='Escape'){toggleNuevaCategoria();}">
-                            <button type="button" class="btn btn-primary btn-sm" onclick="guardarCategoria()" title="Guardar">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaCategoria()" title="Cancelar">
+
+                    <!-- Columna derecha: Imagen (ocupa todo el alto de la columna izquierda) -->
+                    <div style="flex:2;display:flex;flex-direction:column">
+                        <label class="form-label">Imagen del producto</label>
+                        <div id="p-imagen-zona"
+                             onclick="document.getElementById('p-imagen-input').click()"
+                             ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+                             ondragleave="this.style.borderColor='var(--border)'"
+                             ondrop="handleImagenDrop(event)"
+                             style="flex:1;border:2px dashed var(--border);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--surface-2);transition:border-color .2s,background .2s;position:relative;overflow:hidden;min-height:200px">
+                            <div id="p-imagen-placeholder" style="text-align:center;color:var(--text-muted);padding:16px">
+                                <i class="fas fa-image" style="font-size:2.5rem;margin-bottom:8px;display:block"></i>
+                                <span style="font-size:.85rem">Haz clic o arrastra una imagen</span>
+                            </div>
+                            <img id="p-imagen-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+                            <button type="button" id="p-imagen-quitar" onclick="event.stopPropagation();quitarImagen()"
+                                    style="display:none;position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:.8rem;align-items:center;justify-content:center">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
+                        <input type="file" id="p-imagen-input" accept="image/*" style="display:none" onchange="handleImagenSelect(this)">
                     </div>
-                </div>
 
-                <div class="form-group" style="grid-column:1/-1">
-                    <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="p-nombre" class="form-control" placeholder="Paracetamol 500mg x 10 tab">
                 </div>
 
                 <div style="grid-column:1/-1;display:flex;gap:14px">
-                    <div class="form-group" style="flex:1">
-                        <label class="form-label">Codigo SUNAT</label>
-                        <input type="text" id="p-codigo-sunat" class="form-control" placeholder="00000000" maxlength="8">
-                    </div>
-                    <div class="form-group" style="flex:1">
-                        <label class="form-label">Codigo de barras</label>
-                        <input type="text" id="p-codigo-barras" class="form-control" placeholder="Opcional para lector o etiqueta">
-                    </div>
-                </div>
-
-                <div style="grid-column:1/-1;display:flex;gap:14px">
-                    <div class="form-group" style="flex:1;margin-bottom:0">
-                        <label class="form-label">Laboratorio</label>
-                        <input type="text" id="p-laboratorio" class="form-control" placeholder="Bayer">
-                    </div>
                     <div class="form-group" style="flex:1;margin-bottom:0">
                         <label class="form-label">Presentación</label>
                         <input type="text" id="p-presentacion" class="form-control" placeholder="Tabletas x 10">
@@ -292,7 +315,7 @@ include '../../includes/header.php';
                         <label class="form-label">Stock Inicial</label>
                         <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
                     </div>
-                    <div class="form-group" style="flex:1.6">
+                    <div class="form-group" style="flex:1">
                         <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
                             <span>Unidad de medida <span style="color:var(--danger)">*</span></span>
                             <button type="button" onclick="toggleNuevaUnidad()"
@@ -350,12 +373,6 @@ include '../../includes/header.php';
                 </div>
 
                 <div style="grid-column:1/-1;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
-                    <div class="form-group" style="flex:1;min-width:220px">
-                        <label class="form-label">Unidad SUNAT</label>
-                        <select id="p-unidad-codigo" class="form-control">
-                            <option value="NIU">NIU - Unidad</option>
-                        </select>
-                    </div>
                     <div class="form-group" style="flex:1.5;min-width:280px">
                         <label class="form-label">Afectacion IGV</label>
                         <select id="p-afectacion-igv-codigo" class="form-control">
@@ -388,14 +405,16 @@ include '../../includes/header.php';
 
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="closeModal('modal-producto')">Cancelar</button>
+        <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+            <button class="btn btn-outline" onclick="cerrarTabProducto()">
+                <i class="fas fa-arrow-left"></i> Cancelar
+            </button>
             <button class="btn btn-primary" id="btn-guardar-producto" onclick="saveProducto()">
                 <i class="fas fa-save"></i> Guardar
             </button>
         </div>
     </div>
-</div>
+</div><!-- /tab-producto -->
 
 <!-- ===================== MODAL: Ajuste de Stock ===================== -->
 <div class="modal-overlay" id="modal-ajuste">
@@ -504,9 +523,9 @@ include '../../includes/header.php';
 
 <div class="toast-container" id="toast-container"></div>
 
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="<?= $base_path ?>assets/vendor/select2/select2.min.css" rel="stylesheet">
+<script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
+<script src="<?= $base_path ?>assets/vendor/select2/select2.min.js"></script>
 <style>
 .select2-container { width: 100% !important; }
 .select2-container .select2-selection--single {
@@ -548,24 +567,36 @@ let editingId   = null;
 let ajusteProducto = null;
 let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
+let tabAnterior = 'inventario';
 
 // ---- Tabs ----
 function switchTab(tab) {
-    ['inventario', 'categorias'].forEach(t => {
-        document.getElementById('tab-' + t).style.display        = t === tab ? '' : 'none';
-        document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+    ['inventario', 'categorias', 'producto'].forEach(t => {
+        document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+        const btn = document.getElementById('tab-btn-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
     });
+
+    const esProducto = tab === 'producto';
+    document.getElementById('inv-tabs-bar').style.display = esProducto ? 'none' : '';
+    document.getElementById('btn-regresar').style.display = esProducto ? 'flex' : 'none';
 
     if (tab === 'inventario') {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-boxes" style="color:var(--primary);margin-right:8px"></i>Inventario';
         document.getElementById('inv-page-subtitle').textContent = 'Gestiona productos, precios y niveles de stock';
         document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="openProductoModal()"><i class="fas fa-plus"></i> Nuevo Producto</button>';
-    } else {
+    } else if (tab === 'categorias') {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-tags" style="color:var(--primary);margin-right:8px"></i>Categorías';
         document.getElementById('inv-page-subtitle').textContent = 'Gestiona las categorías de productos';
         document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="abrirNuevaCategoria()"><i class="fas fa-plus"></i> Nueva Categoría</button>';
         renderCatTabla();
+    } else if (tab === 'producto') {
+        document.getElementById('inv-page-actions').innerHTML = '';
     }
+}
+
+function cerrarTabProducto() {
+    switchTab(tabAnterior);
 }
 
 // ---- Init ----
@@ -632,12 +663,6 @@ async function loadFacturacionCatalogos() {
 
     facturacionCatalogos = data;
 
-    const unidadSel = document.getElementById('p-unidad-codigo');
-    unidadSel.innerHTML = data.unidades.map(item =>
-        `<option value="${item.codigo}">${item.codigo} - ${item.descripcion}</option>`
-    ).join('');
-    unidadSel.dataset.ready = '1';
-    initUnidadSunatSelect();
     initUnidadComercialSelect();
 
     const afectacionSel = document.getElementById('p-afectacion-igv-codigo');
@@ -649,27 +674,6 @@ async function loadFacturacionCatalogos() {
 async function loadEmpresaConfig() {
     const data = await fetch(BASE + 'modules/admin/api.php?action=config_get').then(r => r.json());
     empresaFacturaConIgv = data.tax_enabled === true || data.tax_enabled === 't' || data.tax_enabled === 1 || data.tax_enabled === '1';
-}
-
-function initUnidadSunatSelect() {
-    if (typeof window.jQuery === 'undefined' || typeof window.jQuery.fn.select2 === 'undefined') {
-        return;
-    }
-
-    const $select = window.jQuery('#p-unidad-codigo');
-    if ($select.data('select2')) {
-        $select.select2('destroy');
-    }
-
-    $select.select2({
-        width: '100%',
-        dropdownParent: window.jQuery('#modal-producto .modal-body'),
-        placeholder: 'Selecciona unidad SUNAT',
-        language: {
-            noResults: () => 'Sin resultados',
-            searching: () => 'Buscando...'
-        }
-    });
 }
 
 function initUnidadComercialSelect() {
@@ -685,7 +689,7 @@ function initUnidadComercialSelect() {
     $select.select2({
         width: '100%',
         tags: true,
-        dropdownParent: window.jQuery('#modal-producto .modal-body'),
+        dropdownParent: window.jQuery('#tab-producto'),
         placeholder: 'Selecciona o escribe una unidad',
         language: {
             noResults: () => 'Escribe para crear una unidad personalizada',
@@ -847,32 +851,50 @@ function resetFiltros() {
     loadProductos();
 }
 
-// ---- Modal Producto (crear / editar) ----
+// ---- Tab Producto (crear / editar) ----
 function openProductoModal(producto = null) {
     editingId = producto ? producto.id : null;
-    const title  = document.getElementById('modal-producto-title');
+
+    // Recordar desde qué tab se abrió para poder volver
+    const tabActual = document.getElementById('tab-categorias').style.display !== 'none'
+        ? 'categorias' : 'inventario';
+    tabAnterior = tabActual;
+
+    const esNuevo = !editingId;
+    const titulo  = esNuevo ? 'Nuevo Producto' : 'Editar Producto';
+    const icono   = esNuevo ? 'fa-plus' : 'fa-edit';
+
+    document.getElementById('tab-producto-card-title').innerHTML =
+        `<i class="fas ${icono}" style="color:var(--primary);margin-right:8px"></i>${titulo}`;
+    document.getElementById('inv-page-title').innerHTML =
+        `<i class="fas ${icono}" style="color:var(--primary);margin-right:8px"></i>${titulo}`;
+    document.getElementById('inv-page-subtitle').textContent =
+        esNuevo ? 'Completa los datos para registrar un nuevo producto' : 'Actualiza los datos del producto';
+
     const stockGroup = document.getElementById('stock-inicial-group');
     const afectacionCodigoProducto = producto?.afectacion_igv_codigo ?? '10';
     const afectacionProducto = facturacionCatalogos.afectaciones_igv.find(item => item.codigo === afectacionCodigoProducto);
     const productoEsGravado = !afectacionProducto || afectacionProducto.tipo === 'GRAV';
     const incluyeIgvGuardado = producto?.incluye_igv == 't' || producto?.incluye_igv === true;
 
-    title.innerHTML = editingId
-        ? '<i class="fas fa-edit" style="color:var(--primary);margin-right:8px"></i>Editar Producto'
-        : '<i class="fas fa-plus" style="color:var(--primary);margin-right:8px"></i>Nuevo Producto';
-
     // Campo stock solo en creación
     stockGroup.style.display = editingId ? 'none' : 'block';
 
-    // Resetear / poblar form
+    // Poblar campos
     document.getElementById('p-codigo').value        = producto?.codigo        ?? '';
     document.getElementById('p-sku').value           = producto?.codigo_interno ?? '';
     document.getElementById('p-nombre').value        = producto?.nombre        ?? '';
     document.getElementById('p-categoria').value     = producto?.categoria_id  ?? '';
-    document.getElementById('p-codigo-sunat').value  = producto?.codigo_sunat  ?? '00000000';
+
     document.getElementById('p-codigo-barras').value = producto?.codigo_barras ?? '';
-    document.getElementById('p-laboratorio').value   = producto?.laboratorio   ?? '';
     document.getElementById('p-presentacion').value  = producto?.presentacion  ?? '';
+    quitarImagen();
+    if (producto?.imagen_url) {
+        document.getElementById('p-imagen-preview').src = producto.imagen_url;
+        document.getElementById('p-imagen-preview').style.display = 'block';
+        document.getElementById('p-imagen-placeholder').style.display = 'none';
+        document.getElementById('p-imagen-quitar').style.display = 'flex';
+    }
     document.getElementById('p-precio-compra').value = producto ? parseFloat(producto.precio_compra).toFixed(2) : '';
     document.getElementById('p-precio-venta').value  = producto ? parseFloat(producto.precio_venta).toFixed(2)  : '';
     document.getElementById('p-stock').value         = producto?.stock         ?? '';
@@ -880,14 +902,13 @@ function openProductoModal(producto = null) {
     const unidadVal = producto?.unidad ?? 'unidad';
     if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
         const $unidadSel = window.jQuery('#p-unidad');
-        if ($unidadSel.find(`option[value="${CSS.escape ? unidadVal : unidadVal}"]`).length === 0) {
+        if ($unidadSel.find(`option[value="${unidadVal}"]`).length === 0) {
             $unidadSel.append(new Option(unidadVal, unidadVal, true, true));
         }
         $unidadSel.val(unidadVal).trigger('change.select2');
     } else {
         document.getElementById('p-unidad').value = unidadVal;
     }
-    document.getElementById('p-unidad-codigo').value = producto?.unidad_codigo ?? 'NIU';
     document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '10';
     document.getElementById('p-porcentaje-igv').value = producto ? parseFloat(producto.porcentaje_igv || 18).toFixed(2) : '18.00';
     document.getElementById('p-incluye-igv').checked = !producto
@@ -904,11 +925,10 @@ function openProductoModal(producto = null) {
     }
 
     if (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined') {
-        window.jQuery('#p-unidad-codigo').trigger('change.select2');
         window.jQuery('#p-unidad').trigger('change.select2');
     }
 
-    openModal('modal-producto');
+    switchTab('producto');
     setTimeout(() => document.getElementById('p-codigo').focus(), 100);
 }
 
@@ -927,16 +947,14 @@ function saveProducto() {
         sku:             document.getElementById('p-sku').value.trim() || null,
         nombre,
         categoria_id:    document.getElementById('p-categoria').value     || null,
-        codigo_sunat:    document.getElementById('p-codigo-sunat').value.trim() || '00000000',
+
         codigo_barras:   document.getElementById('p-codigo-barras').value.trim() || null,
-        laboratorio:     document.getElementById('p-laboratorio').value,
         presentacion:    document.getElementById('p-presentacion').value,
         precio_compra:   parseFloat(document.getElementById('p-precio-compra').value) || 0,
         precio_venta,
         stock:           parseInt(document.getElementById('p-stock').value)        || 0,
         stock_minimo:    parseInt(document.getElementById('p-stock-minimo').value) || 5,
         unidad:          document.getElementById('p-unidad').value.trim() || 'unidad',
-        unidad_codigo:   document.getElementById('p-unidad-codigo').value || 'NIU',
         afectacion_igv_codigo: document.getElementById('p-afectacion-igv-codigo').value || '10',
         porcentaje_igv:  parseFloat(document.getElementById('p-porcentaje-igv').value) || 18,
         incluye_igv:     document.getElementById('p-incluye-igv').checked,
@@ -961,7 +979,7 @@ function saveProducto() {
         btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
         if (data.error) { showToast(data.message, 'error'); return; }
         showToast(data.message, 'success');
-        closeModal('modal-producto');
+        switchTab('inventario');
         loadProductos();
         loadStats();
     })
@@ -1222,14 +1240,12 @@ function confirmarEliminarCategoria() {
 }
 
 function actualizarSelectoresCategorias() {
-    // Selector en el formulario de producto
     const selProd = document.getElementById('p-categoria');
     const valActual = selProd.value;
     selProd.innerHTML = '<option value="">Sin categoría</option>';
     categorias.forEach(c => selProd.add(new Option(c.nombre, c.id)));
     selProd.value = valActual;
 
-    // Selector de filtro en la tabla
     const selFiltro = document.getElementById('f-categoria');
     const valFiltro = selFiltro.value;
     selFiltro.innerHTML = '<option value="0">Todas</option>';
@@ -1302,14 +1318,45 @@ function guardarCategoria() {
     .catch(() => showToast('Error al crear categoría', 'error'));
 }
 
+// ---- Imagen de producto ----
+function handleImagenSelect(input) {
+    if (input.files && input.files[0]) mostrarImagenPreview(input.files[0]);
+}
+
+function handleImagenDrop(event) {
+    event.preventDefault();
+    document.getElementById('p-imagen-zona').style.borderColor = 'var(--border)';
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) mostrarImagenPreview(file);
+}
+
+function mostrarImagenPreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('p-imagen-preview').src = e.target.result;
+        document.getElementById('p-imagen-preview').style.display = 'block';
+        document.getElementById('p-imagen-placeholder').style.display = 'none';
+        document.getElementById('p-imagen-quitar').style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+}
+
+function quitarImagen() {
+    document.getElementById('p-imagen-preview').src = '';
+    document.getElementById('p-imagen-preview').style.display = 'none';
+    document.getElementById('p-imagen-placeholder').style.display = '';
+    document.getElementById('p-imagen-quitar').style.display = 'none';
+    document.getElementById('p-imagen-input').value = '';
+}
+
 // ---- Lector de código de barras ----
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function (e) {
-        const code       = e.detail.code.trim();
-        const modalProd  = document.getElementById('modal-producto').classList.contains('open');
-        const modalAjuste = document.getElementById('modal-ajuste').classList.contains('open');
+        const code         = e.detail.code.trim();
+        const esTabProducto = document.getElementById('tab-producto').style.display !== 'none';
+        const modalAjuste   = document.getElementById('modal-ajuste').classList.contains('open');
 
-        if (modalProd) {
+        if (esTabProducto) {
             const campo = document.getElementById('p-codigo');
             campo.value = code;
             campo.style.transition = 'background .2s';
@@ -1318,19 +1365,9 @@ function setupBarcodeScanner() {
             document.getElementById('p-nombre').focus();
             showToast('<i class="fas fa-barcode"></i> Código escaneado: ' + code, 'success');
         } else if (!modalAjuste) {
-            // Buscar el producto en la tabla (solo si no hay otro modal abierto)
             document.getElementById('f-q').value = code;
             loadProductos();
             showToast('<i class="fas fa-barcode"></i> Buscando: ' + code, 'info');
-        }
-    });
-
-    // También permitir escribir manualmente en el campo código del modal
-    // y que el campo luzca activo cuando el modal está abierto
-    document.getElementById('modal-producto').addEventListener('click', function () {
-        // Re-enfocar p-codigo si se hace clic dentro del modal sin enfocar otro input
-        if (document.activeElement === document.body || document.activeElement === this) {
-            document.getElementById('p-codigo').focus();
         }
     });
 }
