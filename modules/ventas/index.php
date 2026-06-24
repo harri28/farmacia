@@ -360,18 +360,15 @@ include '../../includes/header.php';
 <!-- TAB: POS -->
 <div id="tab-pos" style="flex:1;min-height:0;display:flex;flex-direction:column">
 <div class="pos-layout" style="flex:1;min-height:0;height:auto">
-    <!-- COLUMNA CATEGORÍAS -->
-    <div class="pos-cats">
+    <!-- COLUMNA IZQUIERDA: filtros + búsqueda + grilla -->
+    <div class="pos-left">
         <div class="filter-chips" id="cat-chips">
             <span class="chip active" data-cat="0">Todos</span>
             <?php foreach ($categorias as $cat): ?>
             <span class="chip" data-cat="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nombre']) ?></span>
             <?php endforeach; ?>
         </div>
-    </div>
 
-    <!-- COLUMNA PRODUCTOS: búsqueda + grilla -->
-    <div class="pos-left">
         <div class="input-group">
             <span class="input-group-icon"><i class="fas fa-search"></i></span>
             <input type="text" id="search-input" class="form-control"
