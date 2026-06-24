@@ -55,4 +55,4 @@ desktop.ini
 *.swo
 
 # ─── Claude Code ──────────────────────────────────────────────
-.claude/
+.claude/*.bak
