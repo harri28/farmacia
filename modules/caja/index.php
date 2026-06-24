@@ -394,16 +394,22 @@ include '../../includes/header.php';
 <!-- ======== GASTOS OPERATIVOS ======== -->
 <div class="card" style="margin-top:28px" id="section-gastos">
     <div class="card-header">
-        <div class="card-title"><i class="fas fa-receipt" style="color:var(--danger);margin-right:6px"></i>Gastos Operativos</div>
-        <div class="d-flex flex-wrap gap-2 align-items-center ms-auto">
-            <input type="date" id="g-filtro-desde" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
-            <input type="date" id="g-filtro-hasta" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
-            <button class="btn btn-ghost btn-sm" onclick="loadGastos()"><i class="fas fa-search"></i></button>
-            <button class="btn btn-outline btn-sm" onclick="openModal('modal-gasto')"
-                    style="border-color:var(--danger);color:var(--danger)">
-                <i class="fas fa-plus"></i> Nuevo gasto
-            </button>
+        <div class="card-title">
+            <i class="fas fa-receipt" style="color:var(--danger);margin-right:6px"></i>Gastos Operativos
         </div>
+        <button class="btn btn-outline btn-sm" onclick="openModal('modal-gasto')"
+                style="border-color:var(--danger);color:var(--danger)">
+            <i class="fas fa-plus"></i> Nuevo gasto
+        </button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:.8rem;font-weight:600;color:var(--text-muted);white-space:nowrap">Período:</span>
+        <input type="date" id="g-filtro-desde" class="form-control" style="width:auto;max-width:160px" value="<?= date('Y-m-d') ?>">
+        <span style="color:var(--text-muted)">—</span>
+        <input type="date" id="g-filtro-hasta" class="form-control" style="width:auto;max-width:160px" value="<?= date('Y-m-d') ?>">
+        <button class="btn btn-primary btn-sm" onclick="loadGastos()">
+            <i class="fas fa-search"></i> Filtrar
+        </button>
     </div>
     <div class="table-wrap table-responsive">
         <table>
