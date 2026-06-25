@@ -347,7 +347,7 @@ include '../../includes/header.php';
                     <div class="form-group" style="flex:1.5;min-width:200px;margin-bottom:0">
                         <label class="form-label">Afectacion IGV</label>
                         <select id="p-afectacion-igv-codigo" class="form-control">
-                            <option value="10">10 - Gravado</option>
+                            <option value="20">20 - Exonerado</option>
                         </select>
                     </div>
                     <div class="form-group" style="flex:.8;min-width:120px;margin-bottom:0">
@@ -781,9 +781,9 @@ function getAfectacionSeleccionada() {
 }
 
 function aplicarDefaultFacturacionProducto() {
-    document.getElementById('p-afectacion-igv-codigo').value = empresaFacturaConIgv ? '10' : '20';
-    document.getElementById('p-porcentaje-igv').value = empresaFacturaConIgv ? '18.00' : '0.00';
-    document.getElementById('p-incluye-igv').checked = empresaFacturaConIgv;
+    document.getElementById('p-afectacion-igv-codigo').value = '20';
+    document.getElementById('p-porcentaje-igv').value = '0.00';
+    document.getElementById('p-incluye-igv').checked = false;
     aplicarReglasIgvPorAfectacion(true);
 }
 
