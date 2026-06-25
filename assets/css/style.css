@@ -390,8 +390,8 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-state i { font-size: 2.4rem; display: block; margin-bottom: 12px; }
 
 /* TOAST */
-.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 900; display: flex; flex-direction: column; gap: 8px; }
-.toast {
+.app-toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1100; display: flex; flex-direction: column; gap: 8px; }
+.app-toast {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 12px 16px;
     display: flex; align-items: center; gap: 10px;
@@ -402,12 +402,12 @@ tbody tr:last-child td { border-bottom: none; }
     from { opacity: 0; transform: translateX(20px); }
     to   { opacity: 1; transform: translateX(0); }
 }
-.toast.success { border-left: 3px solid var(--success); }
-.toast.error   { border-left: 3px solid var(--danger); }
-.toast.info    { border-left: 3px solid var(--primary); }
-.toast.success i { color: var(--success); }
-.toast.error   i { color: var(--danger); }
-.toast.info    i { color: var(--primary); }
+.app-toast.success { border-left: 3px solid var(--success); }
+.app-toast.error   { border-left: 3px solid var(--danger); }
+.app-toast.info    { border-left: 3px solid var(--primary); }
+.app-toast.success i { color: var(--success); }
+.app-toast.error   i { color: var(--danger); }
+.app-toast.info    i { color: var(--primary); }
 
 /* POS LAYOUT */
 .pos-layout { display: grid; grid-template-columns: 160px 1fr 360px; gap: 16px; height: calc(100vh - var(--topbar-h) - 48px); overflow: hidden; }
@@ -721,8 +721,8 @@ tbody tr:last-child td { border-bottom: none; }
     .modal-body { max-height: 72vh; overflow-y: auto; }
 
     /* Toast full-width */
-    .toast-container { left: 10px; right: 10px; bottom: 14px; }
-    .toast { min-width: unset; width: 100%; }
+    .app-toast-container { left: 10px; right: 10px; bottom: 14px; }
+    .app-toast { min-width: unset; width: 100%; }
 
     /* Tablas: scroll táctil */
     .table-wrap { -webkit-overflow-scrolling: touch; }

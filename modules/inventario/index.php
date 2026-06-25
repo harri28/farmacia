@@ -196,100 +196,70 @@ include '../../includes/header.php';
     <div class="card">
         <div class="card-header">
             <div class="card-title" id="tab-producto-card-title">
-                <i class="fas fa-plus" style="color:var(--primary);margin-right:8px"></i>Nuevo Producto
+                <i class="fas fa-plus" style="color:var(--primary);margin-right:8px"></i>Información de Producto
             </div>
         </div>
-        <div style="padding:20px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="display:flex;align-items:stretch">
 
-                <!-- Bloque superior: campos izquierda + imagen derecha -->
-                <div style="grid-column:1/-1;display:flex;gap:14px;align-items:stretch">
+            <!-- ── Columna izquierda: todos los campos ── -->
+            <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:14px">
 
-                    <!-- Columna izquierda: Código+SKU, Categoría, Barcode, Nombre -->
-                    <div style="flex:3;display:flex;flex-direction:column;gap:14px">
-                        <div style="display:flex;gap:14px">
-                            <div class="form-group" style="flex:1;margin-bottom:0">
-                                <label class="form-label">Código <span style="color:var(--danger)">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-icon" title="Escanea el código de barras o escríbelo manualmente">
-                                        <i class="fas fa-barcode" style="color:var(--primary)"></i>
-                                    </span>
-                                    <input type="text" id="p-codigo" class="form-control" placeholder="MED001 o escanea el código">
-                                </div>
-                            </div>
-                            <div class="form-group" style="flex:1;margin-bottom:0">
-                                <label class="form-label">SKU <span style="font-size:.78rem;color:var(--text-muted)">(código interno)</span></label>
-                                <input type="text" id="p-sku" class="form-control" placeholder="Ej: FAR-001">
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-bottom:0">
-                            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-                                Categoría
-                                <span style="display:flex;gap:10px">
-                                    <button type="button" onclick="toggleNuevaCategoria()"
-                                            style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
-                                        <i class="fas fa-plus-circle"></i> Nueva
-                                    </button>
-                                    <button type="button" onclick="cerrarTabProducto();switchTab('categorias')"
-                                            style="font-size:.75rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
-                                        <i class="fas fa-cog"></i> Gestionar
-                                    </button>
-                                </span>
-                            </label>
-                            <select id="p-categoria" class="form-control">
-                                <option value="">Sin categoría</option>
-                            </select>
-                            <div id="nueva-cat-form" style="display:none;margin-top:8px">
-                                <div style="display:flex;gap:6px">
-                                    <input type="text" id="nueva-cat-nombre" class="form-control"
-                                           placeholder="Nombre de la categoría"
-                                           style="flex:1;font-size:.85rem"
-                                           onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoria();}
-                                                      if(event.key==='Escape'){toggleNuevaCategoria();}">
-                                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarCategoria()" title="Guardar">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaCategoria()" title="Cancelar">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-bottom:0">
-                            <label class="form-label">Código de barras</label>
-                            <input type="text" id="p-codigo-barras" class="form-control" placeholder="Opcional para lector o etiqueta">
-                        </div>
-                        <div class="form-group" style="margin-bottom:0">
-                            <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
-                            <input type="text" id="p-nombre" class="form-control" placeholder="Paracetamol 500mg x 10 tab">
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Código <span style="color:var(--danger)">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-icon" title="Escanea el código de barras o escríbelo manualmente">
+                                <i class="fas fa-barcode" style="color:var(--primary)"></i>
+                            </span>
+                            <input type="text" id="p-codigo" class="form-control" placeholder="MED001 o escanea el código">
                         </div>
                     </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">SKU <span style="font-size:.78rem;color:var(--text-muted)">(código interno)</span></label>
+                        <input type="text" id="p-sku" class="form-control" placeholder="Ej: FAR-001">
+                    </div>
+                </div>
 
-                    <!-- Columna derecha: Imagen (ocupa todo el alto de la columna izquierda) -->
-                    <div style="flex:2;display:flex;flex-direction:column">
-                        <label class="form-label">Imagen del producto</label>
-                        <div id="p-imagen-zona"
-                             onclick="document.getElementById('p-imagen-input').click()"
-                             ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
-                             ondragleave="this.style.borderColor='var(--border)'"
-                             ondrop="handleImagenDrop(event)"
-                             style="flex:1;border:2px dashed var(--border);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--surface-2);transition:border-color .2s,background .2s;position:relative;overflow:hidden;min-height:200px">
-                            <div id="p-imagen-placeholder" style="text-align:center;color:var(--text-muted);padding:16px">
-                                <i class="fas fa-image" style="font-size:2.5rem;margin-bottom:8px;display:block"></i>
-                                <span style="font-size:.85rem">Haz clic o arrastra una imagen</span>
-                            </div>
-                            <img id="p-imagen-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-                            <button type="button" id="p-imagen-quitar" onclick="event.stopPropagation();quitarImagen()"
-                                    style="display:none;position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:.8rem;align-items:center;justify-content:center">
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="p-nombre" class="form-control" placeholder="Paracetamol 500mg x 10 tab">
+                </div>
+
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                        Categoría
+                        <span style="display:flex;gap:10px">
+                            <button type="button" onclick="toggleNuevaCategoria()"
+                                    style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                <i class="fas fa-plus-circle"></i> Nueva
+                            </button>
+                            <button type="button" onclick="cerrarTabProducto();switchTab('categorias')"
+                                    style="font-size:.75rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                                <i class="fas fa-cog"></i> Gestionar
+                            </button>
+                        </span>
+                    </label>
+                    <select id="p-categoria" class="form-control">
+                        <option value="">Sin categoría</option>
+                    </select>
+                    <div id="nueva-cat-form" style="display:none;margin-top:8px">
+                        <div style="display:flex;gap:6px">
+                            <input type="text" id="nueva-cat-nombre" class="form-control"
+                                   placeholder="Nombre de la categoría"
+                                   style="flex:1;font-size:.85rem"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();guardarCategoria();}
+                                              if(event.key==='Escape'){toggleNuevaCategoria();}">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="guardarCategoria()" title="Guardar">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaCategoria()" title="Cancelar">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <input type="file" id="p-imagen-input" accept="image/*" style="display:none" onchange="handleImagenSelect(this)">
                     </div>
-
                 </div>
 
-                <div style="grid-column:1/-1;display:flex;gap:14px">
+                <div style="display:flex;gap:14px">
                     <div class="form-group" style="flex:1;margin-bottom:0">
                         <label class="form-label">Presentación</label>
                         <input type="text" id="p-presentacion" class="form-control" placeholder="Tabletas x 10">
@@ -300,22 +270,27 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Precio de Compra (S/)</label>
-                    <input type="number" id="p-precio-compra" class="form-control" placeholder="0.00" step="0.01" min="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Precio de Venta (S/) <span style="color:var(--danger)">*</span></label>
-                    <input type="number" id="p-precio-venta" class="form-control" placeholder="0.00" step="0.01" min="0">
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Precio de Compra (S/)</label>
+                        <input type="number" id="p-precio-compra" class="form-control" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Precio de Venta (S/) <span style="color:var(--danger)">*</span></label>
+                        <input type="number" id="p-precio-venta" class="form-control" placeholder="0.00" step="0.01" min="0">
+                    </div>
                 </div>
 
-                <!-- Stock Inicial · Unidad · Stock Mínimo en una fila -->
-                <div style="grid-column:1/-1;display:flex;gap:14px">
-                    <div class="form-group" id="stock-inicial-group" style="flex:1">
-                        <label class="form-label">Stock Inicial</label>
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" id="stock-inicial-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Stock</label>
                         <input type="number" id="p-stock" class="form-control" placeholder="0" min="0">
                     </div>
-                    <div class="form-group" style="flex:1">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Alerta de Stock</label>
+                        <input type="number" id="p-stock-minimo" class="form-control" placeholder="5" min="0">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
                         <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
                             <span>Unidad de medida <span style="color:var(--danger)">*</span></span>
                             <button type="button" onclick="toggleNuevaUnidad()"
@@ -366,24 +341,20 @@ include '../../includes/header.php';
                             </div>
                         </div>
                     </div>
-                    <div class="form-group" style="flex:1">
-                        <label class="form-label">Stock Mínimo</label>
-                        <input type="number" id="p-stock-minimo" class="form-control" placeholder="5" min="0">
-                    </div>
                 </div>
 
-                <div style="grid-column:1/-1;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
-                    <div class="form-group" style="flex:1.5;min-width:280px">
+                <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                    <div class="form-group" style="flex:1.5;min-width:200px;margin-bottom:0">
                         <label class="form-label">Afectacion IGV</label>
                         <select id="p-afectacion-igv-codigo" class="form-control">
                             <option value="10">10 - Gravado</option>
                         </select>
                     </div>
-                    <div class="form-group" style="flex:.8;min-width:140px">
+                    <div class="form-group" style="flex:.8;min-width:120px;margin-bottom:0">
                         <label class="form-label">IGV (%)</label>
                         <input type="number" id="p-porcentaje-igv" class="form-control" placeholder="18.00" step="0.01" min="0">
                     </div>
-                    <div class="form-group" style="flex:1;min-width:220px">
+                    <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
                         <label class="form-label">Precio</label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)">
                             <input type="checkbox" id="p-incluye-igv" style="width:16px;height:16px;cursor:pointer" checked>
@@ -392,7 +363,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
-                <div class="form-group" style="grid-column:1/-1;display:flex;gap:24px;align-items:center;padding:10px 0">
+                <div style="display:flex;gap:24px;align-items:center;padding:6px 0">
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem">
                         <input type="checkbox" id="p-receta" style="width:16px;height:16px;cursor:pointer">
                         <span>Requiere receta médica</span>
@@ -404,15 +375,113 @@ include '../../includes/header.php';
                 </div>
 
             </div>
+
+            <!-- ── Columna derecha: imagen ── -->
+            <div style="flex:1;padding:20px;border-left:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <label class="form-label" style="align-self:center;margin-bottom:10px">Imagen del producto</label>
+                <div id="p-imagen-zona"
+                     onclick="document.getElementById('p-imagen-input').click()"
+                     ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
+                     ondragleave="this.style.borderColor='var(--border)'"
+                     ondrop="handleImagenDrop(event)"
+                     style="width:180px;height:180px;border:2px dashed var(--border);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--surface-2);transition:border-color .2s,background .2s;position:relative;overflow:hidden">
+                    <div id="p-imagen-placeholder" style="text-align:center;color:var(--text-muted);padding:12px">
+                        <i class="fas fa-image" style="font-size:2.5rem;margin-bottom:8px;display:block"></i>
+                        <span style="font-size:.78rem">Clic o arrastra</span>
+                    </div>
+                    <img id="p-imagen-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
+                    <button type="button" id="p-imagen-quitar" onclick="event.stopPropagation();quitarImagen()"
+                            style="display:none;position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:.8rem;align-items:center;justify-content:center">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <input type="file" id="p-imagen-input" accept="image/*" style="display:none" onchange="handleImagenSelect(this)">
+            </div>
+
         </div>
-        <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
-            <button class="btn btn-outline" onclick="cerrarTabProducto()">
-                <i class="fas fa-arrow-left"></i> Cancelar
-            </button>
-            <button class="btn btn-primary" id="btn-guardar-producto" onclick="saveProducto()">
-                <i class="fas fa-save"></i> Guardar
-            </button>
+    </div><!-- /card Información de Producto -->
+
+    <!-- ── Card: Información de Medicamentos ── -->
+    <div class="card" style="margin-top:20px">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-pills" style="color:var(--primary);margin-right:8px"></i>Información de Medicamentos
+            </div>
         </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Código de Producto DIGEMID</label>
+                        <input type="text" id="p-digemid-codigo" class="form-control" placeholder="Ej: 123456">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Precio de empaque DIGEMID (S/)</label>
+                        <input type="number" id="p-digemid-precio" class="form-control" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Registro Sanitario</label>
+                        <input type="text" id="p-registro-sanitario" class="form-control" placeholder="Ej: E.F.A. N° 12345">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Vencimiento del Registro Sanitario</label>
+                        <input type="date" id="p-vencimiento-registro" class="form-control">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Condición de venta</label>
+                        <select id="p-condicion-venta" class="form-control">
+                            <option value="">— Seleccionar —</option>
+                            <option value="sin_receta">Sin receta médica</option>
+                            <option value="con_receta">Con receta médica</option>
+                            <option value="con_receta_retenida">Con receta médica retenida</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Principio activo</label>
+                        <input type="text" id="p-principio-activo" class="form-control" placeholder="Ej: Paracetamol">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Laboratorio</label>
+                        <input type="text" id="p-laboratorio" class="form-control" placeholder="Ej: Bayer">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Concentración</label>
+                        <input type="text" id="p-concentracion" class="form-control" placeholder="Ej: 500mg">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:14px">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Forma farmacéutica</label>
+                        <input type="text" id="p-forma-farmaceutica" class="form-control" placeholder="Ej: Tableta, Jarabe, Ampolla">
+                    </div>
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label class="form-label">Presentación farmacéutica</label>
+                        <input type="text" id="p-presentacion-farmaceutica" class="form-control" placeholder="Ej: Caja x 10 tabletas">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div><!-- /card Información de Medicamentos -->
+
+    <!-- Botones -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-bottom:8px">
+        <button class="btn btn-outline" onclick="cerrarTabProducto()">
+            <i class="fas fa-arrow-left"></i> Cancelar
+        </button>
+        <button class="btn btn-primary" id="btn-guardar-producto" onclick="saveProducto()">
+            <i class="fas fa-save"></i> Guardar
+        </button>
     </div>
 </div><!-- /tab-producto -->
 
@@ -521,7 +590,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
+<div class="app-toast-container" id="toast-container"></div>
 
 <link href="<?= $base_path ?>assets/vendor/select2/select2.min.css" rel="stylesheet">
 <script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
@@ -861,7 +930,7 @@ function openProductoModal(producto = null) {
     tabAnterior = tabActual;
 
     const esNuevo = !editingId;
-    const titulo  = esNuevo ? 'Nuevo Producto' : 'Editar Producto';
+    const titulo  = 'Información de Producto';
     const icono   = esNuevo ? 'fa-plus' : 'fa-edit';
 
     document.getElementById('tab-producto-card-title').innerHTML =
@@ -886,7 +955,7 @@ function openProductoModal(producto = null) {
     document.getElementById('p-nombre').value        = producto?.nombre        ?? '';
     document.getElementById('p-categoria').value     = producto?.categoria_id  ?? '';
 
-    document.getElementById('p-codigo-barras').value = producto?.codigo_barras ?? '';
+
     document.getElementById('p-presentacion').value  = producto?.presentacion  ?? '';
     quitarImagen();
     if (producto?.imagen_url) {
@@ -948,7 +1017,7 @@ function saveProducto() {
         nombre,
         categoria_id:    document.getElementById('p-categoria').value     || null,
 
-        codigo_barras:   document.getElementById('p-codigo-barras').value.trim() || null,
+
         presentacion:    document.getElementById('p-presentacion').value,
         precio_compra:   parseFloat(document.getElementById('p-precio-compra').value) || 0,
         precio_venta,
@@ -1379,7 +1448,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function showToast(msg, type = 'info') {
     const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `app-toast ${type}`;
     toast.innerHTML = `<i class="fas fa-${icons[type] || 'info-circle'}"></i> ${msg}`;
     document.getElementById('toast-container').appendChild(toast);
     setTimeout(() => toast.remove(), 3500);

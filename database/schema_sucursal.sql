@@ -7,14 +7,20 @@
 --   \i database/schema_sucursal.sql
 -- ============================================================
 
--- Nota: categorias ya no es por sucursal, vive en public.categorias
+CREATE TABLE IF NOT EXISTS categorias (
+    id          SERIAL PRIMARY KEY,
+    nombre      VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    activo      BOOLEAN DEFAULT TRUE,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS productos (
     id               SERIAL PRIMARY KEY,
     codigo           VARCHAR(50)    UNIQUE NOT NULL,
     nombre           VARCHAR(200)   NOT NULL,
     descripcion      TEXT,
-    categoria_id     INTEGER        REFERENCES public.categorias(id),
+    categoria_id     INTEGER        REFERENCES categorias(id),
     precio_compra    DECIMAL(10,2)  DEFAULT 0,
     precio_venta     DECIMAL(10,2)  NOT NULL,
     stock            INTEGER        DEFAULT 0,

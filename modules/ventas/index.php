@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/ventas/index.php
 // MÓDULO:  Ventas → Punto de Venta (POS)
@@ -843,7 +843,7 @@ include '../../includes/header.php';
 </div>
 
 <!-- Toast Container -->
-<div class="toast-container" id="toast-container"></div>
+<div class="app-toast-container" id="toast-container"></div>
 
 <style>
 /* La impresión de tickets se hace en ventana nueva (printReceipt) — no se necesita @media print aquí */
@@ -2916,7 +2916,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function showToast(msg, type = 'info') {
     const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `app-toast ${type}`;
     toast.innerHTML = `<i class="fas fa-${icons[type]}"></i> ${msg}`;
     document.getElementById('toast-container').appendChild(toast);
     setTimeout(() => toast.remove(), 3500);

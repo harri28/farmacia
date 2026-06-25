@@ -48,6 +48,8 @@ function resolverCatalogosProducto(PDO $db, string $unidadCodigo, string $afecta
     ];
 }
 
+try {
+
 switch ($action) {
 
     case 'stats':
@@ -129,7 +131,7 @@ switch ($action) {
                 c.nombre AS categoria,
                 p.fecha_vencimiento
             FROM productos p
-            LEFT JOIN public.categorias c ON c.id = p.categoria_id
+            LEFT JOIN categorias c ON c.id = p.categoria_id
             LEFT JOIN public.fe_unidades u ON u.id = p.unidad_id
             LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
             WHERE " . implode(' AND ', $where) . "
@@ -144,7 +146,7 @@ switch ($action) {
     case 'categorias':
         $rows = $db->query("
             SELECT c.id, c.nombre, COUNT(p.id) AS total_productos
-            FROM public.categorias c
+            FROM categorias c
             LEFT JOIN productos p ON p.categoria_id = c.id AND p.activo = TRUE
             WHERE c.activo = TRUE
             GROUP BY c.id, c.nombre
@@ -182,13 +184,13 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'El nombre es requerido'], 400);
         }
 
-        $check = $db->prepare("SELECT id FROM public.categorias WHERE LOWER(nombre) = LOWER(:nombre)");
+        $check = $db->prepare("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER(:nombre)");
         $check->execute([':nombre' => $nombre]);
         if ($check->fetch()) {
             jsonResponse(['error' => true, 'message' => 'Ya existe una categoria con ese nombre'], 409);
         }
 
-        $stmt = $db->prepare("INSERT INTO public.categorias (nombre) VALUES (:nombre) RETURNING id, nombre");
+        $stmt = $db->prepare("INSERT INTO categorias (nombre) VALUES (:nombre) RETURNING id, nombre");
         $stmt->execute([':nombre' => $nombre]);
         $cat = $stmt->fetch();
         jsonResponse(['error' => false, 'message' => 'Categoria creada', 'id' => $cat['id'], 'nombre' => $cat['nombre']]);
@@ -203,13 +205,13 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
         }
 
-        $check = $db->prepare("SELECT id FROM public.categorias WHERE LOWER(nombre) = LOWER(:nombre) AND id != :id");
+        $check = $db->prepare("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER(:nombre) AND id != :id");
         $check->execute([':nombre' => $nombre, ':id' => $id]);
         if ($check->fetch()) {
             jsonResponse(['error' => true, 'message' => 'Ya existe una categoria con ese nombre'], 409);
         }
 
-        $db->prepare("UPDATE public.categorias SET nombre = :nombre WHERE id = :id")
+        $db->prepare("UPDATE categorias SET nombre = :nombre WHERE id = :id")
            ->execute([':nombre' => $nombre, ':id' => $id]);
         jsonResponse(['error' => false, 'message' => 'Categoria actualizada', 'id' => $id, 'nombre' => $nombre]);
         break;
@@ -229,7 +231,7 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => "No se puede eliminar: $total producto(s) usan esta categoria"], 409);
         }
 
-        $db->prepare("DELETE FROM public.categorias WHERE id = :id")->execute([':id' => $id]);
+        $db->prepare("DELETE FROM categorias WHERE id = :id")->execute([':id' => $id]);
         jsonResponse(['error' => false, 'message' => 'Categoria eliminada']);
         break;
 
@@ -417,4 +419,10 @@ switch ($action) {
 
     default:
         jsonResponse(['error' => true, 'message' => 'Accion no valida'], 404);
+}
+
+} catch (PDOException $e) {
+    jsonResponse(['error' => true, 'message' => 'Error de base de datos: ' . $e->getMessage()], 500);
+} catch (Throwable $e) {
+    jsonResponse(['error' => true, 'message' => 'Error interno: ' . $e->getMessage()], 500);
 }

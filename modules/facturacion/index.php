@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/facturacion/index.php
 // MÓDULO:  Facturación (tabs: Reporte de Ventas | Notas de crédito | Rentabilidad)
@@ -568,7 +568,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
+<div class="app-toast-container" id="toast-container"></div>
 
 <script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
 <script src="<?= $base_path ?>assets/vendor/datatables/jquery.dataTables.min.js"></script>
@@ -590,7 +590,7 @@ const VENDEDOR_NOMBRE = <?= json_encode(sesionNombre()) ?>;
 function showToast(msg, type = 'info') {
     const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
     const t = document.createElement('div');
-    t.className = `toast ${type}`;
+    t.className = `app-toast ${type}`;
     t.innerHTML = `<i class="fas fa-${icons[type] || 'info-circle'}"></i> ${msg}`;
     document.getElementById('toast-container').appendChild(t);
     setTimeout(() => t.remove(), 3500);

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/caja/index.php
 // MÓDULO:  Caja
@@ -461,7 +461,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
+<div class="app-toast-container" id="toast-container"></div>
 
 <script>
 const BASE    = '../../';
@@ -749,7 +749,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function showToast(msg, type = 'info') {
     const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
     const t = document.createElement('div');
-    t.className = `toast ${type}`;
+    t.className = `app-toast ${type}`;
     t.innerHTML = `<i class="fas fa-${icons[type] || 'info-circle'}"></i> ${msg}`;
     document.getElementById('toast-container').appendChild(t);
     setTimeout(() => t.remove(), 3500);

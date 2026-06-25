@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ============================================================
 // ARCHIVO: farmacia/modules/ventas/favoritos.php
 // MÓDULO:  Ventas → Favoritos y Más Vendidos
@@ -123,7 +123,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
+<div class="app-toast-container" id="toast-container"></div>
 
 <script>
 const BASE = '../../';
@@ -325,7 +325,7 @@ function toggleFavCard(id, btn) {
 function showToast(msg, type='info') {
     const icons = { success:'check-circle', error:'exclamation-circle', info:'info-circle' };
     const t = document.createElement('div');
-    t.className = `toast ${type}`;
+    t.className = `app-toast ${type}`;
     t.innerHTML = `<i class="fas fa-${icons[type]}"></i> ${msg}`;
     document.getElementById('toast-container').appendChild(t);
     setTimeout(() => t.remove(), 3000);
