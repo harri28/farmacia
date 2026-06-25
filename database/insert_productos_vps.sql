@@ -5,7 +5,7 @@
 --     de tu VPS antes de ejecutar.
 -- ============================================================
 
-SET search_path TO sucursal_001;
+SET search_path TO generyc_pharma_jr_lima_tambo;
 
 -- ─── Paso 1: Crear categorías que no existan ────────────────
 INSERT INTO categorias (nombre)
