@@ -21,6 +21,7 @@ facturacion/storage/soap/*
 
 # ─── Dumps y backups de base de datos ─────────────────────────
 *.sql.bak
+*.bak
 *.dump
 farmacia.sql
 
