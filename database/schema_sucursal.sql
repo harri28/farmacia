@@ -234,8 +234,8 @@ CREATE TABLE IF NOT EXISTS gastos (
     created_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
--- Categorías iniciales en el schema global (compartidas por todas las sucursales)
-INSERT INTO public.categorias (nombre, descripcion) VALUES
+-- Categorías iniciales en la tabla local de la sucursal
+INSERT INTO categorias (nombre, descripcion) VALUES
     ('Medicamentos',          'Fármacos y medicamentos en general'),
     ('Vitaminas y Suplementos','Vitaminas, minerales y suplementos nutricionales'),
     ('Cuidado Personal',      'Productos de higiene y cuidado personal'),
