@@ -1,0 +1,76 @@
+-- seed_catalogos_sunat.sql
+-- Pobla los catálogos SUNAT requeridos por el módulo de facturación.
+-- Ejecutar en producción si fe_tipos_afectacion_igv o fe_unidades están vacíos.
+-- Es idempotente: usa ON CONFLICT DO NOTHING.
+
+-- Tipos de Afectación IGV (Catálogo 07 SUNAT)
+INSERT INTO public.fe_tipos_afectacion_igv (id, codigo, descripcion, tipo, estado) VALUES
+(1, '10', 'Gravada - Operación Onerosa',   'GRAV', TRUE),
+(2, '20', 'Exonerada - Exonerada de IGV',  'EXO',  TRUE),
+(3, '30', 'Inafecta - Operación Inafecta', 'INA',  TRUE)
+ON CONFLICT (codigo) DO NOTHING;
+
+-- Unidades de medida (Catálogo 03 SUNAT)
+INSERT INTO public.fe_unidades (id, codigo, descripcion, estado) VALUES
+( 1, '4A',  'BOBINAS',                  TRUE),
+( 2, 'BE',  'FARDO',                    TRUE),
+( 3, 'BG',  'BOLSA',                    TRUE),
+( 4, 'BJ',  'BALDE',                    TRUE),
+( 5, 'BLL', 'BARRILES',                 TRUE),
+( 6, 'BO',  'BOTELLAS',                 TRUE),
+( 7, 'BX',  'CAJA',                     TRUE),
+( 8, 'C62', 'PIEZAS',                   TRUE),
+( 9, 'CA',  'LATAS',                    TRUE),
+(10, 'CEN', 'CIENTOS DE UNIDADES',      TRUE),
+(11, 'CJ',  'CONOS',                    TRUE),
+(12, 'CMK', 'CENTIMETRO CUADRADO',      TRUE),
+(13, 'CMQ', 'CENTIMETRO CUBICO',        TRUE),
+(14, 'CMT', 'CENTIMETRO LINEAL',        TRUE),
+(15, 'CT',  'CARTONES',                 TRUE),
+(16, 'CY',  'CILINDRO',                 TRUE),
+(17, 'DR',  'TAMBOR',                   TRUE),
+(18, 'DZN', 'DOCENA',                   TRUE),
+(19, 'DZP', 'DOCENA POR 10**6',         TRUE),
+(20, 'FOT', 'PIES',                     TRUE),
+(21, 'FTK', 'PIES CUADRADOS',           TRUE),
+(22, 'GLI', 'GALON INGLES (4,545956L)', TRUE),
+(23, 'GLL', 'US GALON (3,7843 L)',      TRUE),
+(24, 'GRM', 'GRAMO',                    TRUE),
+(25, 'GRO', 'GRUESA',                   TRUE),
+(26, 'HLT', 'HECTOLITRO',               TRUE),
+(27, 'INH', 'PULGADAS',                 TRUE),
+(28, 'KGM', 'KILOGRAMO',                TRUE),
+(29, 'KT',  'KIT',                      TRUE),
+(30, 'KTM', 'KILOMETRO',                TRUE),
+(31, 'KWH', 'KILOVATIO HORA',           TRUE),
+(32, 'LBR', 'LIBRAS',                   TRUE),
+(33, 'LEF', 'HOJA',                     TRUE),
+(34, 'LTN', 'TONELADA LARGA',           TRUE),
+(35, 'LTR', 'LITRO',                    TRUE),
+(36, 'MGM', 'MILIGRAMOS',               TRUE),
+(37, 'MLL', 'MILLARES',                 TRUE),
+(38, 'MLT', 'MILILITRO',                TRUE),
+(39, 'MMK', 'MILIMETRO CUADRADO',       TRUE),
+(40, 'MMQ', 'MILIMETRO CUBICO',         TRUE),
+(41, 'MMT', 'MILIMETRO',                TRUE),
+(42, 'MTK', 'METRO CUADRADO',           TRUE),
+(43, 'MTQ', 'METRO CUBICO',             TRUE),
+(44, 'MTR', 'METRO',                    TRUE),
+(45, 'MWH', 'MEGAWATT HORA',            TRUE),
+(46, 'NIU', 'UNIDAD (BIENES)',          TRUE),
+(47, 'ONZ', 'ONZAS',                    TRUE),
+(48, 'PF',  'PALETAS',                  TRUE),
+(49, 'PG',  'PLACAS',                   TRUE),
+(50, 'PK',  'PAQUETE',                  TRUE),
+(51, 'PR',  'PAR',                      TRUE),
+(52, 'RM',  'RESMA',                    TRUE),
+(53, 'SET', 'JUEGO',                    TRUE),
+(54, 'ST',  'PLIEGO',                   TRUE),
+(55, 'STN', 'TONELADA CORTA',           TRUE),
+(56, 'TNE', 'TONELADAS',                TRUE),
+(57, 'TU',  'TUBOS',                    TRUE),
+(58, 'UM',  'MILLON DE UNIDADES',       TRUE),
+(59, 'YDK', 'YARDA CUADRADA',           TRUE),
+(60, 'YRD', 'YARDA',                    TRUE),
+(61, 'ZZ',  'UNIDAD (SERVICIOS)',       TRUE)
+ON CONFLICT (codigo) DO NOTHING;
