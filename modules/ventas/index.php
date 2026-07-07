@@ -1231,7 +1231,6 @@ function renderCart() {
     document.getElementById('sum-descuento').textContent = `-S/ ${descuento.toFixed(2)}`;
     document.getElementById('sum-igv').textContent       = `S/ ${totals.igv.toFixed(2)}`;
     document.getElementById('sum-total').textContent     = `S/ ${totalFinal.toFixed(2)}`;
-    document.getElementById('sum-igv-row').style.display = totals.igv > 0 ? '' : 'none';
     document.getElementById('footer-total').textContent   = `S/ ${totalFinal.toFixed(2)}`;
 
     const modalCobro = document.getElementById('modal-cobro');
