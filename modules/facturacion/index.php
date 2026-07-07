@@ -927,7 +927,7 @@ function rptBuildTicketHtml(data) {
         <div style="border-top:2px solid #000;margin:6px 0"></div>
         <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;line-height:1.6"><span>TOTAL:</span><span>S/ ${total.toFixed(2)}</span></div>
         <div style="border-top:2px solid #000;margin:6px 0"></div>
-        <div style="text-align:center;font-size:11px;padding:4px 0"><div>¡Gracias por su compra!</div><div>Vuelva pronto</div></div>
+        <div style="text-align:center;font-size:11px;padding:4px 0;font-weight:700;letter-spacing:.02em"><div>BIENES TRANSFERIDOS / SERVICIOS PRESTADOS</div><div>EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div></div>
     </div>`;
 }
 
@@ -1141,7 +1141,7 @@ function ncBuildTicketHtml(row) {
         <div style="border-top:2px solid #000;margin:6px 0"></div>
         <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800"><span>TOTAL:</span><span>S/ ${total.toFixed(2)}</span></div>
         <div style="border-top:2px solid #000;margin:6px 0"></div>
-        <div style="text-align:center;font-size:11px;padding:4px 0"><div>¡Gracias por su compra!</div></div>
+        <div style="text-align:center;font-size:11px;padding:4px 0;font-weight:700;letter-spacing:.02em"><div>BIENES TRANSFERIDOS / SERVICIOS PRESTADOS</div><div>EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div></div>
     </div>`;
 }
 
