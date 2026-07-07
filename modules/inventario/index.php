@@ -44,6 +44,38 @@ include '../../includes/header.php';
 .inv-tab:hover { background: var(--surface); color: var(--text); }
 .inv-tab.active { background: var(--primary); color: #fff; }
 .inv-tab.active:hover { background: var(--primary-dark, var(--primary)); }
+
+/* Paginación */
+#inv-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.pg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .13s, color .13s, border-color .13s;
+    line-height: 1;
+}
+.pg-btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--primary); color: var(--primary); }
+.pg-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.pg-btn:disabled { opacity: .4; cursor: default; }
+.pg-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 34px; color: var(--text-muted); font-size: .82rem; }
 </style>
 
 <div class="page-header">
@@ -151,6 +183,7 @@ include '../../includes/header.php';
             </tbody>
         </table>
     </div>
+    <div id="inv-pagination"></div>
 </div>
 
 </div><!-- /tab-inventario -->
@@ -638,6 +671,11 @@ let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
 let tabAnterior = 'inventario';
 
+// Paginación
+let allProductos = [];
+let currentPage  = 1;
+const PAGE_SIZE  = 50;
+
 // ---- Tabs ----
 function switchTab(tab) {
     ['inventario', 'categorias', 'producto'].forEach(t => {
@@ -844,11 +882,14 @@ function loadProductos() {
 
     document.getElementById('tabla-body').innerHTML =
         '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    document.getElementById('inv-pagination').innerHTML = '';
 
     fetch(BASE + 'modules/inventario/api.php?' + params)
         .then(r => r.json())
         .then(data => {
             if (!Array.isArray(data)) throw new Error('unexpected');
+            allProductos = data;
+            currentPage  = 1;
             document.getElementById('result-count').textContent = data.length + ' producto(s)';
             if (!data.length) {
                 const hayFiltros = params.get('q') ||
@@ -865,41 +906,82 @@ function loadProductos() {
                        </td></tr>`;
                 return;
             }
-
-            document.getElementById('tabla-body').innerHTML = data.map(p => {
-                const agotado  = parseInt(p.stock) === 0;
-                const stockBajo = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
-                const stockCls  = agotado ? 'color:var(--danger);font-weight:700' :
-                                  (stockBajo ? 'color:var(--warning,#f59e0b);font-weight:700' : 'color:var(--success);font-weight:600');
-                const stockBadge = agotado  ? '<span class="badge badge-danger" style="font-size:.72rem">Agotado</span>' :
-                                   (stockBajo ? '<span class="badge badge-warning" style="font-size:.72rem;background:#fef3c7;color:#92400e">Bajo</span>' : '');
-                const favIcon = (p.favorito == 't' || p.favorito === true)
-                    ? '<i class="fas fa-star" style="color:#f59e0b;margin-left:4px" title="Favorito"></i>' : '';
-                const recetaIcon = (p.requiere_receta == 't' || p.requiere_receta === true)
-                    ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
-
-                return `<tr style="font-size:14px">
-                    <td style="font-family:monospace;color:var(--text-muted)">${p.codigo}</td>
-                    <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || '<span style="color:var(--text-light)">—</span>'}</td>
-                    <td style="font-weight:500">
-                        <span onclick='openProductoModal(${JSON.stringify(p)})'
-                              style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
-                    </td>
-                    <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
-                    <td class="text-right" style="font-weight:600">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
-                    <td style="text-align:center">
-                        <span style="${stockCls}">${p.stock}</span>
-                        ${stockBadge}
-                    </td>
-                    <td style="color:var(--text-muted)">${p.unidad || 'unidad'}</td>
-                    <td class="text-right" style="color:var(--text-muted)">${p.stock_minimo}</td>
-                </tr>`;
-            }).join('');
+            renderPage(1);
         })
         .catch(() => {
             document.getElementById('tabla-body').innerHTML =
                 '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-exclamation-circle" style="font-size:1.3rem;color:var(--danger)"></i><br><br>Error al cargar los productos. Intenta recargar la página.</td></tr>';
         });
+}
+
+function renderPage(page) {
+    currentPage = page;
+    const start = (page - 1) * PAGE_SIZE;
+    const slice = allProductos.slice(start, start + PAGE_SIZE);
+
+    document.getElementById('tabla-body').innerHTML = slice.map(p => {
+        const agotado   = parseInt(p.stock) === 0;
+        const stockBajo = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
+        const stockCls  = agotado ? 'color:var(--danger);font-weight:700' :
+                          (stockBajo ? 'color:var(--warning,#f59e0b);font-weight:700' : 'color:var(--success);font-weight:600');
+        const stockBadge = agotado  ? '<span class="badge badge-danger" style="font-size:.72rem">Agotado</span>' :
+                           (stockBajo ? '<span class="badge badge-warning" style="font-size:.72rem;background:#fef3c7;color:#92400e">Bajo</span>' : '');
+        const favIcon = (p.favorito == 't' || p.favorito === true)
+            ? '<i class="fas fa-star" style="color:#f59e0b;margin-left:4px" title="Favorito"></i>' : '';
+        const recetaIcon = (p.requiere_receta == 't' || p.requiere_receta === true)
+            ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
+
+        return `<tr style="font-size:14px">
+            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo}</td>
+            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td style="font-weight:500">
+                <span onclick='openProductoModal(${JSON.stringify(p)})'
+                      style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
+            </td>
+            <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td class="text-right" style="font-weight:600">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
+            <td style="text-align:center">
+                <span style="${stockCls}">${p.stock}</span>
+                ${stockBadge}
+            </td>
+            <td style="color:var(--text-muted)">${p.unidad || 'unidad'}</td>
+            <td class="text-right" style="color:var(--text-muted)">${p.stock_minimo}</td>
+        </tr>`;
+    }).join('');
+
+    renderPagination(allProductos.length, page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderPagination(total, page) {
+    const pages = Math.ceil(total / PAGE_SIZE);
+    const el = document.getElementById('inv-pagination');
+    if (pages <= 1) { el.innerHTML = ''; return; }
+
+    // Build list: always show 1, last, and ±1 around current
+    const shown = new Set([1, pages]);
+    for (let i = Math.max(1, page - 1); i <= Math.min(pages, page + 1); i++) shown.add(i);
+    const sorted = [...shown].sort((a, b) => a - b);
+
+    const items = [];
+    let prev = 0;
+    sorted.forEach(n => {
+        if (n - prev > 1) items.push('...');
+        items.push(n);
+        prev = n;
+    });
+
+    let html = `<button class="pg-btn" onclick="renderPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&#8249;</button>`;
+    items.forEach(item => {
+        if (item === '...') {
+            html += `<span class="pg-ellipsis">…</span>`;
+        } else {
+            html += `<button class="pg-btn${item === page ? ' active' : ''}" onclick="renderPage(${item})">${item}</button>`;
+        }
+    });
+    html += `<button class="pg-btn" onclick="renderPage(${page + 1})" ${page === pages ? 'disabled' : ''}>&#8250;</button>`;
+
+    el.innerHTML = html;
 }
 
 // ---- Búsqueda con debounce ----
