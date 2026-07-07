@@ -413,8 +413,8 @@ include '../../includes/header.php';
                     <span>Descuento</span>
                     <span id="sum-descuento" style="color:var(--success)">-S/ 0.00</span>
                 </div>
-                <div class="summary-row">
-                    <span>IGV (18%)</span>
+                <div class="summary-row" id="sum-igv-row">
+                    <span id="sum-igv-label">IGV (18%)</span>
                     <span id="sum-igv">S/ 0.00</span>
                 </div>
                 <div class="summary-row total">
@@ -1231,6 +1231,7 @@ function renderCart() {
     document.getElementById('sum-descuento').textContent = `-S/ ${descuento.toFixed(2)}`;
     document.getElementById('sum-igv').textContent       = `S/ ${totals.igv.toFixed(2)}`;
     document.getElementById('sum-total').textContent     = `S/ ${totalFinal.toFixed(2)}`;
+    document.getElementById('sum-igv-row').style.display = totals.igv > 0 ? '' : 'none';
     document.getElementById('footer-total').textContent   = `S/ ${totalFinal.toFixed(2)}`;
 
     const modalCobro = document.getElementById('modal-cobro');
