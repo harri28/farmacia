@@ -865,6 +865,8 @@ const EMPRESA_DIR     = <?= json_encode($_tenant_info['direccion'] ?? '') ?>;
 const SUCURSAL_NOMBRE = <?= json_encode(sesionSucursal()) ?>;
 const VENDEDOR_NOMBRE = <?= json_encode(sesionNombre()) ?>;
 let allProducts = [];
+let showAllProducts = false;
+const GRID_LIMIT = 20;
 let cart = [];
 let selectedCliente = null;
 let defaultCliente = null;
@@ -1000,23 +1002,9 @@ function updateProductUsage(productIds) {
 }
 
 function sortProductsSmart(products) {
-    const usage    = getProductUsage();
-    const now      = Date.now();
-    const DECAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
-
-    const counts  = Object.values(usage).map(u => u.count);
-    const maxCount = counts.length ? Math.max(...counts) : 1;
-
     return [...products].sort((a, b) => {
-        const ua = usage[a.id], ub = usage[b.id];
-        if (!ua && !ub) return a.nombre.localeCompare(b.nombre, 'es');
-        if (!ua) return 1;
-        if (!ub) return -1;
-        const recA   = Math.max(0, 1 - (now - ua.lastUsed) / DECAY_MS);
-        const recB   = Math.max(0, 1 - (now - ub.lastUsed) / DECAY_MS);
-        const scoreA = 0.7 * (ua.count / maxCount) + 0.3 * recA;
-        const scoreB = 0.7 * (ub.count / maxCount) + 0.3 * recB;
-        return scoreB - scoreA || a.nombre.localeCompare(b.nombre, 'es');
+        const sold = (parseInt(b.total_vendido) || 0) - (parseInt(a.total_vendido) || 0);
+        return sold !== 0 ? sold : a.nombre.localeCompare(b.nombre, 'es');
     });
 }
 
@@ -1025,25 +1013,31 @@ function loadProducts() {
     fetch(BASE + 'modules/ventas/api.php?action=productos')
         .then(r => r.json())
         .then(data => {
-            allProducts = data.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-            renderProducts(sortProductsSmart(allProducts));
+            allProducts = data.filter(p => parseInt(p.stock) > 0);
+            showAllProducts = false;
+            renderProducts(sortProductsSmart(allProducts), GRID_LIMIT);
         })
         .catch(() => showToast('Error al cargar productos', 'error'));
 }
 
-function renderProducts(products) {
+function showAllProductsGrid() {
+    showAllProducts = true;
+    filterProducts(document.getElementById('search-input').value, currentCat);
+}
+
+function renderProducts(products, limit) {
     const grid = document.getElementById('products-grid');
     if (!products.length) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:40px"><i class="fas fa-box-open" style="font-size:1.5rem"></i><p style="margin-top:10px">No se encontraron productos</p></div>';
         return;
     }
-    grid.innerHTML = products.map(p => {
-        const outStock = parseInt(p.stock) <= 0;
-        const lowStock = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
-        const cls = outStock ? 'out-stock' : (lowStock ? 'low-stock' : '');
-        const stockLabel = outStock ? '<span class="product-stock out">Sin stock</span>' :
-                           (lowStock ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>` :
-                           `<span class="product-stock">Stock: ${p.stock}</span>`);
+
+    const buildCard = p => {
+        const isLow = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
+        const cls   = isLow ? 'low-stock' : '';
+        const stockLabel = isLow
+            ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
+            : `<span class="product-stock">Stock: ${p.stock}</span>`;
         return `
         <div class="product-card ${cls}" onclick="addToCart(${p.id})" data-id="${p.id}">
             ${p.favorito == 't' ? '<span class="fav-icon"><i class="fas fa-star"></i></span>' : ''}
@@ -1052,7 +1046,44 @@ function renderProducts(products) {
             <div class="product-price">S/ ${getProductUnitSalePrice(p).toFixed(2)}</div>
             ${stockLabel}
         </div>`;
-    }).join('');
+    };
+
+    const total    = products.length;
+    const truncate = limit && total > limit;
+    const topCards = truncate ? products.slice(0, limit) : products;
+    const topIds   = new Set(topCards.map(p => p.id));
+
+    // Próximos a agotar: solo en la vista por defecto (con límite), máx 5, más críticos primero
+    const alertCards = truncate
+        ? allProducts
+            .filter(p => parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo) && !topIds.has(p.id))
+            .sort((a, b) => parseInt(a.stock) - parseInt(b.stock))
+            .slice(0, 5)
+        : [];
+
+    let html = topCards.map(buildCard).join('');
+
+    if (alertCards.length) {
+        html += `
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:6px 2px">
+            <div style="flex:1;height:1px;background:var(--warning);opacity:.5"></div>
+            <span style="font-size:.72rem;font-weight:600;color:var(--warning);white-space:nowrap">
+                <i class="fas fa-exclamation-triangle"></i>&nbsp;Próximos a agotar
+            </span>
+            <div style="flex:1;height:1px;background:var(--warning);opacity:.5"></div>
+        </div>
+        ${alertCards.map(buildCard).join('')}`;
+    }
+
+    if (truncate) {
+        html += `<div style="grid-column:1/-1;display:flex;justify-content:center;padding:10px 0">
+            <button class="btn-ver-todos" onclick="showAllProductsGrid()">
+                <i class="fas fa-th-large"></i> Ver todos los productos (${total})
+            </button>
+        </div>`;
+    }
+
+    grid.innerHTML = html;
 }
 
 // ---- Búsqueda ----
@@ -1084,7 +1115,9 @@ function filterProducts(query, catId) {
             (p.laboratorio && p.laboratorio.toLowerCase().includes(q))
         );
     }
-    renderProducts(sortProductsSmart(filtered));
+    // Limit only when there's no active filter and the user hasn't clicked "Ver todos"
+    const limit = (!query.trim() && catId <= 0 && !showAllProducts) ? GRID_LIMIT : null;
+    renderProducts(sortProductsSmart(filtered), limit);
 }
 
 // ---- Carrito ----

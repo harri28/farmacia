@@ -248,7 +248,7 @@ switch ($action) {
             SELECT
                 p.id, p.codigo, p.codigo_interno, p.codigo_barras, p.codigo_sunat,
                 p.nombre, p.precio_venta, p.stock, p.stock_minimo,
-                p.laboratorio, p.presentacion, p.categoria_id, p.favorito,
+                p.laboratorio, p.presentacion, p.categoria_id, p.favorito, p.total_vendido,
                 p.unidad_id, p.unidad_codigo, p.afectacion_igv_id, p.afectacion_igv_codigo,
                 p.porcentaje_igv, p.incluye_igv, p.icbper_activo, p.factor_icbper,
                 a.tipo AS afectacion_tipo, a.descripcion AS afectacion_descripcion,
