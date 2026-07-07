@@ -923,8 +923,7 @@ function renderPage(page) {
         const stockBajo = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
         const stockCls  = agotado ? 'color:var(--danger);font-weight:700' :
                           (stockBajo ? 'color:var(--warning,#f59e0b);font-weight:700' : 'color:var(--success);font-weight:600');
-        const stockBadge = agotado  ? '<span class="badge badge-danger" style="font-size:.72rem">Agotado</span>' :
-                           (stockBajo ? '<span class="badge badge-warning" style="font-size:.72rem;background:#fef3c7;color:#92400e">Bajo</span>' : '');
+        const stockBadge = '';
         const favIcon = (p.favorito == 't' || p.favorito === true)
             ? '<i class="fas fa-star" style="color:#f59e0b;margin-left:4px" title="Favorito"></i>' : '';
         const recetaIcon = (p.requiere_receta == 't' || p.requiere_receta === true)
