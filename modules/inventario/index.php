@@ -169,10 +169,10 @@ include '../../includes/header.php';
                     <th>SKU</th>
                     <th>Nombre</th>
                     <th>Categoría</th>
-                    <th class="text-right" style="padding-left:24px">P. Venta</th>
-                    <th style="text-align:center;padding-left:24px">Stock</th>
-                    <th style="padding-left:24px">Unidad</th>
-                    <th class="text-right" style="padding-left:24px">Mín.</th>
+                    <th class="text-right" style="padding-left:32px;min-width:110px">P. Venta</th>
+                    <th style="text-align:center;padding-left:32px;min-width:90px">Stock</th>
+                    <th style="padding-left:32px;min-width:100px">Unidad</th>
+                    <th class="text-right" style="padding-left:32px;min-width:80px">Mín.</th>
                 </tr>
             </thead>
             <tbody id="tabla-body">
@@ -936,13 +936,13 @@ function renderPage(page) {
                       style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
             </td>
             <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
-            <td class="text-right" style="font-weight:600;white-space:nowrap;padding-left:24px">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
-            <td style="text-align:center;padding-left:24px">
+            <td class="text-right" style="font-weight:600;white-space:nowrap;padding-left:32px;min-width:110px">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
+            <td style="text-align:center;padding-left:32px;min-width:90px">
                 <span style="${stockCls}">${p.stock}</span>
                 ${stockBadge}
             </td>
-            <td style="color:var(--text-muted);padding-left:24px">${p.unidad || 'unidad'}</td>
-            <td class="text-right" style="color:var(--text-muted);padding-left:24px">${p.stock_minimo}</td>
+            <td style="color:var(--text-muted);padding-left:32px;min-width:100px">${p.unidad || 'unidad'}</td>
+            <td class="text-right" style="color:var(--text-muted);padding-left:32px;min-width:80px">${p.stock_minimo}</td>
         </tr>`;
     }).join('');
 
