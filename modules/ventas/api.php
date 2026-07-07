@@ -13,11 +13,11 @@ $db     = getDB();
 
 function ventasMetaComprobante(string $tipo): array
 {
-    return match ($tipo) {
-        'factura' => ['codigo' => '01', 'descripcion' => 'Factura Electronica'],
-        'boleta' => ['codigo' => '03', 'descripcion' => 'Boleta Electronica'],
-        default => ['codigo' => '02', 'descripcion' => 'Nota de venta'],
-    };
+    switch ($tipo) {
+        case 'factura': return ['codigo' => '01', 'descripcion' => 'Factura Electronica'];
+        case 'boleta':  return ['codigo' => '03', 'descripcion' => 'Boleta Electronica'];
+        default:        return ['codigo' => '02', 'descripcion' => 'Nota de venta'];
+    }
 }
 
 function ventasNormalizarAfectacionTipo(?string $tipo, ?string $codigo): string
@@ -27,12 +27,12 @@ function ventasNormalizarAfectacionTipo(?string $tipo, ?string $codigo): string
         return $tipo;
     }
 
-    return match (trim((string) $codigo)) {
-        '20', '21' => 'EXO',
-        '30', '31', '32', '33', '34', '35', '36' => 'INA',
-        '40' => 'EXP',
-        default => 'GRAV',
-    };
+    switch (trim((string) $codigo)) {
+        case '20': case '21': return 'EXO';
+        case '30': case '31': case '32': case '33': case '34': case '35': case '36': return 'INA';
+        case '40': return 'EXP';
+        default:   return 'GRAV';
+    }
 }
 
 function ventasEsClienteVarios(?array $cliente): bool
@@ -44,7 +44,7 @@ function ventasEsClienteVarios(?array $cliente): bool
     $documento = trim((string) ($cliente['numero_documento'] ?? $cliente['dni'] ?? $cliente['ruc'] ?? ''));
     $nombre = strtoupper(trim((string) ($cliente['razon_social'] ?? $cliente['nombre_completo'] ?? trim(($cliente['nombres'] ?? '') . ' ' . ($cliente['apellidos'] ?? '')))));
 
-    return $documento === '00000000' || str_contains($nombre, 'CLIENTES VARIOS');
+    return $documento === '00000000' || strpos($nombre, 'CLIENTES VARIOS') !== false;
 }
 
 function ventasPrecioUnitarioFinal(array $producto): float
@@ -222,13 +222,13 @@ function ventasResolverFormaPagoId(PDO $db, string $tipoPago): ?int
         return $cache[$tipoPago];
     }
 
-    $descripcion = match ($tipoPago) {
-        'tarjeta' => 'Tarjeta de credito',
-        'transferencia' => 'Transferencia',
-        'yape' => 'Yape',
-        'plin' => 'Plin',
-        default => 'Efectivo',
-    };
+    switch ($tipoPago) {
+        case 'tarjeta':       $descripcion = 'Tarjeta de credito'; break;
+        case 'transferencia': $descripcion = 'Transferencia';      break;
+        case 'yape':          $descripcion = 'Yape';               break;
+        case 'plin':          $descripcion = 'Plin';               break;
+        default:              $descripcion = 'Efectivo';           break;
+    }
 
     $stmt = $db->prepare("
         SELECT id

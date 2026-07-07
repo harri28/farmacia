@@ -32,7 +32,7 @@ function sunat_resolve_certificate_path(string $path): string
         return '';
     }
 
-    if (preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) || str_starts_with($path, '/') || str_starts_with($path, '\\')) {
+    if (preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) || strpos($path, '/') === 0 || strpos($path, '\\') === 0) {
         return $path;
     }
 
@@ -54,13 +54,13 @@ function sunat_endpoint_for_server(string $serverCode): string
 
 function sunat_codigo_documento_por_tipo(string $tipo): string
 {
-    return match (trim(strtolower($tipo))) {
-        'factura' => '01',
-        'boleta' => '03',
-        'nota_credito' => '07',
-        'nota_debito' => '08',
-        default => '03',
-    };
+    switch (trim(strtolower($tipo))) {
+        case 'factura':      return '01';
+        case 'boleta':       return '03';
+        case 'nota_credito': return '07';
+        case 'nota_debito':  return '08';
+        default:             return '03';
+    }
 }
 
 function sunat_profile_for_current_tenant(PDO $db): array
@@ -368,7 +368,7 @@ function sunat_build_customer(?array $cliente, string $tipoComprobante): array
         ];
     }
 
-    if ($numeroDocumento === '00000000' || str_contains($nombre, 'CLIENTES VARIOS')) {
+    if ($numeroDocumento === '00000000' || strpos($nombre, 'CLIENTES VARIOS') !== false) {
         return [
             'tipo_documento' => '0',
             'numero_documento' => '00000000',
@@ -394,19 +394,19 @@ function sunat_build_invoice_items(array $items): array
         $afectacionCodigo = trim((string) ($item['afectacion_codigo'] ?? $item['afectacion_igv_codigo'] ?? '10')) ?: '10';
         $afectacionTipo = strtoupper(trim((string) ($item['afectacion_tipo'] ?? '')));
         if ($afectacionTipo === '') {
-            $afectacionTipo = match ($afectacionCodigo) {
-                '20', '21' => 'EXO',
-                '30', '31', '32', '33', '34', '35', '36' => 'INA',
-                '40' => 'EXP',
-                default => 'GRAV',
-            };
+            switch ($afectacionCodigo) {
+                case '20': case '21': $afectacionTipo = 'EXO'; break;
+                case '30': case '31': case '32': case '33': case '34': case '35': case '36': $afectacionTipo = 'INA'; break;
+                case '40': $afectacionTipo = 'EXP'; break;
+                default:   $afectacionTipo = 'GRAV'; break;
+            }
         }
 
-        [$categoriaId, $taxSchemeId, $taxName, $taxTypeCode] = match ($afectacionCodigo) {
-            '20', '21' => ['E', '9997', 'EXO', 'VAT'],
-            '30', '31', '32', '33', '34', '35', '36' => ['O', '9998', 'INA', 'FRE'],
-            default => ['S', '1000', 'IGV', 'VAT'],
-        };
+        switch ($afectacionCodigo) {
+            case '20': case '21': $categoriaId = 'E'; $taxSchemeId = '9997'; $taxName = 'EXO'; $taxTypeCode = 'VAT'; break;
+            case '30': case '31': case '32': case '33': case '34': case '35': case '36': $categoriaId = 'O'; $taxSchemeId = '9998'; $taxName = 'INA'; $taxTypeCode = 'FRE'; break;
+            default: $categoriaId = 'S'; $taxSchemeId = '1000'; $taxName = 'IGV'; $taxTypeCode = 'VAT'; break;
+        }
 
         $result[] = [
             'item' => $index + 1,
@@ -702,13 +702,13 @@ function sunat_normalize_cdr_status(?string $responseCode, ?string $description 
 
     if ($desc !== '') {
         $lower = strtolower($desc);
-        if (str_contains($lower, 'acept')) {
+        if (strpos($lower, 'acept') !== false) {
             return ['label' => 'Aceptado', 'raw' => $desc, 'code' => $code];
         }
-        if (str_contains($lower, 'observ')) {
+        if (strpos($lower, 'observ') !== false) {
             return ['label' => 'Observado', 'raw' => $desc, 'code' => $code];
         }
-        if (str_contains($lower, 'pend')) {
+        if (strpos($lower, 'pend') !== false) {
             return ['label' => 'Pendiente', 'raw' => $desc, 'code' => $code];
         }
     }

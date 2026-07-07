@@ -17,12 +17,12 @@ function facturacionNormalizarAfectacionTipo(?string $tipo, ?string $codigo): st
         return $tipo;
     }
 
-    return match (trim((string) $codigo)) {
-        '20', '21' => 'EXO',
-        '30', '31', '32', '33', '34', '35', '36' => 'INA',
-        '40' => 'EXP',
-        default => 'GRAV',
-    };
+    switch (trim((string) $codigo)) {
+        case '20': case '21': return 'EXO';
+        case '30': case '31': case '32': case '33': case '34': case '35': case '36': return 'INA';
+        case '40': return 'EXP';
+        default:   return 'GRAV';
+    }
 }
 
 function facturacionSerieNotaCreditoSegunOrigen(array $origen): array
@@ -526,8 +526,8 @@ switch ($action) {
             $estadoSunat = strtolower(trim((string) ($origen['estado_sunat'] ?? '')));
             $yaEnviado = !empty($origen['enlace_del_cdr'])
                 || $responseCode !== null
-                || str_contains($estadoSunat, 'acept')
-                || str_contains($estadoSunat, 'observ');
+                || strpos($estadoSunat, 'acept') !== false
+                || strpos($estadoSunat, 'observ') !== false;
             if (!$yaEnviado) {
                 throw new RuntimeException('El comprobante origen debe estar enviado y con CDR antes de emitir una nota de credito.');
             }
@@ -855,8 +855,8 @@ switch ($action) {
             $estadoSunat = strtolower(trim((string) ($comp['estado_sunat'] ?? '')));
             $yaEnviado = !empty($comp['enlace_del_cdr'])
                 || $responseCode !== null
-                || str_contains($estadoSunat, 'acept')
-                || str_contains($estadoSunat, 'observ');
+                || strpos($estadoSunat, 'acept') !== false
+                || strpos($estadoSunat, 'observ') !== false;
 
             if ($yaEnviado) {
                 jsonResponse([
