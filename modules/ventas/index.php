@@ -22,6 +22,19 @@ if (sesionTenantId()) {
     $_tenant_info = $t->fetch() ?: $_tenant_info;
 }
 
+// Logo del tenant en base64 para embeber en el ticket impreso
+$_logo_data_uri = '';
+$_tenant_cfg = getTenantConfig();
+if (!empty($_tenant_cfg['logo_path'])) {
+    $logo_file = __DIR__ . '/../../' . $_tenant_cfg['logo_path'];
+    if (file_exists($logo_file)) {
+        $ext  = strtolower(pathinfo($logo_file, PATHINFO_EXTENSION));
+        $mime = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                 'gif' => 'image/gif', 'webp' => 'image/webp'][$ext] ?? 'image/png';
+        $_logo_data_uri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logo_file));
+    }
+}
+
 // Categorías para filtro
 $categorias = $db->query("SELECT id, nombre FROM public.categorias WHERE activo = TRUE ORDER BY nombre")->fetchAll();
 
@@ -862,6 +875,7 @@ const EMPRESA_NOMBRE  = <?= json_encode(sesionTenantNombre()) ?>;
 const EMPRESA_RUC     = <?= json_encode($_tenant_info['ruc']       ?? '') ?>;
 const EMPRESA_TEL     = <?= json_encode($_tenant_info['telefono']  ?? '') ?>;
 const EMPRESA_DIR     = <?= json_encode($_tenant_info['direccion'] ?? '') ?>;
+const EMPRESA_LOGO    = <?= json_encode($_logo_data_uri) ?>;
 const SUCURSAL_NOMBRE = <?= json_encode(sesionSucursal()) ?>;
 const VENDEDOR_NOMBRE = <?= json_encode(sesionNombre()) ?>;
 let allProducts = [];
@@ -2304,7 +2318,10 @@ function buildTicketHTML(opts) {
     return `<div id="pos-ticket" style="font-family:'Courier New',Courier,monospace;color:#000;font-size:12px;line-height:1.5;width:100%">
 
         <div style="text-align:center;margin-bottom:10px">
-            <div style="font-size:15px;font-weight:900;letter-spacing:1px;text-transform:uppercase">${EMPRESA_NOMBRE || 'FARMACIA'}</div>
+            ${EMPRESA_LOGO
+                ? `<div style="margin-bottom:4px"><img src="${EMPRESA_LOGO}" style="max-width:160px;max-height:80px;object-fit:contain"></div>`
+                : `<div style="font-size:15px;font-weight:900;letter-spacing:1px;text-transform:uppercase">${EMPRESA_NOMBRE || 'FARMACIA'}</div>`
+            }
             ${EMPRESA_RUC     ? `<div style="font-size:11px">RUC: ${EMPRESA_RUC}</div>` : ''}
             ${SUCURSAL_NOMBRE ? `<div style="font-size:11px;font-weight:600">${SUCURSAL_NOMBRE}</div>` : ''}
             ${EMPRESA_DIR     ? `<div style="font-size:10px">${EMPRESA_DIR}</div>` : ''}
