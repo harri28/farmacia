@@ -15,21 +15,21 @@ $_inicial = strtoupper(substr(sesionNombre(), 0, 1)) ?: 'U';
 
 // Sucursales accesibles por el usuario (para el panel del footer)
 $_suc_lista = [];
+$_suc_color = '#6366f1';
+$_suc_icono = 'fa-store';
 if (!isSuperadmin() && sesionId() > 0) {
     try {
         if (isAdmin()) {
-            // Admin/gerente ven todas las sucursales activas del tenant
             $_suc_stmt = getDB()->prepare("
-                SELECT id, nombre
+                SELECT id, nombre, color, icono
                 FROM public.sucursales
                 WHERE tenant_id = :tid AND activo = TRUE
                 ORDER BY nombre ASC
             ");
             $_suc_stmt->execute([':tid' => sesionTenantId()]);
         } else {
-            // Cajero: solo las sucursales que tiene asignadas
             $_suc_stmt = getDB()->prepare("
-                SELECT s.id, s.nombre
+                SELECT s.id, s.nombre, s.color, s.icono
                 FROM public.sucursales s
                 JOIN public.usuario_sucursal us ON us.sucursal_id = s.id
                 WHERE us.usuario_id = :uid AND s.tenant_id = :tid
@@ -39,6 +39,14 @@ if (!isSuperadmin() && sesionId() > 0) {
             $_suc_stmt->execute([':uid' => sesionId(), ':tid' => sesionTenantId()]);
         }
         $_suc_lista = $_suc_stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Color e ícono de la sucursal activa
+        foreach ($_suc_lista as $_s) {
+            if ((int)$_s['id'] === sesionSucursalId()) {
+                $_suc_color = $_s['color'] ?: $_suc_color;
+                $_suc_icono = $_s['icono'] ?: $_suc_icono;
+                break;
+            }
+        }
     } catch (Throwable $_e) {}
 }
 
@@ -63,6 +71,7 @@ $_brand_logo_abs = $_brand_logo
     <link rel="stylesheet" href="<?= $base_path ?? '' ?>assets/css/style.css?v=<?= filemtime(($_SERVER['DOCUMENT_ROOT'] ?? '') . '/farmacia/assets/css/style.css') ?>">
     <script src="<?= $base_path ?? '' ?>assets/js/barcode-scanner.js"></script>
     <style>
+        :root { --primary: <?= htmlspecialchars($_suc_color) ?>; }
         /* Rol badge en sidebar */
         .role-badge {
             display: inline-block;
@@ -210,12 +219,21 @@ $_brand_logo_abs = $_brand_logo
             <?php if (isAdmin()): ?>
             <span class="nav-label" style="margin-top:12px">SISTEMA</span>
 
+            <a href="<?= $base_path ?? '' ?>modules/banco/index.php"
+               class="nav-item <?= $current_module === 'banco' ? 'active' : '' ?>"
+               data-tooltip="Banco">
+                <i class="fas fa-university"></i>
+                <span>Banco</span>
+            </a>
+
+            <?php if (sesionRol() === 'admin'): ?>
             <a href="<?= $base_path ?? '' ?>modules/admin/index.php"
                class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>"
                data-tooltip="Administración">
                 <i class="fas fa-cogs"></i>
                 <span>Administración</span>
             </a>
+            <?php endif; ?>
 
             <a href="<?= $base_path ?? '' ?>modules/ecommerce/index.php"
                class="nav-item <?= $current_module === 'ecommerce' ? 'active' : '' ?>"
@@ -238,7 +256,7 @@ $_brand_logo_abs = $_brand_logo
         <form method="post" action="<?= $base_path ?? '' ?>modules/auth/switch_sucursal.php" style="margin:0">
             <input type="hidden" name="sucursal_id" value="<?= $_suc['id'] ?>">
             <button type="submit" class="user-suc-item<?= (int)$_suc['id'] === sesionSucursalId() ? ' current' : '' ?>">
-                <i class="fas fa-store"></i>
+                <i class="fas <?= htmlspecialchars($_suc['icono'] ?: 'fa-store') ?>" style="color:<?= htmlspecialchars($_suc['color'] ?: '#6366f1') ?>"></i>
                 <span><?= htmlspecialchars($_suc['nombre']) ?></span>
                 <?php if ((int)$_suc['id'] === sesionSucursalId()): ?>
                 <i class="fas fa-check" style="margin-left:auto;font-size:.75rem;color:var(--primary)"></i>
@@ -270,11 +288,11 @@ $_brand_logo_abs = $_brand_logo
                 </div>
                 <?php endif; ?>
                 <div class="sucursal-label">
-                    <i class="fas fa-store" style="font-size:.65rem;margin-right:3px"></i>
+                    <i class="fas <?= htmlspecialchars($_suc_icono) ?>" style="font-size:.65rem;margin-right:3px;color:<?= htmlspecialchars($_suc_color) ?>"></i>
                     <?= htmlspecialchars(sesionSucursal()) ?>
                 </div>
             </div>
-            <i class="fas fa-chevron-up" id="userSucChevron"
+            <i class="fas fa-chevron-right" id="userSucChevron"
                style="color:var(--text-light);font-size:.75rem;transition:transform .2s;flex-shrink:0"></i>
         </div>
     </div>

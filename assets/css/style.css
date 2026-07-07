@@ -161,15 +161,25 @@ input, select, textarea { font-family: var(--font); }
 .nav-sub a i { font-size: .8rem; width: 14px; }
 /* Panel de sucursales desplegable en el footer del sidebar */
 .user-suc-panel {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height .25s ease, border-color .25s;
-    border-top: 0px solid var(--border);
+    position: fixed;
+    bottom: 0;
+    left: var(--sidebar-w);
+    width: 220px;
     background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 12px 0 0;
+    box-shadow: 4px -4px 20px rgba(0,0,0,.1);
+    z-index: 1100;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height .25s ease, opacity .2s ease;
 }
 .user-suc-panel.open {
-    max-height: 360px;
-    border-top: 1px solid var(--border);
+    max-height: 400px;
+    opacity: 1;
+    pointer-events: auto;
 }
 .sidebar.collapsed .user-suc-panel { display: none; }
 .user-suc-header {
@@ -413,7 +423,7 @@ tbody tr:last-child td { border-bottom: none; }
 .pos-layout { display: grid; grid-template-columns: 160px 1fr 360px; gap: 16px; height: calc(100vh - var(--topbar-h) - 48px); overflow: hidden; }
 .pos-cats  { display: flex; flex-direction: column; height: 100%; width: 160px; max-width: 160px; overflow: hidden; padding-right: 2px; flex-shrink: 0; }
 .pos-cats .filter-chips {
-    display: flex; flex-direction: column; gap: 5px;
+    display: flex; flex-direction: column; flex-wrap: nowrap; gap: 5px;
     overflow-y: auto; height: 100%; padding: 2px 0;
     background: transparent; border: none;
 }
@@ -428,7 +438,7 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .pos-cats .chip:hover { background: var(--surface); border-color: var(--primary); color: var(--primary); }
 .pos-cats .chip.active { background: var(--primary); color: #fff; font-weight: 600; border-color: var(--primary); }
-.pos-left  { display: flex; flex-direction: column; gap: 12px; overflow: hidden; min-width: 0; }
+.pos-left  { display: flex; flex-direction: column; gap: 12px; overflow: visible; min-width: 0; min-height: 0; }
 .pos-right { display: flex; flex-direction: column; }
 .products-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));

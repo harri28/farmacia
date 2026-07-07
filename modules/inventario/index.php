@@ -941,7 +941,7 @@ function openProductoModal(producto = null) {
         esNuevo ? 'Completa los datos para registrar un nuevo producto' : 'Actualiza los datos del producto';
 
     const stockGroup = document.getElementById('stock-inicial-group');
-    const afectacionCodigoProducto = producto?.afectacion_igv_codigo ?? '10';
+    const afectacionCodigoProducto = producto?.afectacion_igv_codigo ?? '20';
     const afectacionProducto = facturacionCatalogos.afectaciones_igv.find(item => item.codigo === afectacionCodigoProducto);
     const productoEsGravado = !afectacionProducto || afectacionProducto.tipo === 'GRAV';
     const incluyeIgvGuardado = producto?.incluye_igv == 't' || producto?.incluye_igv === true;
@@ -978,7 +978,7 @@ function openProductoModal(producto = null) {
     } else {
         document.getElementById('p-unidad').value = unidadVal;
     }
-    document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '10';
+    document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '20';
     document.getElementById('p-porcentaje-igv').value = producto ? parseFloat(producto.porcentaje_igv || 18).toFixed(2) : '18.00';
     document.getElementById('p-incluye-igv').checked = !producto
         ? empresaFacturaConIgv
@@ -1024,7 +1024,7 @@ function saveProducto() {
         stock:           parseInt(document.getElementById('p-stock').value)        || 0,
         stock_minimo:    parseInt(document.getElementById('p-stock-minimo').value) || 5,
         unidad:          document.getElementById('p-unidad').value.trim() || 'unidad',
-        afectacion_igv_codigo: document.getElementById('p-afectacion-igv-codigo').value || '10',
+        afectacion_igv_codigo: document.getElementById('p-afectacion-igv-codigo').value || '20',
         porcentaje_igv:  parseFloat(document.getElementById('p-porcentaje-igv').value) || 18,
         incluye_igv:     document.getElementById('p-incluye-igv').checked,
         requiere_receta:    document.getElementById('p-receta').checked,

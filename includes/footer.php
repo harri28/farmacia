@@ -127,7 +127,7 @@ function toggleUserPanel() {
     const chevron = document.getElementById('userSucChevron');
     if (!panel) return;
     const open = panel.classList.toggle('open');
-    if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+    if (chevron) chevron.style.transform = open ? 'rotate(90deg)' : '';
 }
 
 document.addEventListener('click', function(e) {

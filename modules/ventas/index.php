@@ -391,7 +391,7 @@ include '../../includes/header.php';
     <div class="pos-right">
         <div class="cart-panel">
             <div class="cart-header">
-                <div class="cart-title"><i class="fas fa-shopping-cart" style="margin-right:7px;color:var(--primary)"></i>Carrito</div>
+                <div class="cart-title"><i class="fas fa-shopping-cart" style="margin-right:7px;color:var(--primary)"></i>Generar venta</div>
                 <button class="cart-drawer-close" onclick="closeCartDrawer()" title="Cerrar"><i class="fas fa-chevron-down"></i></button>
                 <span class="cart-count" id="cart-count">0</span>
             </div>

@@ -183,6 +183,9 @@ require_once '../../includes/header.php';
     <button class="tab-btn" onclick="switchTab('cobrar')">
         <i class="fas fa-file-invoice-dollar"></i> Cuentas por Cobrar
     </button>
+    <button class="tab-btn" onclick="switchTab('abastecimiento')">
+        <i class="fas fa-boxes"></i> Abastecimiento
+    </button>
 </div>
 
 <!-- TAB: Órdenes -->
@@ -570,6 +573,15 @@ require_once '../../includes/header.php';
 </div>
 </div>
 
+<!-- TAB: Abastecimiento -->
+<div class="tab-pane" id="tab-abastecimiento">
+    <div style="padding:40px;text-align:center;color:var(--text-muted)">
+        <i class="fas fa-boxes" style="font-size:2.5rem;opacity:.3;margin-bottom:14px;display:block"></i>
+        <div style="font-size:1rem;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Abastecimiento</div>
+        <div style="font-size:.85rem">Próximamente disponible.</div>
+    </div>
+</div>
+
 <script>
 const API   = '<?= $base_path ?>modules/compras/api.php';
 const BASE  = '<?= $base_path ?>';
@@ -579,10 +591,12 @@ let _filtroOrden = '';
 // Tabs
 // ----------------------------------------------------------------
 function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['ordenes','cuentas','cobrar'][i] === tab));
-    document.getElementById('tab-ordenes').classList.toggle('active', tab === 'ordenes');
-    document.getElementById('tab-cuentas').classList.toggle('active', tab === 'cuentas');
-    document.getElementById('tab-cobrar').classList.toggle('active',  tab === 'cobrar');
+    const tabs = ['ordenes','cuentas','cobrar','abastecimiento'];
+    document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', tabs[i] === tab));
+    document.getElementById('tab-ordenes').classList.toggle('active',        tab === 'ordenes');
+    document.getElementById('tab-cuentas').classList.toggle('active',        tab === 'cuentas');
+    document.getElementById('tab-cobrar').classList.toggle('active',         tab === 'cobrar');
+    document.getElementById('tab-abastecimiento').classList.toggle('active', tab === 'abastecimiento');
     if (tab === 'cuentas') cargarCuentas();
     if (tab === 'cobrar')  cargarCuentasCobrar();
 }
