@@ -461,8 +461,8 @@ tbody tr:last-child td { border-bottom: none; }
 .product-card.low-stock { border-color: var(--warning); }
 .product-card.out-stock { opacity: .5; cursor: not-allowed; pointer-events: none; }
 .product-card .fav-icon { position: absolute; top: 8px; right: 8px; color: #F59E0B; font-size: .75rem; }
-.product-name { font-size: .8rem; font-weight: 600; color: var(--text); line-height: 1.35; }
-.product-lab  { font-size: .72rem; color: var(--text-light); }
+.product-name { font-size: .8rem; font-weight: 600; color: var(--text); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.product-lab  { font-size: .72rem; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .product-price { font-size: .95rem; font-weight: 700; color: var(--primary); margin-top: 4px; }
 .product-stock { font-size: .72rem; color: var(--text-muted); }
 .product-stock.low { color: var(--warning); font-weight: 600; }
