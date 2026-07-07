@@ -32,7 +32,7 @@ try {
 
         // ── CATEGORÍAS ──────────────────────────────────────
         case 'categorias':
-            $stmt = $pdo->query("SELECT id, nombre FROM {$schema}.categorias ORDER BY nombre ASC");
+            $stmt = $pdo->query("SELECT id, nombre FROM public.categorias WHERE activo = TRUE ORDER BY nombre ASC");
             echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
             break;
 
@@ -45,7 +45,8 @@ try {
                     p.codigo,
                     p.precio_venta   AS precio,
                     p.stock,
-                    p.imagen_path,
+                    p.laboratorio,
+                    p.presentacion,
                     c.id             AS categoria_id,
                     c.nombre         AS categoria,
                     CASE WHEN p.imagen_path IS NOT NULL AND p.imagen_path != ''
@@ -53,7 +54,7 @@ try {
                          ELSE NULL
                     END AS imagen
                 FROM {$schema}.productos p
-                LEFT JOIN {$schema}.categorias c ON c.id = p.categoria_id
+                LEFT JOIN public.categorias c ON c.id = p.categoria_id
                 WHERE p.activo = TRUE AND p.stock > 0
                 ORDER BY p.nombre ASC
             ");
