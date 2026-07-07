@@ -166,7 +166,6 @@ include '../../includes/header.php';
         <table>
             <thead>
                 <tr>
-                    <th>Código</th>
                     <th>SKU</th>
                     <th>Nombre</th>
                     <th>Categoría</th>
@@ -177,7 +176,7 @@ include '../../includes/header.php';
                 </tr>
             </thead>
             <tbody id="tabla-body">
-                <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
                     <i class="fas fa-spinner fa-spin"></i>
                 </td></tr>
             </tbody>
@@ -881,7 +880,7 @@ function loadProductos() {
     });
 
     document.getElementById('tabla-body').innerHTML =
-        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     document.getElementById('inv-pagination').innerHTML = '';
 
     fetch(BASE + 'modules/inventario/api.php?' + params)
@@ -896,8 +895,8 @@ function loadProductos() {
                     (params.get('categoria_id') && params.get('categoria_id') !== '0') ||
                     (params.get('stock_status') && params.get('stock_status') !== '');
                 document.getElementById('tabla-body').innerHTML = hayFiltros
-                    ? `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron productos con esos filtros</div></td></tr>`
-                    : `<tr><td colspan="8">
+                    ? `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron productos con esos filtros</div></td></tr>`
+                    : `<tr><td colspan="7">
                         <div class="empty-state">
                             <i class="fas fa-box-open"></i>
                             <div>No hay productos registrados</div>
@@ -910,7 +909,7 @@ function loadProductos() {
         })
         .catch(() => {
             document.getElementById('tabla-body').innerHTML =
-                '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-exclamation-circle" style="font-size:1.3rem;color:var(--danger)"></i><br><br>Error al cargar los productos. Intenta recargar la página.</td></tr>';
+                '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-exclamation-circle" style="font-size:1.3rem;color:var(--danger)"></i><br><br>Error al cargar los productos. Intenta recargar la página.</td></tr>';
         });
 }
 
@@ -932,14 +931,13 @@ function renderPage(page) {
             ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
 
         return `<tr style="font-size:14px">
-            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo}</td>
             <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="font-weight:500">
                 <span onclick='openProductoModal(${JSON.stringify(p)})'
                       style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
             </td>
             <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
-            <td class="text-right" style="font-weight:600">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
+            <td class="text-right" style="font-weight:600;white-space:nowrap">S/ ${parseFloat(p.precio_venta).toFixed(2)}</td>
             <td style="text-align:center">
                 <span style="${stockCls}">${p.stock}</span>
                 ${stockBadge}
