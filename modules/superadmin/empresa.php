@@ -223,6 +223,7 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         }
         .modal-overlay.active { display: flex; }
         .modal {
+            display: block;
             background: #fff; border: 1px solid #e2e8f0;
             border-radius: 16px; width: 100%; max-width: 440px;
             box-shadow: 0 20px 50px rgba(0,0,0,.15);

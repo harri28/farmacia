@@ -249,6 +249,7 @@ requireAuth($required_roles);
         }
         .modal-overlay.active { display: flex; }
         .modal {
+            display: block;
             background: #fff;
             border: 1px solid #e2e8f0;
             border-radius: 16px;
