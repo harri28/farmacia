@@ -36,7 +36,15 @@ $env:PGPASSWORD = "1234"; & "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U pos
 Login is a 3-step flow: Company (tenant) selector → Branch (sucursal) selector → Credentials.
 
 **Entry point after login**: `http://localhost/farmacia/modules/ventas/index.php`  
-Root `index.php` routes by hostname (production is multi-tenant-by-subdomain, e.g. `generycpharma.genpharma.cloud`): `admin.genpharma.cloud` → `modules/superadmin/login.php`; a host whose first label matches an **active** `public.tenants.slug` → `modules/auth/login.php` (which then filters the sucursal list to that tenant); anything else (bare domain, `www`, unrecognized subdomain, or a DB error) → `modules/superadmin/login.php`. The tenant lookup uses its own PDO connection (not `getDB()`), since `getDB()` hard-`die()`s with raw JSON on connection failure instead of throwing — unacceptable on the public landing page.
+Root `index.php` routes by hostname (production is multi-tenant-by-subdomain, e.g. `generycpharma.genpharma.cloud`), based on whether the host has 3+ dot-labels and isn't `www`:
+- `admin.genpharma.cloud` → `modules/superadmin/login.php`.
+- 3+ labels, not `www`, first label matches an **active** `public.tenants.slug` → `modules/auth/login.php`, tenant-restricted (only that tenant's users/sucursales).
+- 3+ labels, not `www`, no matching tenant → `includes/error_tenant.php` (standalone "Empresa no encontrada", HTTP 404, no redirect — doesn't hint that a superadmin panel exists).
+- Anything else (bare domain, `www`, localhost/dev) → `includes/landing.php` (public marketing page, brand "FarmaSystem", links to `modules/auth/login.php` in **generic** mode — no tenant restriction, tenant is resolved from the authenticated user's own `usuarios.tenant_id` instead of the URL).
+
+The tenant-slug lookup uses its own PDO connection (not `getDB()`), since `getDB()` hard-`die()`s with raw JSON on connection failure instead of throwing — unacceptable on the public landing page. `modules/auth/login.php` enforces the same routing rule independently (in case it's hit directly, bypassing `index.php`).
+
+**Production PHP caveat**: the VPS serves this app via Apache mod_php **7.x**, not PHP 8 — confirmed 2026-07-12 after `str_ends_with()` (PHP 8.0+) caused a live 500. Don't use PHP 8+-only syntax (`str_ends_with`/`str_starts_with`/`str_contains`, `match`, `enum`, `?->`, etc.) anywhere in this app (the PHP 8.2 upgrade mentioned in ops notes was for the separate `conexion_sunat/` Laravel app, not this one).
 
 There is no build step, no package manager, and no test runner.
 

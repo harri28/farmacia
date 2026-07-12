@@ -11,29 +11,37 @@ if ($host === 'admin.genpharma.cloud') {
     exit;
 }
 
-// Solo los subdominios que coinciden con el slug de un tenant activo van al
-// login normal. Dominio raíz, "www" y subdominios desconocidos van al panel
-// superadmin en vez de exponer el selector combinado de todas las empresas.
-$host_parts   = explode('.', $host);
-$tenant_found = false;
+// Un host con 3+ labels que no sea "www" se trata como intento de subdominio
+// de tenant: coincide con un tenant activo -> login restringido a ese tenant;
+// si no coincide -> error "empresa no encontrada" (no se redirige a ningún
+// panel, para no insinuar que existe uno detrás). Todo lo demás (dominio
+// raíz, "www", localhost/desarrollo) es tráfico genérico -> página principal.
+$host_parts = explode('.', $host);
 
-if (count($host_parts) >= 3 && $host_parts[0] !== 'www') {
-    try {
-        // Conexión propia (no getDB()): si la BD está caída, getDB() mata la
-        // página con un JSON crudo en vez de una excepción capturable. Aquí
-        // basta con degradar a "tenant no encontrado" y redirigir igual.
-        $pdo = new PDO(
-            'pgsql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME,
-            DB_USER, DB_PASS,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
-        $stmt = $pdo->prepare('SELECT 1 FROM public.tenants WHERE slug = :s AND activo = TRUE');
-        $stmt->execute([':s' => $host_parts[0]]);
-        $tenant_found = (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        $tenant_found = false;
-    }
+if (count($host_parts) < 3 || $host_parts[0] === 'www') {
+    require __DIR__ . '/includes/landing.php';
 }
 
-header('Location: ' . ($tenant_found ? '/modules/auth/login.php' : '/modules/superadmin/login.php'));
-exit;
+$tenant_found = false;
+try {
+    // Conexión propia (no getDB()): si la BD está caída, getDB() mata la
+    // página con un JSON crudo en vez de una excepción capturable. Aquí
+    // basta con degradar a "tenant no encontrado" y mostrar el error igual.
+    $pdo = new PDO(
+        'pgsql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME,
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    $stmt = $pdo->prepare('SELECT 1 FROM public.tenants WHERE slug = :s AND activo = TRUE');
+    $stmt->execute([':s' => $host_parts[0]]);
+    $tenant_found = (bool) $stmt->fetch();
+} catch (Throwable $e) {
+    $tenant_found = false;
+}
+
+if ($tenant_found) {
+    header('Location: /modules/auth/login.php');
+    exit;
+}
+
+require __DIR__ . '/includes/error_tenant.php';

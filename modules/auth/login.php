@@ -68,15 +68,19 @@ try {
     $error = 'No se pudo conectar con la base de datos.';
 }
 
-// En producción (genpharma.cloud y subdominios), este login solo se sirve
-// para un subdominio de tenant válido — nunca para el dominio raíz, "www",
-// ni un subdominio que no coincida con ningún tenant activo (antes eso caía
-// silenciosamente al selector con TODAS las sucursales de TODOS los tenants).
-// No aplica a localhost/otros hosts de desarrollo.
-$es_dominio_genpharma = $host === 'genpharma.cloud' || substr($host, -strlen('.genpharma.cloud')) === '.genpharma.cloud';
-if (!$subdomain_mode && $es_dominio_genpharma) {
+if ($host === 'admin.genpharma.cloud') {
     header('Location: ../superadmin/login.php');
     exit;
+}
+
+// Un intento de subdominio de tenant (3+ labels, no "www") que no coincidió
+// con ningún tenant activo muestra error — antes eso caía silenciosamente al
+// selector con TODAS las sucursales de TODOS los tenants. El dominio raíz,
+// "www" y localhost/desarrollo caen al login genérico (subdomain_mode queda
+// false), donde el tenant se determina por el usuario que inicia sesión, no
+// por la URL.
+if (!$subdomain_mode && count($host_parts) >= 3 && $host_parts[0] !== 'www') {
+    require __DIR__ . '/../../includes/error_tenant.php';
 }
 
 // ---- POST: Procesar login ----
