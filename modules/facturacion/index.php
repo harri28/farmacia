@@ -88,6 +88,10 @@ include '../../includes/header.php';
     padding: 8px 10px !important;
     font-size: .84rem;
 }
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: var(--primary);
+    color: #fff;
+}
 
 /* ---- Reporte / Notas shared table styles ---- */
 .fact-dt-table thead th { white-space: nowrap; }

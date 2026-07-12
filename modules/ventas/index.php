@@ -107,6 +107,14 @@ include '../../includes/header.php';
     padding:10px 12px;
     font-size:.83rem;
 }
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background:var(--primary);
+    color:#fff;
+}
+.select2-container--default .select2-results__option--highlighted[aria-selected] .cliente-option-main,
+.select2-container--default .select2-results__option--highlighted[aria-selected] .cliente-option-sub {
+    color:#fff;
+}
 .cliente-option-main {
     font-weight:700;
     color:var(--text-primary);

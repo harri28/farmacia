@@ -655,6 +655,10 @@ include '../../includes/header.php';
     border-radius: 10px;
     padding: 8px 10px;
 }
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: var(--primary);
+    color: #fff;
+}
 </style>
 
 <script>
