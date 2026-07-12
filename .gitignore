@@ -31,7 +31,9 @@ logs/
 *.log
 
 # ─── Composer / Laravel (conexion_sunat) ──────────────────────
-vendor/
+# OJO: sin la ruta completa, "vendor/" también ignoraba assets/vendor/
+# (jQuery, Select2, DataTables), que SÍ deben estar en git para producción.
+conexion_sunat/vendor/
 composer.lock
 conexion_sunat/.env
 conexion_sunat/storage/logs/

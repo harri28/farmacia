@@ -1263,13 +1263,6 @@ function renderCart() {
 }
 
 // ---- Cliente ----
-function clienteDisplayName(cliente) {
-    if (!cliente) return '';
-    const razon = (cliente.razon_social || '').trim();
-    if (razon) return razon;
-    return ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim();
-}
-
 function renderSelectedCliente() {
     const clienteInfo = document.getElementById('cliente-info');
     const clienteSearch = document.getElementById('cliente-search');
