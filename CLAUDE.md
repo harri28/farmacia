@@ -36,9 +36,11 @@ $env:PGPASSWORD = "1234"; & "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U pos
 Login is a 3-step flow: Company (tenant) selector → Branch (sucursal) selector → Credentials.
 
 **Entry point after login**: `http://localhost/farmacia/modules/ventas/index.php`  
-There is no root `index.php` — navigating to `/farmacia/` will 404.
+Root `index.php` routes by hostname (production is multi-tenant-by-subdomain, e.g. `generycpharma.genpharma.cloud`): `admin.genpharma.cloud` → `modules/superadmin/login.php`; a host whose first label matches an **active** `public.tenants.slug` → `modules/auth/login.php` (which then filters the sucursal list to that tenant); anything else (bare domain, `www`, unrecognized subdomain, or a DB error) → `modules/superadmin/login.php`. The tenant lookup uses its own PDO connection (not `getDB()`), since `getDB()` hard-`die()`s with raw JSON on connection failure instead of throwing — unacceptable on the public landing page.
 
 There is no build step, no package manager, and no test runner.
+
+**`scripts/`** — One-off CLI maintenance scripts run via `php scripts/<name>.php`, e.g. `create_superadmin.php [username] [password]`, `list_sucursales.php`, `create_fe_all_schemas.php`/`create_fe_tables.php`/`check_fe_tables.php` (electronic-invoicing table bootstrap/verification per schema).
 
 ## Architecture
 
@@ -46,14 +48,14 @@ There is no build step, no package manager, and no test runner.
 
 The core architectural pattern is PostgreSQL schema-based multi-tenancy:
 
-- **`public` schema** — Global tables shared across all tenants: `tenants`, `sucursales`, `usuarios`, `usuario_sucursal`, `superadmins`, `ubigeo_*`, `fe_tipos_*` catalogs, `ordenes_traslado`, `categorias` (moved from per-branch in migration 21)
+- **`public` schema** — Global tables shared across all tenants: `tenants`, `sucursales`, `usuarios`, `usuario_sucursal`, `superadmins`, `ubigeo_*`, `fe_tipos_*` catalogs, `ordenes_traslado`, `categorias` (moved from per-branch in migration 21), `cuentas_banco`/`banco_movimientos` (tenant-level bank accounts, migration 28)
 - **Per-branch schema** (e.g., `sucursal_001`) — Branch-specific tables: `productos`, `ventas`, `caja`, `ingresos`, `comprobantes_electronicos`, etc.
 - `getDB()` runs `SET search_path TO {schema}, public` after login, switching context to the active branch
 - Session variables: `tenant_id`, `sucursal_id`, `sucursal_schema`, `rol`
 
 ### Migration Pattern
 
-`database/schema_sucursal.sql` defines the full schema for **new** sucursales only. Existing schemas are never touched by it. `migration_22_campos_facturacion_all_schemas.sql` is the authoritative backfill that applied all electronic invoicing columns (on `clientes`, `productos`, `ventas`, `venta_detalles`, `comprobantes_electronicos`, `series_comprobantes`) to pre-existing schemas — run this first if you see "column does not exist" errors for invoicing fields. **When adding columns to `schema_sucursal.sql`, you must also create a numbered migration** (`database/migration_XX_name.sql`) that applies those same changes to all existing schemas using the `DO $$ FOR s IN SELECT schema_name FROM information_schema.schemata WHERE ... LOOP EXECUTE format('ALTER TABLE %I... ADD COLUMN IF NOT EXISTS ...', s); END LOOP; END $$` pattern. Omitting the migration causes "column does not exist" errors in production for all existing branches. **The current highest migration number is 23; the next should be `migration_24_*.sql`.**
+`database/schema_sucursal.sql` defines the full schema for **new** sucursales only. Existing schemas are never touched by it. `migration_22_campos_facturacion_all_schemas.sql` is the authoritative backfill that applied all electronic invoicing columns (on `clientes`, `productos`, `ventas`, `venta_detalles`, `comprobantes_electronicos`, `series_comprobantes`) to pre-existing schemas — run this first if you see "column does not exist" errors for invoicing fields. **When adding columns to `schema_sucursal.sql`, you must also create a numbered migration** (`database/migration_XX_name.sql`) that applies those same changes to all existing schemas using the `DO $$ FOR s IN SELECT schema_name FROM information_schema.schemata WHERE ... LOOP EXECUTE format('ALTER TABLE %I... ADD COLUMN IF NOT EXISTS ...', s); END LOOP; END $$` pattern. Omitting the migration causes "column does not exist" errors in production for all existing branches. **The current highest migration number is 29 (note: two files share number 29 — `migration_29_banco_imagen.sql` and `migration_29_exoneracion_igv_selva.sql` — a pre-existing collision, don't reuse 29); the next migration should be `migration_30_*.sql`.**
 
 Some older migrations use unnumbered names (`migration_compras.sql`, `migration_gastos.sql`, `migration_cuentas_cobrar.sql`, `migration_fecha_vencimiento.sql`, etc.) — these predate the numbered scheme and are already applied to the production database.
 
@@ -151,6 +153,8 @@ Each module has `api.php` with a `switch ($action)` dispatcher:
 - **`facturacion/api.php`** — `stats`, `reporte`, `exportar` (CSV download), `detalle_venta_ticket`, `notas_reporte`, `tipos_nota_credito`, `documentos_origen_nota_credito`, `crear_nota_credito` (calls `enviar_sunat()`), `reenviar_sunat`, `stats_usuario`, `usuarios_lista`, `categorias_lista`, `rentabilidad_stats`, `rentabilidad_categorias`, `rentabilidad_productos`, `rentabilidad_tendencia`
 - **`compras/api.php`** — Purchase orders: `stats`, `ordenes_listar`, `orden_detalle`, `orden_crear`, `orden_cambiar_estado`, `orden_recibir` (converts approved OC → ingreso + optional `cuentas_por_pagar`); Accounts payable: `cuentas_listar`, `cuenta_detalle`, `registrar_pago`; Accounts receivable: `stats_cobrar`, `cuentas_cobrar_listar`, `cuenta_cobrar_detalle`, `registrar_cobro`, `cuenta_cobrar_crear`
 - **`dashboard/api.php`** — `resumen` (sales/inventory/caja daily summary), `ventas_semana`, `ventas_metodo_pago`, `stock_alertas`, `top_vendidos`, `ultimas_ventas`
+- **`banco/api.php`** — Tenant-level bank accounts (`public.cuentas_banco`/`banco_movimientos`): `cuentas_listar`, `cuenta_crear`, `cuenta_actualizar`, `cuenta_imagen_subir`, `cuenta_detalle`, `movimientos_listar`, `grafico_mensual`, `movimiento_crear`
+- **`ecommerce/api.php`** — `categorias`, `productos`, `stock`. **Unauthenticated and CORS-open by design** (no `requireApiAuth`, `Access-Control-Allow-Origin: *`) — it's a public read-only catalog/stock feed meant for an external storefront (Selvadigital), takes `?schema=` directly from the query string (sanitized to `[a-zA-Z0-9_]`) instead of the session. Don't add write actions or assume it's behind auth like the other modules.
 
 ### Electronic Invoicing
 
@@ -182,8 +186,7 @@ Flow: `Borrador → Enviado` (locks items, decrements origin stock) → `Recibid
 
 ### Modules Status
 
-- **Fully implemented**: Ventas (POS + Historial + Favoritos), Inventario (tabbed: Inventario + Categorías), Almacén (tabbed: Ingresos + Proveedores — `proveedores.php` is no longer standalone), Caja, Clientes, Admin (4 tabs: Usuarios + Sucursales + Configuración + Auditoría), Facturación (Reporte de Ventas + Notas de Crédito + Rentabilidad), Traslados, Dashboard, Compras (purchase orders + cuentas por pagar + cuentas por cobrar)
-- **Planned/disabled in UI**: Ecommerce (sidebar shows "Pronto" badge)
+- **Fully implemented**: Ventas (POS + Historial + Favoritos), Inventario (tabbed: Inventario + Categorías), Almacén (tabbed: Ingresos + Proveedores — `proveedores.php` is no longer standalone), Caja, Clientes, Admin (4 tabs: Usuarios + Sucursales + Configuración + Auditoría), Facturación (Reporte de Ventas + Notas de Crédito + Rentabilidad), Traslados, Dashboard, Compras (purchase orders + cuentas por pagar + cuentas por cobrar), Banco (bank accounts + movements, admin/gerente only), Ecommerce (public read-only JSON API explorer for an external storefront — see `ecommerce/api.php` note above)
 
 ### Co-located Separate App
 
