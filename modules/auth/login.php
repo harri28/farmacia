@@ -1,8 +1,9 @@
 <?php
 // ============================================================
 // ARCHIVO: farmacia/modules/auth/login.php
-// Flujo: Sucursal → Credenciales
-//        (superadmin accede directamente con credenciales)
+// Flujo: Credenciales -> Sucursal
+//        (las sucursales NUNCA se envían al navegador antes de validar
+//        usuario/contraseña -- ver api.php)
 // ============================================================
 
 require_once __DIR__ . '/../../config/auth.php';
@@ -20,53 +21,8 @@ if (!empty($_SESSION['usuario_id'])) {
 
 require_once __DIR__ . '/../../config/database.php';
 
-$error = '';
-
-// ---- Cargar sucursales con nombre del tenant ----
-try {
-    $db = getDB();
-
-    $sucursales_raw = $db->query("
-        SELECT s.id, s.tenant_id, s.nombre, s.direccion, s.telefono,
-               t.nombre AS tenant_nombre, t.slug AS tenant_slug
-        FROM public.sucursales s
-        JOIN public.tenants t ON t.id = s.tenant_id
-        WHERE s.activo = TRUE AND t.activo = TRUE
-        ORDER BY t.nombre ASC, s.nombre ASC
-    ")->fetchAll();
-
-    // Detectar tenant desde subdominio (ej: maryfarma.genpharma.cloud → slug "maryfarma")
-    $detected_tenant = null;
-    $subdomain_mode  = false;
-    $host = strtolower(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''));
-    $host_parts = explode('.', $host);
-    if (count($host_parts) >= 3 && $host_parts[0] !== 'www') {
-        $slug = $host_parts[0];
-        foreach ($sucursales_raw as $s) {
-            if (strtolower($s['tenant_slug']) === $slug) {
-                $detected_tenant = ['id' => $s['tenant_id'], 'nombre' => $s['tenant_nombre']];
-                $subdomain_mode  = true;
-                break;
-            }
-        }
-        if ($subdomain_mode) {
-            $sucursales_raw = array_values(array_filter(
-                $sucursales_raw, fn($s) => $s['tenant_id'] == $detected_tenant['id']
-            ));
-        }
-    }
-
-    // ¿Hay sucursales de más de un tenant? (para mostrar nombre de empresa en cada card)
-    $tenant_ids   = array_unique(array_column($sucursales_raw, 'tenant_id'));
-    $multi_tenant = count($tenant_ids) > 1;
-
-} catch (Exception $e) {
-    $sucursales_raw  = [];
-    $detected_tenant = null;
-    $subdomain_mode  = false;
-    $multi_tenant    = false;
-    $error = 'No se pudo conectar con la base de datos.';
-}
+$db = getDB();
+require __DIR__ . '/_tenant_context.php'; // -> $host, $host_parts, $detected_tenant, $subdomain_mode
 
 if ($host === 'admin.genpharma.cloud') {
     header('Location: ../superadmin/login.php');
@@ -74,111 +30,12 @@ if ($host === 'admin.genpharma.cloud') {
 }
 
 // Un intento de subdominio de tenant (3+ labels, no "www") que no coincidió
-// con ningún tenant activo muestra error — antes eso caía silenciosamente al
-// selector con TODAS las sucursales de TODOS los tenants. El dominio raíz,
-// "www" y localhost/desarrollo caen al login genérico (subdomain_mode queda
-// false), donde el tenant se determina por el usuario que inicia sesión, no
-// por la URL.
+// con ningún tenant activo muestra error. El dominio raíz, "www" y
+// localhost/desarrollo caen al login genérico (subdomain_mode queda false),
+// donde el tenant se determina por el usuario que inicia sesión, no por la URL.
 if (!$subdomain_mode && count($host_parts) >= 3 && $host_parts[0] !== 'www') {
     require __DIR__ . '/../../includes/error_tenant.php';
 }
-
-// ---- POST: Procesar login ----
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
-
-    $username    = trim($_POST['username'] ?? '');
-    $password    = $_POST['password'] ?? '';
-    $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
-    $tenant_id   = intval($_POST['tenant_id']   ?? 0);
-
-    if (!$username || !$password) {
-        $error = 'Ingresa usuario y contraseña.';
-    } elseif (!$sucursal_id || !$tenant_id) {
-        $error = 'Selecciona una sucursal.';
-    } else {
-        try {
-            $stmt = $db->prepare("
-                SELECT id, nombre, apellido, username, password_hash, tenant_id
-                FROM public.usuarios WHERE username = :u AND activo = TRUE
-            ");
-            $stmt->execute([':u' => $username]);
-            $user = $stmt->fetch();
-
-            if (!$user || !password_verify($password, $user['password_hash'])) {
-                $error = 'Usuario o contraseña incorrectos.';
-                try {
-                    $db->prepare("INSERT INTO public.audit_log
-                        (tenant_id, username, accion, modulo, detalle, ip_address)
-                        VALUES (:tid, :uname, 'login_fallido', 'auth', :detalle, :ip)")
-                       ->execute([
-                           ':tid'    => $tenant_id ?: null,
-                           ':uname'  => $username,
-                           ':detalle'=> 'Credenciales incorrectas',
-                           ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
-                       ]);
-                } catch (Throwable $e) {}
-            } elseif ((int)$user['tenant_id'] !== $tenant_id) {
-                $error = 'No tienes acceso a esta empresa.';
-            } else {
-                $stmt2 = $db->prepare("
-                    SELECT us.rol, s.nombre AS sucursal_nombre, s.schema_name,
-                           t.nombre AS tenant_nombre, t.slug AS tenant_slug
-                    FROM public.usuario_sucursal us
-                    JOIN public.sucursales s ON s.id = us.sucursal_id
-                    JOIN public.tenants    t ON t.id = s.tenant_id
-                    WHERE us.usuario_id = :uid AND us.sucursal_id = :sid
-                      AND us.activo = TRUE AND s.activo = TRUE AND t.activo = TRUE
-                ");
-                $stmt2->execute([':uid' => $user['id'], ':sid' => $sucursal_id]);
-                $acceso = $stmt2->fetch();
-
-                if (!$acceso) {
-                    $error = 'No tienes acceso asignado a esta sucursal.';
-                } else {
-                    session_regenerate_id(true);
-                    $_SESSION['usuario_id']      = $user['id'];
-                    $_SESSION['nombre']          = trim($user['nombre'] . ' ' . ($user['apellido'] ?? ''));
-                    $_SESSION['username']        = $user['username'];
-                    $_SESSION['rol']             = $acceso['rol'];
-                    $_SESSION['tenant_id']       = $tenant_id;
-                    $_SESSION['tenant_nombre']   = $acceso['tenant_nombre'];
-                    $_SESSION['tenant_slug']     = $acceso['tenant_slug'];
-                    $_SESSION['sucursal_id']     = $sucursal_id;
-                    $_SESSION['sucursal_nombre'] = $acceso['sucursal_nombre'];
-                    $_SESSION['sucursal_schema'] = $acceso['schema_name'];
-                    try {
-                        $db->prepare("INSERT INTO public.audit_log
-                            (tenant_id, sucursal_id, usuario_id, username, nombre_usuario, rol, accion, modulo, detalle, ip_address)
-                            VALUES (:tid, :sid, :uid, :uname, :nombre, :rol, 'login', 'auth', :detalle, :ip)")
-                           ->execute([
-                               ':tid'    => $tenant_id,
-                               ':sid'    => $sucursal_id,
-                               ':uid'    => $user['id'],
-                               ':uname'  => $user['username'],
-                               ':nombre' => trim($user['nombre'] . ' ' . ($user['apellido'] ?? '')),
-                               ':rol'    => $acceso['rol'],
-                               ':detalle'=> 'Ingresó a ' . $acceso['sucursal_nombre'],
-                               ':ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
-                           ]);
-                    } catch (Throwable $e) {}
-                    if (in_array($acceso['rol'], ['admin', 'gerente'], true)) {
-                        header('Location: ../dashboard/index.php');
-                    } else {
-                        header('Location: ../ventas/index.php');
-                    }
-                    exit;
-                }
-            }
-        } catch (Exception $e) {
-            $error = 'Error al procesar el inicio de sesión.';
-        }
-    }
-}
-
-// Valores previos para repoblar el form en caso de error
-$prev_tenant_id   = intval($_POST['tenant_id']   ?? 0);
-$prev_sucursal_id = intval($_POST['sucursal_id'] ?? 0);
-$prev_username    = htmlspecialchars($_POST['username'] ?? '');
 ?><!DOCTYPE html>
 <html lang="es">
 <head>
@@ -188,7 +45,6 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -243,17 +99,6 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
 
         .empty-state { text-align:center;padding:28px 0;color:#94a3b8;font-size:.85rem; }
 
-        /* Badge de selección */
-        .sel-badge {
-            display:flex;align-items:center;gap:10px;
-            background:#f8fafc;border:1px solid #e2e8f0;
-            border-radius:10px;padding:9px 13px;margin-bottom:18px;
-        }
-        .sel-badge i { color:#6366f1;font-size:.85rem;width:16px;text-align:center; }
-        .sel-badge .sel-badge-text { flex:1; }
-        .sel-badge .sel-badge-nombre { font-size:.85rem;font-weight:600;color:#1e293b; }
-        .sel-badge .sel-badge-sub    { font-size:.73rem;color:#64748b; }
-
         /* Formulario */
         .form-group { margin-bottom:16px; }
         .form-label { display:block;font-size:.78rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.04rem;margin-bottom:6px; }
@@ -266,6 +111,7 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
         .toggle-pass:hover { color:#475569; }
         .btn-submit { width:100%;padding:13px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:9px;font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s; }
         .btn-submit:hover { opacity:.92; }
+        .btn-submit:disabled { opacity:.6;cursor:default; }
 
         /* Alert */
         .alert { background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:9px;padding:10px 14px;font-size:.83rem;margin-bottom:16px;display:flex;align-items:center;gap:8px; }
@@ -276,7 +122,7 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
     </style>
 </head>
 <body>
-<div class="card <?= count($sucursales_raw) > 2 ? 'wide' : '' ?>" id="login-card">
+<div class="card" id="login-card">
 
     <div class="card-header">
         <div class="brand-icon"><i class="fas fa-pills"></i></div>
@@ -286,98 +132,28 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
 
     <div class="card-body">
 
-        <?php if (($_GET['reset'] ?? '') === 'ok'): ?>
-        <div class="alert" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d">
-            <i class="fas fa-check-circle"></i> Contraseña actualizada correctamente. Ya puedes iniciar sesión.
-        </div>
-        <?php elseif ($error && !$prev_sucursal_id): ?>
-        <div class="alert"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-
-        <!-- ============================================================
-             PASO 1: Selección de sucursal
-             ============================================================ -->
-        <div class="step <?= !$prev_sucursal_id ? 'active' : '' ?>" id="step-branch">
-
-            <div class="step-title">Selecciona tu sucursal</div>
-            <div class="step-sub">Elige el local en el que trabajarás hoy</div>
-
-            <?php if (empty($sucursales_raw)): ?>
-            <div class="empty-state">
-                <i class="fas fa-store-slash" style="font-size:2rem;display:block;margin-bottom:10px"></i>
-                No hay sucursales disponibles.<br>Contacta al administrador del sistema.
-            </div>
-            <?php else: ?>
-            <div class="sel-grid">
-                <?php foreach ($sucursales_raw as $s): ?>
-                <div class="sel-card <?= ((int)$s['id'] === $prev_sucursal_id) ? 'selected' : '' ?>"
-                     onclick="selectBranch(<?= $s['id'] ?>, <?= $s['tenant_id'] ?>, '<?= htmlspecialchars(addslashes($s['nombre'])) ?>', '<?= htmlspecialchars(addslashes($s['direccion'] ?? '')) ?>', '<?= htmlspecialchars(addslashes($s['tenant_nombre'])) ?>')">
-                    <div class="sel-icon branch"><i class="fas fa-store"></i></div>
-                    <div class="sel-nombre"><?= htmlspecialchars($s['nombre']) ?></div>
-                    <?php if ($multi_tenant): ?>
-                    <div class="sel-sub"><?= htmlspecialchars($s['tenant_nombre']) ?></div>
-                    <?php elseif ($s['direccion']): ?>
-                    <div class="sel-sub"><?= htmlspecialchars($s['direccion']) ?></div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
+        <div id="alert-box">
+            <?php if (($_GET['reset'] ?? '') === 'ok'): ?>
+            <div class="alert" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d">
+                <i class="fas fa-check-circle"></i> Contraseña actualizada correctamente. Ya puedes iniciar sesión.
             </div>
             <?php endif; ?>
-
         </div>
 
         <!-- ============================================================
-             PASO 2: Credenciales
+             PASO 1: Credenciales
              ============================================================ -->
-        <div class="step <?= $prev_sucursal_id ? 'active' : '' ?>" id="step-creds">
+        <div class="step active" id="step-creds">
 
-            <button type="button" class="back-btn" onclick="goTo('step-branch')">
-                <i class="fas fa-arrow-left"></i> Cambiar sucursal
-            </button>
-            <div class="sel-badge">
-                <i class="fas fa-store"></i>
-                <div class="sel-badge-text">
-                    <div class="sel-badge-nombre" id="badge-branch-nombre">
-                        <?php
-                        if ($prev_sucursal_id) {
-                            foreach ($sucursales_raw as $s) {
-                                if ((int)$s['id'] === $prev_sucursal_id) {
-                                    echo htmlspecialchars($s['nombre']);
-                                    break;
-                                }
-                            }
-                        }
-                        ?>
-                    </div>
-                    <div class="sel-badge-sub" id="badge-branch-sub">
-                        <?php
-                        if ($prev_sucursal_id) {
-                            foreach ($sucursales_raw as $s) {
-                                if ((int)$s['id'] === $prev_sucursal_id) {
-                                    echo htmlspecialchars($s['direccion'] ?: $s['tenant_nombre']);
-                                    break;
-                                }
-                            }
-                        }
-                        ?>
-                    </div>
-                </div>
-            </div>
+            <div class="step-title">Iniciar sesión</div>
+            <div class="step-sub">Ingresa tu usuario y contraseña</div>
 
-            <?php if ($error && $prev_sucursal_id): ?>
-            <div class="alert"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
-            <?php endif; ?>
-
-            <form method="POST" id="form-login">
-                <input type="hidden" name="tenant_id"   id="h-tenant-id"   value="<?= $prev_tenant_id ?>">
-                <input type="hidden" name="sucursal_id" id="h-sucursal-id" value="<?= $prev_sucursal_id ?>">
-
+            <form id="form-creds" onsubmit="return false;">
                 <div class="form-group">
                     <label class="form-label">Usuario</label>
                     <div class="input-wrap">
                         <i class="fas fa-user input-icon"></i>
-                        <input type="text" name="username" id="inp-username" class="form-input"
-                            value="<?= $prev_username ?>"
+                        <input type="text" id="inp-username" class="form-input"
                             placeholder="Tu nombre de usuario" autocomplete="username">
                     </div>
                 </div>
@@ -385,15 +161,15 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
                     <label class="form-label">Contraseña</label>
                     <div class="input-wrap">
                         <i class="fas fa-lock input-icon"></i>
-                        <input type="password" name="password" id="inp-password" class="form-input with-toggle"
+                        <input type="password" id="inp-password" class="form-input with-toggle"
                             placeholder="••••••••" autocomplete="current-password">
                         <button type="button" class="toggle-pass" onclick="togglePass()">
                             <i class="fas fa-eye" id="icon-pass"></i>
                         </button>
                     </div>
                 </div>
-                <button type="submit" class="btn-submit">
-                    <i class="fas fa-sign-in-alt"></i> Ingresar
+                <button type="submit" class="btn-submit" id="btn-validar">
+                    <i class="fas fa-arrow-right"></i> Continuar
                 </button>
                 <div style="text-align:center;margin-top:14px">
                     <a href="recuperar.php" style="font-size:.78rem;color:#6366f1;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
@@ -403,26 +179,46 @@ $prev_username    = htmlspecialchars($_POST['username'] ?? '');
             </form>
         </div>
 
+        <!-- ============================================================
+             PASO 2: Selección de sucursal (poblado por JS tras validar)
+             ============================================================ -->
+        <div class="step" id="step-branch">
+
+            <button type="button" class="back-btn" onclick="goTo('step-creds')">
+                <i class="fas fa-arrow-left"></i> Volver
+            </button>
+
+            <div class="step-title">Selecciona tu sucursal</div>
+            <div class="step-sub">Elige el local en el que trabajarás hoy</div>
+
+            <div class="sel-grid" id="sucursales-grid"></div>
+
+        </div>
+
     </div>
 
     <div class="card-footer">FarmaSystem &copy; <?= date('Y') ?> · v1.0</div>
 </div>
 
 <script>
+const API  = 'api.php';
 const card = document.getElementById('login-card');
 
 function goTo(stepId) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
     document.getElementById(stepId).classList.add('active');
+    clearAlert();
     if (stepId === 'step-creds') setTimeout(() => document.getElementById('inp-username').focus(), 80);
 }
 
-function selectBranch(id, tenantId, nombre, dir, tenantNombre) {
-    document.getElementById('h-sucursal-id').value = id;
-    document.getElementById('h-tenant-id').value   = tenantId;
-    document.getElementById('badge-branch-nombre').textContent = nombre;
-    document.getElementById('badge-branch-sub').textContent    = dir || tenantNombre;
-    goTo('step-creds');
+function showAlert(msg) {
+    document.getElementById('alert-box').innerHTML =
+        '<div class="alert"><i class="fas fa-exclamation-circle"></i><span></span></div>';
+    document.querySelector('#alert-box .alert span').textContent = msg;
+}
+
+function clearAlert() {
+    document.getElementById('alert-box').innerHTML = '';
 }
 
 function togglePass() {
@@ -431,7 +227,66 @@ function togglePass() {
     inp.type   = inp.type === 'password' ? 'text' : 'password';
     icon.className = inp.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
 }
+
+document.getElementById('form-creds').addEventListener('submit', async () => {
+    clearAlert();
+    const username = document.getElementById('inp-username').value.trim();
+    const password = document.getElementById('inp-password').value;
+    if (!username || !password) { showAlert('Ingresa usuario y contraseña.'); return; }
+
+    const btn = document.getElementById('btn-validar');
+    btn.disabled = true;
+    try {
+        const r = await fetch(`${API}?action=validar_credenciales`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+        const d = await r.json();
+        if (d.error) { showAlert(d.message); return; }
+        renderSucursales(d.sucursales);
+        goTo('step-branch');
+    } catch (err) {
+        showAlert('Error de conexión. Intenta de nuevo.');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+function renderSucursales(list) {
+    card.classList.toggle('wide', list.length > 2);
+    const grid = document.getElementById('sucursales-grid');
+    grid.innerHTML = '';
+    list.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'sel-card';
+        el.innerHTML =
+            '<div class="sel-icon branch"><i class="fas fa-store"></i></div>' +
+            '<div class="sel-nombre"></div><div class="sel-sub"></div>';
+        el.querySelector('.sel-nombre').textContent = s.nombre;
+        el.querySelector('.sel-sub').textContent    = s.direccion || '';
+        el.addEventListener('click', () => confirmarSucursal(s.id, el));
+        grid.appendChild(el);
+    });
+}
+
+async function confirmarSucursal(id, el) {
+    document.querySelectorAll('.sel-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    clearAlert();
+    try {
+        const r = await fetch(`${API}?action=confirmar_sucursal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sucursal_id: id }),
+        });
+        const d = await r.json();
+        if (d.error) { showAlert(d.message); return; }
+        window.location.href = d.redirect;
+    } catch (err) {
+        showAlert('Error de conexión. Intenta de nuevo.');
+    }
+}
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

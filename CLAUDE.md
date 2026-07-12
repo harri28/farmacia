@@ -36,13 +36,17 @@ $env:PGPASSWORD = "1234"; & "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U pos
 Login is a 3-step flow: Company (tenant) selector → Branch (sucursal) selector → Credentials.
 
 **Entry point after login**: `http://localhost/farmacia/modules/ventas/index.php`  
-Root `index.php` routes by hostname (production is multi-tenant-by-subdomain, e.g. `generycpharma.genpharma.cloud`), based on whether the host has 3+ dot-labels and isn't `www`:
+Root `index.php` routes by hostname (production has vanity subdomains per tenant, e.g. `generycpharma.genpharma.cloud`), based on whether the host has 3+ dot-labels and isn't `www`:
 - `admin.genpharma.cloud` → `modules/superadmin/login.php`.
-- 3+ labels, not `www`, first label matches an **active** `public.tenants.slug` → `modules/auth/login.php`, tenant-restricted (only that tenant's users/sucursales).
+- 3+ labels, not `www`, first label matches an **active** `public.tenants.slug` → `modules/auth/login.php`.
 - 3+ labels, not `www`, no matching tenant → `includes/error_tenant.php` (standalone "Empresa no encontrada", HTTP 404, no redirect — doesn't hint that a superadmin panel exists).
-- Anything else (bare domain, `www`, localhost/dev) → `includes/landing.php` (public marketing page, brand "FarmaSystem", links to `modules/auth/login.php` in **generic** mode — no tenant restriction, tenant is resolved from the authenticated user's own `usuarios.tenant_id` instead of the URL).
+- Anything else (bare domain, `www`, localhost/dev) → `includes/landing.php` (public marketing page, brand "FarmaSystem", links to `modules/auth/login.php`).
 
-The tenant-slug lookup uses its own PDO connection (not `getDB()`), since `getDB()` hard-`die()`s with raw JSON on connection failure instead of throwing — unacceptable on the public landing page. `modules/auth/login.php` enforces the same routing rule independently (in case it's hit directly, bypassing `index.php`).
+**Important**: the subdomain is purely cosmetic for login purposes — it does **not** restrict which tenant's users can log in there. `modules/auth/login.php` always resolves the tenant from the authenticated user's own `usuarios.tenant_id` (via `modules/auth/api.php`), regardless of which subdomain (or the bare domain) was used to reach it. The only URL-driven rule is that a subdomain matching *no* active tenant slug shows the 404 error page instead of a login form.
+
+The tenant-slug lookup in `index.php` uses its own PDO connection (not `getDB()`), since `getDB()` hard-`die()`s with raw JSON on connection failure instead of throwing — unacceptable on the public landing page. `modules/auth/login.php` enforces the same routing rule independently via `modules/auth/_tenant_context.php` (in case it's hit directly, bypassing `index.php`).
+
+**Login flow (credentials-first, no data leak)**: `modules/auth/login.php` no longer queries or embeds any sucursal data on page load — it's just a username/password form. `modules/auth/api.php` has two actions: `validar_credenciales` (checks the password, then returns only *that user's* sucursales via `usuario_sucursal`, and sets `$_SESSION['pending_login_user_id']`) and `confirmar_sucursal` (re-verifies server-side that the chosen `sucursal_id` actually belongs to that pending user before creating the real session — never trusts the sucursal_id the browser sends). This replaced an older "pick sucursal, then enter credentials" wizard that rendered every sucursal (across all tenants) into the page's HTML/DOM before any authentication.
 
 **Production PHP caveat**: the VPS serves this app via Apache mod_php **7.x**, not PHP 8 — confirmed 2026-07-12 after `str_ends_with()` (PHP 8.0+) caused a live 500. Don't use PHP 8+-only syntax (`str_ends_with`/`str_starts_with`/`str_contains`, `match`, `enum`, `?->`, etc.) anywhere in this app (the PHP 8.2 upgrade mentioned in ops notes was for the separate `conexion_sunat/` Laravel app, not this one).
 
