@@ -66,6 +66,15 @@ LIMIT 1;
 "
 ```
 
+## Catálogo de códigos de error SUNAT (se va llenando con lo que encontremos)
+Cada vez que un envío falle, se saca el `fault_code`/`fault_string` real con el query de la sección anterior y se agrega aquí — así queda un catálogo propio, explicado en español simple, en vez de tener que volver a investigar el mismo código dos veces.
+
+| Código | `fault_string` textual de SUNAT | Qué significa en la práctica | Cómo se resuelve |
+|---|---|---|---|
+| **0111** | "No tiene el perfil para enviar comprobantes electronicos - Detalle: Rejected by policy." | El Usuario SOL usado para el envío (o el RUC mismo) no tiene habilitado el perfil de emisor electrónico en el sistema de SUNAT — puede ser el permiso del usuario secundario, o que el RUC no esté afiliado al SEE. | Asignar el permiso "Servicio de Envío de Documentos Electrónicos" (ver sección de arriba) y/o esperar propagación / consultar con SUNAT si el RUC está afiliado al SEE. Visto el 2026-07-12, **aún sin confirmar resuelto**. |
+
+*(Tabla en construcción — se agrega una fila nueva cada vez que aparezca un código distinto. No hay que memorizar catálogos genéricos de internet: solo se documentan los que realmente nos salieron, con el contexto real de qué se probó y qué funcionó.)*
+
 ## Notas para replicar esto con otras empresas/tenants
 - Esta configuración es **por RUC/empresa**, no global al sistema — cada tenant nuevo necesita su propio Usuario SOL con este mismo permiso asignado, además de su propio certificado `.pfx` y credenciales SOL en Admin → Configuración.
 - El camino en el portal SUNAT (Administración de Usuarios Secundarios → Modificar Programas → Tributarios → Comprobantes de pago → SEE - Del Contribuyente y Envío de Documentos) debería ser el mismo para cualquier RUC, ya que es la estructura de menú de SUNAT, no algo específico de esta empresa.
