@@ -52,20 +52,22 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'Usuario o contraseña incorrectos.'], 401);
         }
 
+        // Se muestran TODAS las sucursales activas de la empresa del usuario,
+        // sin importar si el admin lo asignó individualmente a cada una (eso
+        // se sigue validando después, en confirmar_sucursal, para decidir su
+        // rol ahí -- ver ese caso más abajo).
         $stmt2 = $db->prepare("
             SELECT s.id, s.nombre, s.direccion
-            FROM public.usuario_sucursal us
-            JOIN public.sucursales s ON s.id = us.sucursal_id
-            JOIN public.tenants    t ON t.id = s.tenant_id
-            WHERE us.usuario_id = :uid AND us.activo = TRUE
-              AND s.activo = TRUE AND t.activo = TRUE AND s.tenant_id = :tid
+            FROM public.sucursales s
+            JOIN public.tenants t ON t.id = s.tenant_id
+            WHERE s.tenant_id = :tid AND s.activo = TRUE AND t.activo = TRUE
             ORDER BY s.nombre ASC
         ");
-        $stmt2->execute([':uid' => $user['id'], ':tid' => $user['tenant_id']]);
+        $stmt2->execute([':tid' => $user['tenant_id']]);
         $sucursales = $stmt2->fetchAll();
 
         if (!$sucursales) {
-            jsonResponse(['error' => true, 'message' => 'No tienes sucursales asignadas. Contacta al administrador.'], 403);
+            jsonResponse(['error' => true, 'message' => 'Tu empresa no tiene sucursales activas. Contacta al administrador.'], 403);
         }
 
         // Estado temporal: ya se validaron credenciales, falta elegir sucursal.
