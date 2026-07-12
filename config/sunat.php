@@ -12,7 +12,19 @@ function sunat_base_dir(): string
 
 function sunat_public_base_url(): string
 {
-    return '/farmacia/facturacion/storage';
+    // No hardcodear "/farmacia" -- en el VPS el DocumentRoot de Apache ES la
+    // raíz de la app (sin subcarpeta), pero en XAMPP local la app vive bajo
+    // htdocs/farmacia. Se calcula el prefijo comparando la carpeta real del
+    // proyecto contra el DocumentRoot, para que funcione en ambos entornos.
+    $docRoot = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+    $appRoot = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+
+    $prefix = '';
+    if ($docRoot !== '' && strpos($appRoot, $docRoot) === 0) {
+        $prefix = substr($appRoot, strlen($docRoot));
+    }
+
+    return $prefix . '/facturacion/storage';
 }
 
 function sunat_estado_db(string $estado): string
