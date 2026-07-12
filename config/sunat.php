@@ -593,7 +593,7 @@ function sunat_build_credit_note_xml(array $emisor, array $cliente, array $cabec
 function sunat_build_send_bill_envelope(string $ruc, string $solUser, string $solPassword, string $fileName, string $zipContentBase64): string
 {
     return '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">'
-        . '<soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>' . sunat_xml_escape($ruc . $solUser) . '</wsse:Username><wsse:Password>' . sunat_xml_escape($solPassword) . '</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>'
+        . '<soapenv:Header><wsse:Security><wsse:UsernameToken><wsse:Username>' . sunat_xml_escape($ruc . $solUser) . '</wsse:Username><wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">' . sunat_xml_escape($solPassword) . '</wsse:Password></wsse:UsernameToken></wsse:Security></soapenv:Header>'
         . '<soapenv:Body><ser:sendBill><fileName>' . sunat_xml_escape($fileName) . '</fileName><contentFile>' . $zipContentBase64 . '</contentFile></ser:sendBill></soapenv:Body>'
         . '</soapenv:Envelope>';
 }
