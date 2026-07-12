@@ -1,5 +1,8 @@
 # Configuración SUNAT — Notas de implementación
 
+## Estado: FUNCIONANDO EN PRODUCCIÓN (confirmado 2026-07-12)
+Boleta `B001-00000003` (PETRAM CO SAC, RUC 20616086465) enviada y aceptada por SUNAT en el ambiente de Producción, de punta a punta: certificado `.pfx`, credenciales SOL, RUC/razón social correctos, permiso "Servicio de Envío de Documentos Electrónicos" asignado, y URL del XML autoadaptada al VPS. Ver bugs resueltos en `CLAUDE.md` (commits `7d95761` y anteriores) y detalle abajo.
+
 ## Certificado digital
 - Formato requerido por el sistema: `.pfx` (renombrar si viene como `.p12` de SUNAT — es el mismo formato PKCS#12, solo cambia la extensión).
 - Se sube desde **Admin → Configuración**. Se guarda en `facturacion/certs/<RUC>.pfx` en el VPS.

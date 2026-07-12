@@ -895,6 +895,14 @@ switch ($action) {
                 ]
             );
 
+            if (!empty($result['error_nubefact'])) {
+                jsonResponse([
+                    'error' => true,
+                    'message' => 'SUNAT rechazó el comprobante: ' . (string) ($result['estado_sunat'] ?? $result['mensaje'] ?? 'Error desconocido'),
+                    'comprobante' => $result,
+                ], 422);
+            }
+
             jsonResponse([
                 'error' => false,
                 'message' => 'Comprobante enviado a SUNAT correctamente.',
