@@ -1945,7 +1945,7 @@ function updateClienteSelectValue(cliente) {
     if (!$select.length) return;
 
     if (!cliente) {
-        $select.val(null).trigger('change.select2');
+        $select.val(null).trigger('change');
         updateClienteMeta(null);
         return;
     }
@@ -1961,7 +1961,7 @@ function updateClienteSelectValue(cliente) {
         option[0]._cliente = cliente;
     }
 
-    $select.trigger('change.select2');
+    $select.trigger('change');
     updateClienteMeta(cliente);
 }
 
@@ -2710,48 +2710,6 @@ function openModalNuevoCliente() {
     actualizarUbigeoNuevoCliente('');
     openModal('modal-nuevo-cliente');
     setTimeout(() => document.getElementById('nc-numero-documento')?.focus(), 100);
-}
-
-function guardarNuevoCliente() {
-    const nombres = document.getElementById('nc-nombres').value.trim();
-    if (!nombres) { showToast('El nombre es obligatorio', 'error'); document.getElementById('nc-nombres').focus(); return; }
-
-    const payload = {
-        nombres,
-        apellidos:  document.getElementById('nc-apellidos').value.trim(),
-        dni:        document.getElementById('nc-dni').value.trim(),
-        ruc:        document.getElementById('nc-ruc').value.trim(),
-        telefono:   document.getElementById('nc-telefono').value.trim(),
-        email:      document.getElementById('nc-email').value.trim(),
-        direccion:  document.getElementById('nc-direccion').value.trim(),
-    };
-
-    const btn = document.getElementById('btn-guardar-cliente');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-
-    fetch(BASE + 'modules/ventas/api.php?action=crear_cliente', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
-        if (data.error) { showToast(data.message, 'error'); return; }
-
-        // Seleccionar el cliente recién creado
-        setSelectedCliente(data.cliente);
-
-        closeModal('modal-nuevo-cliente');
-        showToast('Cliente guardado y seleccionado', 'success');
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
-        showToast('Error al guardar el cliente', 'error');
-    });
 }
 
 async function guardarNuevoCliente() {

@@ -2,6 +2,7 @@
 config/secrets.php
 .env
 *.env
+config_vps.md
 
 # ─── Certificados digitales SUNAT (contienen claves privadas) ──
 facturacion/certs/*.pfx
