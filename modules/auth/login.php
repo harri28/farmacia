@@ -73,7 +73,7 @@ try {
 // ni un subdominio que no coincida con ningún tenant activo (antes eso caía
 // silenciosamente al selector con TODAS las sucursales de TODOS los tenants).
 // No aplica a localhost/otros hosts de desarrollo.
-$es_dominio_genpharma = $host === 'genpharma.cloud' || str_ends_with($host, '.genpharma.cloud');
+$es_dominio_genpharma = $host === 'genpharma.cloud' || substr($host, -strlen('.genpharma.cloud')) === '.genpharma.cloud';
 if (!$subdomain_mode && $es_dominio_genpharma) {
     header('Location: ../superadmin/login.php');
     exit;
