@@ -2182,7 +2182,7 @@ function procesarVenta() {
     document.getElementById('cobro-total-venta').textContent = totalStr;
     document.getElementById('cobro-total').textContent       = totalStr;
     document.getElementById('monto-recibido').value          = totalFinal.toFixed(2); // display readonly
-    document.getElementById('monto-cliente').value           = totalFinal.toFixed(2);
+    document.getElementById('monto-cliente').value           = ''; // el cajero no sabe cuánto va a recibir aún
     document.getElementById('tipo-pago').value               = 'efectivo';
     document.getElementById('tipo-comprobante').value        = 'boleta';
     document.getElementById('cobro-observacion').value       = '';
@@ -2194,7 +2194,6 @@ function procesarVenta() {
 
     updateCobroClienteResumen();
     renderSplitPaymentPanel();
-    syncMontoClienteWithTotal(true);
 
     onComprobanteChange();
     calcularVuelto();
@@ -2214,7 +2213,7 @@ function onTipoPagoChange() {
         if (seccionEfectivo) {
             if (metodo === 'efectivo') {
                 seccionEfectivo.style.display = '';
-                syncMontoClienteWithTotal(true);
+                document.getElementById('monto-cliente').value = '';
             } else {
                 seccionEfectivo.style.display = 'none';
                 const inp = document.getElementById('monto-cliente');
