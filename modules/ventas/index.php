@@ -2388,14 +2388,133 @@ function buildTicketHTML(opts) {
     </div>`;
 }
 
-function printReceipt(innerHtml) {
-    const w = window.open('', '_blank', 'width=420,height=700');
+function buildTicketA4HTML(opts) {
+    const {
+        items = [], total = 0, igv = 0, descuento = 0,
+        gravada = 0, exonerada = 0, inafecta = 0,
+        monto_recibido = 0, tipo_pago = 'efectivo',
+        tipo_comprobante = 'ticket', numero_venta = null,
+        numero_comprobante = null, cliente = null,
+        payment_breakdown = [], cuotas = [],
+        fecha = '', hora = '', preview = false
+    } = opts;
+
+    const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+    const pagoLabel = PAGOS[tipo_pago] || tipo_pago;
+    const vuelto     = Math.max(0, (monto_recibido || 0) - total);
+
+    const COMP = { boleta:'BOLETA DE VENTA ELECTRÓNICA', factura:'FACTURA ELECTRÓNICA', ticket:'TICKET DE VENTA' };
+    const compLabel = COMP[tipo_comprobante] || 'COMPROBANTE DE VENTA';
+    const numComp   = numero_comprobante || numero_venta || '---';
+
+    const nombreCliente = cliente
+        ? ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim()
+        : '';
+
+    const itemsHTML = items.map((i, idx) => {
+        const nombre = (i.nombre || i.product?.nombre || '');
+        const qty    = i.qty    || i.cantidad || 1;
+        const pu     = parseFloat(i.precio || i.precio_venta || i.product?.precio_venta || 0);
+        const sub    = parseFloat(i.precio_total || (pu * qty)).toFixed(2);
+        return `<tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${idx + 1}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${nombre}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">${qty}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">S/ ${pu.toFixed(2)}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">S/ ${sub}</td>
+        </tr>`;
+    }).join('');
+
+    const pagosHTML = tipo_pago === 'credito' && Array.isArray(cuotas) && cuotas.length
+        ? cuotas.map((c, i) => `<tr><td style="padding:4px 10px">Cuota ${i + 1} (${c.due_date || 'sin fecha'})</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(c.amount || 0).toFixed(2)}</td></tr>`).join('')
+        : (Array.isArray(payment_breakdown) && payment_breakdown.length
+            ? payment_breakdown.map(p => `<tr><td style="padding:4px 10px">${(PAGOS[(p.method || '').toLowerCase()] || p.method || 'Pago')}</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(p.amount || 0).toFixed(2)}</td></tr>`).join('')
+            : `<tr><td style="padding:4px 10px">${pagoLabel}</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(monto_recibido).toFixed(2)}</td></tr>`);
+
+    return `<div id="pos-ticket-a4" style="font-family:Arial,sans-serif;color:#111;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+            <div>
+                ${EMPRESA_LOGO
+                    ? `<img src="${EMPRESA_LOGO}" style="max-width:180px;max-height:70px;object-fit:contain;margin-bottom:6px">`
+                    : `<div style="font-size:18px;font-weight:700">${EMPRESA_NOMBRE || 'FARMACIA'}</div>`
+                }
+                ${EMPRESA_RUC     ? `<div style="color:#555">RUC: ${EMPRESA_RUC}</div>` : ''}
+                ${SUCURSAL_NOMBRE ? `<div style="color:#555;font-weight:600">${SUCURSAL_NOMBRE}</div>` : ''}
+                ${EMPRESA_DIR     ? `<div style="color:#555">${EMPRESA_DIR}</div>` : ''}
+                ${EMPRESA_TEL     ? `<div style="color:#555">Tel: ${EMPRESA_TEL}</div>` : ''}
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:16px;font-weight:700;color:#4f46e5">${compLabel}</div>
+                <div style="font-size:14px;color:#333">${numComp}</div>
+                <div style="font-size:11px;color:#888;margin-top:4px">Fecha: ${fecha} ${hora}</div>
+                <div style="font-size:11px;color:#888">Cajero: ${VENDEDOR_NOMBRE}</div>
+            </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:14px 0">
+
+        ${(nombreCliente || cliente?.dni || cliente?.ruc) ? `
+        <div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;margin-bottom:18px">
+            <div style="font-weight:700;margin-bottom:4px">Cliente</div>
+            ${nombreCliente      ? `<div>${nombreCliente}</div>` : ''}
+            ${cliente?.dni       ? `<div>DNI: ${cliente.dni}</div>` : ''}
+            ${cliente?.ruc       ? `<div>RUC: ${cliente.ruc}</div>` : ''}
+            ${cliente?.direccion ? `<div>${cliente.direccion}</div>` : ''}
+        </div>` : ''}
+
+        <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+            <thead>
+                <tr>
+                    <th style="background:#f3f4f6;padding:8px 10px;text-align:left;border-bottom:1.5px solid #d1d5db;width:4%">#</th>
+                    <th style="background:#f3f4f6;padding:8px 10px;text-align:left;border-bottom:1.5px solid #d1d5db">Descripción</th>
+                    <th style="background:#f3f4f6;padding:8px 10px;text-align:right;border-bottom:1.5px solid #d1d5db;width:10%">Cant.</th>
+                    <th style="background:#f3f4f6;padding:8px 10px;text-align:right;border-bottom:1.5px solid #d1d5db;width:15%">P. Unit.</th>
+                    <th style="background:#f3f4f6;padding:8px 10px;text-align:right;border-bottom:1.5px solid #d1d5db;width:15%">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>${itemsHTML}</tbody>
+        </table>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+            <table style="width:280px;border-collapse:collapse">
+                <tr><td style="padding:4px 10px">Op. Gravada:</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(gravada).toFixed(2)}</td></tr>
+                ${parseFloat(exonerada) > 0 ? `<tr><td style="padding:4px 10px">Op. Exonerada:</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(exonerada).toFixed(2)}</td></tr>` : ''}
+                ${parseFloat(inafecta) > 0 ? `<tr><td style="padding:4px 10px">Op. Inafecta:</td><td style="padding:4px 10px;text-align:right">S/ ${parseFloat(inafecta).toFixed(2)}</td></tr>` : ''}
+                <tr><td style="padding:4px 10px">IGV (18%):</td><td style="padding:4px 10px;text-align:right">S/ ${igv.toFixed(2)}</td></tr>
+                ${descuento > 0 ? `<tr><td style="padding:4px 10px">Descuento:</td><td style="padding:4px 10px;text-align:right">-S/ ${parseFloat(descuento).toFixed(2)}</td></tr>` : ''}
+                <tr><td style="padding:8px 10px;font-weight:700;font-size:14px;border-top:1.5px solid #111">Total:</td><td style="padding:8px 10px;text-align:right;font-weight:700;font-size:14px;border-top:1.5px solid #111">S/ ${total.toFixed(2)}</td></tr>
+            </table>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+            <table style="width:280px;border-collapse:collapse">
+                ${pagosHTML}
+                ${vuelto > 0 ? `<tr><td style="padding:4px 10px;font-weight:700">Vuelto:</td><td style="padding:4px 10px;text-align:right;font-weight:700">S/ ${vuelto.toFixed(2)}</td></tr>` : ''}
+            </table>
+        </div>
+
+        <div style="text-align:center;font-size:10px;color:#555;border-top:1px solid #e5e7eb;padding-top:10px">
+            <div style="font-weight:700">BIENES TRANSFERIDOS / SERVICIOS PRESTADOS</div>
+            <div style="font-weight:700">EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div>
+            ${preview ? `<div style="margin-top:8px;font-weight:700;color:#888;border:1px dashed #aaa;padding:2px 8px;display:inline-block">★ VISTA PREVIA — NO ES COMPROBANTE VÁLIDO ★</div>` : ''}
+        </div>
+    </div>`;
+}
+
+function buildComprobanteHTML(opts) {
+    const formato = document.getElementById('tipo-impresion')?.value || 'ticket';
+    return formato === 'a4' ? buildTicketA4HTML(opts) : buildTicketHTML(opts);
+}
+
+function printReceipt(innerHtml, formato) {
+    formato = formato || document.getElementById('tipo-impresion')?.value || 'ticket';
+    const isA4 = formato === 'a4';
+    const style = isA4
+        ? `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:Arial,sans-serif; font-size:12px; color:#111; padding:20mm 15mm; } @media print { @page { size:A4; margin:15mm; } body { padding:0; } }`
+        : `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:'Courier New',Courier,monospace; font-size:12px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; } @media print { @page { size:80mm auto; margin:4mm 3mm; } body { padding:0; } }`;
+    const w = window.open('', '_blank', isA4 ? 'width=900,height=1000' : 'width=420,height=700');
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Courier New',Courier,monospace; font-size:12px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; }
-@media print { @page { size:80mm auto; margin:4mm 3mm; } body { padding:0; } }
-</style></head><body>${innerHtml}</body></html>`);
+<style>${style}</style></head><body>${innerHtml}</body></html>`);
     w.document.close();
     w.focus();
     setTimeout(() => { w.print(); }, 400);
@@ -2415,7 +2534,7 @@ function previsualizarComprobante() {
     const tipoPago = creditPaymentEnabled ? 'credito' : document.getElementById('tipo-pago').value;
     const montoRecibido = creditPaymentEnabled ? 0 : (splitData ? splitData.cashTotal : (parseFloat(document.getElementById('monto-cliente')?.value) || totalFinal));
 
-    const html = buildTicketHTML({
+    const html = buildComprobanteHTML({
         items:            cart.map(i => ({
             nombre: i.product.nombre,
             qty: i.qty,
@@ -2605,7 +2724,7 @@ function showTicket(data) {
     const fecha  = now.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'});
     const hora   = now.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-    const ticketHTML = buildTicketHTML({
+    const ticketHTML = buildComprobanteHTML({
         items,
         total:             parseFloat(data.total),
         igv:               parseFloat(data.igv) || 0,
