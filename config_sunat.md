@@ -1,21 +1,12 @@
 # Configuración SUNAT — Notas de implementación
 
-## Estado: EN PROGRESO — envío técnicamente correcto, SUNAT sigue rechazando (2026-07-12)
-Corrección: la nota anterior decía "funcionando" basada en un toast de éxito de `B001-00000003` que resultó ser **falso** (bug de `reenviar_sunat`, ya corregido — ver abajo). Las 5 boletas emitidas hasta ahora (`B001-00000001` a `B001-00000005`) fueron rechazadas por SUNAT con el mismo error, incluso después de:
-- Corregir RUC/razón social (certificado, XML y perfil ahora coinciden: `20616086465`, PETRAM CO SAC).
-- Asignar los 3 permisos del Usuario SOL secundario (confirmado con screenshot que quedaron guardados).
-- Corregir el sobre SOAP: faltaba `Type="...#PasswordText"` en `wsse:Password` (fix real, pero no resolvió esto solo).
-
-**Error exacto** (sacado de `nubefact_response` en la BD, columna JSON con la respuesta cruda de SUNAT):
+## Estado: EN PROGRESO — se pasó el error 0111, ahora falla por credenciales SOL (2026-07-12)
+Avance real: después de asignar los permisos del Usuario SOL y corregir el sobre SOAP, el error `0111 "Rejected by policy"` **dejó de aparecer** — la boleta `B001-00000006` avanzó a un error distinto:
 ```
-fault_code:   soap-env:Client.0111
-fault_string: No tiene el perfil para enviar comprobantes electronicos - Detalle: Rejected by policy.
+fault_code:   soap-env:Client.0102
+fault_string: Usuario o contrasena incorrectos - Detalle:
 ```
-Código **0111** es un código de error oficial/documentado de SUNAT para su servicio `sendBill`. Con el sobre SOAP ya técnicamente correcto y los permisos del portal ya asignados, lo que queda pendiente es 100% del lado de la cuenta SUNAT, no del código:
-1. **Demora de propagación** de los permisos recién asignados (puede tardar horas en activarse en el backend de SUNAT aunque el portal ya los muestre guardados) — probar de nuevo más tarde.
-2. **RUC no afiliado al SEE** (Sistema de Emisión Electrónica) — trámite/registro de la empresa como emisor electrónico, separado de los permisos del usuario secundario. Se verifica/gestiona contactando a SUNAT directamente (Central de Consultas 0-801-12-100), dando el RUC y el código 0111.
-
-Para saber si esto se resuelve solo: reintentar el envío de un comprobante pendiente (o generar una venta nueva) unas horas después, y revisar `nubefact_response` con el query de abajo.
+Esto confirma que el sobre SOAP y los permisos ya están bien — ahora el bloqueo es que el **Usuario SOL / Clave SOL** guardados en Admin → Configuración no están siendo aceptados por SUNAT. Pendiente: revisar que "Usuario SOL" tenga *solo* `HARRIS28` (sin el RUC delante, el sistema ya lo antepone) y volver a escribir la Clave SOL a mano. Ver catálogo de códigos abajo para el detalle completo de ambos errores.
 
 ## Certificado digital
 - Formato requerido por el sistema: `.pfx` (renombrar si viene como `.p12` de SUNAT — es el mismo formato PKCS#12, solo cambia la extensión).
@@ -71,7 +62,8 @@ Cada vez que un envío falle, se saca el `fault_code`/`fault_string` real con el
 
 | Código | `fault_string` textual de SUNAT | Qué significa en la práctica | Cómo se resuelve |
 |---|---|---|---|
-| **0111** | "No tiene el perfil para enviar comprobantes electronicos - Detalle: Rejected by policy." | El Usuario SOL usado para el envío (o el RUC mismo) no tiene habilitado el perfil de emisor electrónico en el sistema de SUNAT — puede ser el permiso del usuario secundario, o que el RUC no esté afiliado al SEE. | Asignar el permiso "Servicio de Envío de Documentos Electrónicos" (ver sección de arriba) y/o esperar propagación / consultar con SUNAT si el RUC está afiliado al SEE. Visto el 2026-07-12, **aún sin confirmar resuelto**. |
+| **0111** | "No tiene el perfil para enviar comprobantes electronicos - Detalle: Rejected by policy." | El Usuario SOL usado para el envío (o el RUC mismo) no tiene habilitado el perfil de emisor electrónico en el sistema de SUNAT — puede ser el permiso del usuario secundario, o que el RUC no esté afiliado al SEE. | Asignar el permiso "Servicio de Envío de Documentos Electrónicos" (ver sección de arriba). **RESUELTO 2026-07-12**: dejó de aparecer una vez asignado el permiso + corregido el `Type` faltante en `wsse:Password` — el envío avanzó a un error distinto (0102), confirmando que 0111 ya no ocurre. |
+| **0102** | "Usuario o contrasena incorrectos - Detalle: " (sin más detalle) | Las credenciales SOL (Usuario SOL + Clave SOL) que se están enviando no son válidas para SUNAT. Puede ser: la Clave SOL guardada está mal/desactualizada, o el campo "Usuario SOL" quedó con el RUC duplicado (el sistema ya antepone el RUC automáticamente — el campo debe tener *solo* el usuario, ej. `HARRIS28`, no `20616086465HARRIS28`). | Revisar/re-escribir a mano (no copiar/pegar) Usuario SOL y Clave SOL en Admin → Configuración. Para confirmar si la clave en sí es correcta, probar loguearse directo en SUNAT con ese usuario secundario. Visto el 2026-07-12, **aún sin confirmar resuelto**. |
 
 *(Tabla en construcción — se agrega una fila nueva cada vez que aparezca un código distinto. No hay que memorizar catálogos genéricos de internet: solo se documentan los que realmente nos salieron, con el contexto real de qué se probó y qué funcionó.)*
 
