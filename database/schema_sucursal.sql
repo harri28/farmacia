@@ -125,6 +125,28 @@ CREATE TABLE IF NOT EXISTS ingreso_detalles (
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS salidas (
+    id              SERIAL PRIMARY KEY,
+    numero_salida   VARCHAR(20)   UNIQUE NOT NULL,
+    motivo          VARCHAR(20)   NOT NULL DEFAULT 'otro',   -- merma | vencimiento | devolucion | otro
+    usuario         VARCHAR(100),
+    usuario_id      INTEGER,      -- referencia a public.usuarios
+    total           DECIMAL(10,2) DEFAULT 0,
+    estado          VARCHAR(20)   DEFAULT 'completado',      -- completado | anulado
+    observaciones   TEXT,
+    created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS salida_detalles (
+    id              SERIAL PRIMARY KEY,
+    salida_id       INTEGER       REFERENCES salidas(id) ON DELETE CASCADE,
+    producto_id     INTEGER       REFERENCES productos(id),
+    cantidad        INTEGER       NOT NULL,
+    costo_unitario  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS caja_movimientos (
     id         SERIAL PRIMARY KEY,
     caja_id    INTEGER       REFERENCES cajas(id),

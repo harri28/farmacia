@@ -357,6 +357,144 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
         }
 
+    // ================================================================
+    // SALIDAS (bajas de stock: merma, vencimiento, devolución, otro --
+    // NO transferencias entre sucursales, eso lo maneja el módulo Traslados)
+    // ================================================================
+
+    case 'salidas_listar':
+        $desde  = $_GET['desde']  ?? date('Y-m-d', strtotime('-30 days'));
+        $hasta  = $_GET['hasta']  ?? date('Y-m-d');
+        $motivo = $_GET['motivo'] ?? '';
+        $q      = '%' . ($_GET['q'] ?? '') . '%';
+
+        $where  = ['s.created_at BETWEEN :desde AND :hasta', 's.numero_salida ILIKE :q'];
+        $params = [':desde' => $desde, ':hasta' => $hasta . ' 23:59:59', ':q' => $q];
+
+        if ($motivo) { $where[] = 's.motivo = :motivo'; $params[':motivo'] = $motivo; }
+
+        $stmt = $db->prepare("
+            SELECT
+                s.id, s.numero_salida, s.motivo, s.estado, s.observaciones,
+                s.usuario, s.created_at,
+                (SELECT COUNT(*) FROM salida_detalles d WHERE d.salida_id = s.id) AS total_productos
+            FROM salidas s
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY s.created_at DESC
+            LIMIT 200
+        ");
+        $stmt->execute($params);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'salida_detalle':
+        $id = intval($_GET['id'] ?? 0);
+        $stmt = $db->prepare("
+            SELECT d.cantidad, d.costo_unitario, d.subtotal,
+                   p.nombre AS producto_nombre, p.codigo
+            FROM salida_detalles d
+            JOIN productos p ON p.id = d.producto_id
+            WHERE d.salida_id = :id
+            ORDER BY p.nombre
+        ");
+        $stmt->execute([':id' => $id]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'registrar_salida':
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data || empty($data['items'])) {
+            jsonResponse(['error' => true, 'message' => 'Debe agregar al menos un producto'], 400);
+        }
+        $motivosValidos = ['merma', 'vencimiento', 'devolucion', 'otro'];
+        $motivo = in_array($data['motivo'] ?? '', $motivosValidos, true) ? $data['motivo'] : 'otro';
+
+        $db->beginTransaction();
+        try {
+            // Verificar stock suficiente antes de descontar nada
+            foreach ($data['items'] as $item) {
+                $pid = intval($item['producto_id']);
+                $qty = intval($item['cantidad']);
+                $prod = $db->prepare("SELECT nombre, stock FROM productos WHERE id = :id AND activo = TRUE");
+                $prod->execute([':id' => $pid]);
+                $p = $prod->fetch();
+                if (!$p) throw new Exception("Producto ID $pid no encontrado");
+                if ($p['stock'] < $qty) throw new Exception("Stock insuficiente en '{$p['nombre']}' (disponible: {$p['stock']})");
+            }
+
+            $total = 0;
+            foreach ($data['items'] as $item) {
+                $total += floatval($item['cantidad']) * floatval($item['costo_unitario'] ?? 0);
+            }
+
+            $numero = generarNumeroSalida($db);
+            $stmt = $db->prepare("
+                INSERT INTO salidas (numero_salida, motivo, observaciones, estado, total, usuario, usuario_id)
+                VALUES (:num, :motivo, :obs, 'completado', :total, :usuario, :usuario_id)
+                RETURNING id
+            ");
+            $stmt->execute([
+                ':num'        => $numero,
+                ':motivo'     => $motivo,
+                ':obs'        => trim($data['observaciones'] ?? ''),
+                ':total'      => $total,
+                ':usuario'    => sesionNombre(),
+                ':usuario_id' => $_SESSION['usuario_id'] ?? null,
+            ]);
+            $salidaId = $stmt->fetch()['id'];
+
+            foreach ($data['items'] as $item) {
+                $pid    = intval($item['producto_id']);
+                $qty    = intval($item['cantidad']);
+                $costo  = floatval($item['costo_unitario'] ?? 0);
+                $sub    = $qty * $costo;
+
+                $db->prepare("
+                    INSERT INTO salida_detalles (salida_id, producto_id, cantidad, costo_unitario, subtotal)
+                    VALUES (:sid, :pid, :qty, :costo, :sub)
+                ")->execute([':sid' => $salidaId, ':pid' => $pid, ':qty' => $qty, ':costo' => $costo, ':sub' => $sub]);
+
+                $db->prepare("UPDATE productos SET stock = stock - :qty, updated_at = NOW() WHERE id = :id")
+                   ->execute([':qty' => $qty, ':id' => $pid]);
+            }
+
+            $db->commit();
+            jsonResponse(['error' => false, 'numero_salida' => $numero, 'total' => $total]);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
+
+    case 'anular_salida':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id   = intval($data['id'] ?? 0);
+
+        $db->beginTransaction();
+        try {
+            $sal = $db->prepare("SELECT estado FROM salidas WHERE id = :id");
+            $sal->execute([':id' => $id]);
+            $row = $sal->fetch();
+            if (!$row)                         throw new Exception('Salida no encontrada');
+            if ($row['estado'] === 'anulado')  throw new Exception('La salida ya está anulada');
+
+            $dets = $db->prepare("SELECT producto_id, cantidad FROM salida_detalles WHERE salida_id = :id");
+            $dets->execute([':id' => $id]);
+            foreach ($dets->fetchAll() as $det) {
+                // Anular una salida devuelve el stock -- no puede dejarlo negativo
+                $db->prepare("UPDATE productos SET stock = stock + :qty, updated_at = NOW() WHERE id = :pid")
+                   ->execute([':qty' => $det['cantidad'], ':pid' => $det['producto_id']]);
+            }
+
+            $db->prepare("UPDATE salidas SET estado = 'anulado' WHERE id = :id")->execute([':id' => $id]);
+            $db->commit();
+            jsonResponse(['error' => false, 'message' => 'Salida anulada correctamente']);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
+
     default:
         jsonResponse(['error' => true, 'message' => 'Acción no válida'], 404);
 }

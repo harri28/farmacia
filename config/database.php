@@ -109,6 +109,20 @@ function generarNumeroIngreso(PDO $db): string
     return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
 }
 
+function generarNumeroSalida(PDO $db): string
+{
+    $prefijo = 'S' . date('Ymd') . '-';
+    $stmt = $db->prepare("
+        SELECT COALESCE(MAX(CAST(SUBSTRING(numero_salida FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
+        FROM salidas
+        WHERE numero_salida LIKE :prefijo
+    ");
+    $stmt->execute([':prefijo' => $prefijo . '%']);
+    $ultimo = (int) ($stmt->fetch()['ultimo'] ?? 0);
+
+    return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
+}
+
 function getTenantConfig(): array
 {
     static $cfg = null;

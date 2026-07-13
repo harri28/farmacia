@@ -556,6 +556,100 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: NUEVA SALIDA ===================== -->
+<div class="modal-overlay" id="modal-nueva-salida">
+    <div class="modal" style="max-width:900px;width:96%">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-sign-out-alt" style="color:var(--primary);margin-right:8px"></i>Nueva Salida de Almacén
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-nueva-salida')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:14px;margin-bottom:10px">
+                <div class="form-group" style="margin:0">
+                    <label class="form-label">Motivo</label>
+                    <select id="s-motivo" class="form-control">
+                        <option value="merma">Merma</option>
+                        <option value="vencimiento">Vencimiento</option>
+                        <option value="devolucion">Devolución a proveedor</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0">
+                    <label class="form-label">Observaciones <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
+                    <input type="text" id="s-obs" class="form-control" placeholder="Notas sobre la salida...">
+                </div>
+            </div>
+
+            <div style="background:var(--surface-2);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:.82rem;color:var(--text-muted);display:flex;align-items:center;gap:8px">
+                <i class="fas fa-circle-info" style="color:var(--primary)"></i>
+                ¿Necesitas enviar stock a otra sucursal? Eso se hace desde
+                <a href="javascript:void(0)" onclick="closeModal('modal-nueva-salida');switchTab('traslados')" style="color:var(--primary);font-weight:600">Traslados</a>,
+                no desde acá — esta pantalla es solo para stock que sale del sistema (mermas, vencimientos, devoluciones).
+            </div>
+
+            <div style="margin-bottom:12px">
+                <label class="form-label">
+                    <i class="fas fa-barcode" style="color:var(--primary);margin-right:5px"></i>
+                    Agregar producto — escaneá o escribí nombre / código
+                </label>
+                <div style="position:relative">
+                    <div class="input-group">
+                        <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                        <input type="text" id="s-producto-search" class="form-control"
+                            placeholder="Nombre o código de barras..." autocomplete="off">
+                    </div>
+                    <div id="s-producto-dropdown"
+                        style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);
+                               border:1px solid var(--border);border-radius:var(--radius);z-index:200;
+                               box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:220px;overflow-y:auto">
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-wrap" style="margin-bottom:14px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="text-right" style="width:90px">Cantidad</th>
+                            <th class="text-right" style="width:120px">Costo unit. (S/)</th>
+                            <th class="text-right" style="width:100px">Subtotal</th>
+                            <th style="width:40px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="s-lineas-body">
+                        <tr id="s-lineas-empty">
+                            <td colspan="6" style="text-align:center;padding:24px;color:var(--text-light)">
+                                <i class="fas fa-inbox" style="font-size:1.3rem"></i>
+                                <p style="margin:8px 0 0">Agrega productos escaneando o buscando arriba</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end">
+                <div style="min-width:260px;background:var(--surface-2);border-radius:var(--radius);padding:12px 16px;font-size:.88rem">
+                    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1rem">
+                        <span>VALOR TOTAL</span>
+                        <span id="s-total" style="color:var(--danger)">S/ 0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-nueva-salida')">Cancelar</button>
+            <button class="btn btn-primary btn-lg" id="btn-guardar-salida" onclick="saveSalida()">
+                <i class="fas fa-save"></i> Registrar Salida
+            </button>
+        </div>
+    </div>
+</div>
+
 
 <div class="app-toast-container" id="toast-container"></div>
 
@@ -601,6 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadIngresos();
     loadProveedoresSelect();
     setupProductoSearch();
+    setupSalidaProductoSearch();
     setupBarcodeScanner();
     document.getElementById('f-q').addEventListener('keyup', e => { if (e.key === 'Enter') loadIngresos(); });
     document.getElementById('trs-q').addEventListener('keyup', e => { if (e.key === 'Enter') loadTraslados(); });
@@ -613,9 +708,285 @@ document.addEventListener('DOMContentLoaded', () => {
     if (TABS.includes(hash)) switchTab(hash);
 });
 
-// ---- Salidas (pendiente backend) ----
-function loadSalidas()      { /* pendiente implementación backend */ }
-function openNuevaSalida()  { showToast('Próximamente disponible', 'info'); }
+// ---- Salidas ----
+let salidaLines = [];
+let currentSalidaId = null;
+
+function loadSalidas() {
+    const params = new URLSearchParams({
+        action: 'salidas_listar',
+        desde:  document.getElementById('sal-desde').value,
+        hasta:  document.getElementById('sal-hasta').value,
+        motivo: document.getElementById('sal-motivo').value,
+        q:      document.getElementById('sal-q').value,
+    });
+    document.getElementById('sal-body').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(BASE + 'modules/almacen/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('sal-count').textContent = data.length + ' registro(s)';
+            if (!data.length) {
+                document.getElementById('sal-body').innerHTML =
+                    '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-sign-out-alt" style="font-size:2rem;display:block;margin-bottom:10px;opacity:.3"></i>No hay salidas registradas</td></tr>';
+                return;
+            }
+            const MOTIVOS = { merma:'Merma', vencimiento:'Vencimiento', devolucion:'Devolución', otro:'Otro' };
+            document.getElementById('sal-body').innerHTML = data.map(s => {
+                const esCls = s.estado === 'completado' ? 'badge-success' : 'badge-danger';
+                const dt    = new Date(s.created_at);
+                const fecha = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                return `<tr style="cursor:pointer" onclick="verDetalleSalida(${s.id},'${s.numero_salida}','${s.estado}')">
+                    <td><span style="font-weight:700;color:var(--primary)">${s.numero_salida}</span></td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${fecha}</td>
+                    <td style="font-size:.85rem">${MOTIVOS[s.motivo] || s.motivo}</td>
+                    <td style="font-size:.85rem;text-align:center">${s.total_productos}</td>
+                    <td style="font-size:.85rem">${s.usuario || '—'}</td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${s.observaciones || '—'}</td>
+                    <td><span class="badge ${esCls}">${s.estado}</span></td>
+                    <td></td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar salidas', 'error'));
+}
+
+function verDetalleSalida(id, numero, estado) {
+    currentSalidaId = id;
+    document.getElementById('detalle-titulo').innerHTML =
+        '<i class="fas fa-sign-out-alt" style="color:var(--primary);margin-right:8px"></i>Detalle: ' + numero;
+    const btnAnular = document.getElementById('btn-anular');
+    btnAnular.style.display = estado === 'completado' ? 'inline-flex' : 'none';
+    btnAnular.setAttribute('onclick', 'anularSalida()');
+    btnAnular.innerHTML = '<i class="fas fa-ban"></i> Anular Salida';
+    document.getElementById('detalle-body').innerHTML =
+        '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--text-light)"></i></div>';
+    openModal('modal-detalle');
+
+    fetch(BASE + `modules/almacen/api.php?action=salida_detalle&id=${id}`)
+        .then(r => r.json())
+        .then(items => {
+            if (!items.length) {
+                document.getElementById('detalle-body').innerHTML =
+                    '<p style="text-align:center;padding:20px;color:var(--text-muted)">Sin detalles disponibles</p>';
+                return;
+            }
+            const total = items.reduce((s, i) => s + parseFloat(i.subtotal), 0);
+            document.getElementById('detalle-body').innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>Código</th><th>Producto</th>
+                            <th class="text-right">Cant.</th>
+                            <th class="text-right">Costo unit.</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr></thead>
+                        <tbody>${items.map(i => `
+                            <tr>
+                                <td style="font-size:.8rem;color:var(--text-muted)">${i.codigo}</td>
+                                <td style="font-weight:500">${i.producto_nombre}</td>
+                                <td class="text-right">${i.cantidad}</td>
+                                <td class="text-right">S/ ${parseFloat(i.costo_unitario).toFixed(2)}</td>
+                                <td class="text-right"><strong>S/ ${parseFloat(i.subtotal).toFixed(2)}</strong></td>
+                            </tr>`).join('')}
+                        </tbody>
+                        <tfoot><tr style="background:var(--surface-2)">
+                            <td colspan="4" style="padding:10px 14px;font-weight:700;text-align:right">TOTAL</td>
+                            <td style="padding:10px 14px;font-weight:700;text-align:right;color:var(--danger);font-size:1rem">
+                                S/ ${total.toFixed(2)}
+                            </td>
+                        </tr></tfoot>
+                    </table>
+                </div>`;
+        });
+}
+
+function anularSalida() {
+    if (!currentSalidaId || !confirm('¿Anular esta salida? El stock de todos los productos será devuelto.')) return;
+    fetch(BASE + 'modules/almacen/api.php?action=anular_salida', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentSalidaId }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showToast(d.message, 'error'); return; }
+        showToast('Salida anulada correctamente', 'success');
+        closeModal('modal-detalle');
+        loadSalidas();
+        loadStats();
+    })
+    .catch(() => showToast('Error al anular', 'error'));
+}
+
+function openNuevaSalida() {
+    salidaLines = [];
+    renderSalidaLineas();
+    document.getElementById('s-motivo').value = 'merma';
+    document.getElementById('s-obs').value     = '';
+    document.getElementById('s-producto-search').value = '';
+    document.getElementById('s-producto-dropdown').style.display = 'none';
+    calcularTotalSalida();
+    openModal('modal-nueva-salida');
+    setTimeout(() => document.getElementById('s-producto-search').focus(), 100);
+}
+
+function setupSalidaProductoSearch() {
+    let timer;
+    const input    = document.getElementById('s-producto-search');
+    const dropdown = document.getElementById('s-producto-dropdown');
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (!q) { dropdown.style.display = 'none'; return; }
+        timer = setTimeout(() => buscarProductoSalida(q), 200);
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { dropdown.style.display = 'none'; input.value = ''; }
+    });
+
+    document.addEventListener('click', e => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function buscarProductoSalida(q) {
+    const dropdown = document.getElementById('s-producto-dropdown');
+    fetch(BASE + `modules/almacen/api.php?action=buscar_producto&q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.length) {
+                dropdown.innerHTML = '<div style="padding:12px 16px;color:var(--text-muted);font-size:.85rem">Sin resultados</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            dropdown.innerHTML = data.map(p => `
+                <div onclick='seleccionarProductoSalida(${JSON.stringify(p)})'
+                    style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);
+                           display:flex;justify-content:space-between;align-items:center;font-size:.85rem"
+                    onmouseover="this.style.background='var(--primary-light)'"
+                    onmouseout="this.style.background=''">
+                    <div>
+                        <span style="font-weight:600">${p.nombre}</span>
+                        <span style="color:var(--text-muted);margin-left:8px;font-size:.78rem">${p.codigo}</span>
+                    </div>
+                    <div style="text-align:right;white-space:nowrap">
+                        <div style="color:var(--text-muted);font-size:.78rem">Stock: ${p.stock}</div>
+                        <div style="color:var(--primary);font-weight:600">S/ ${parseFloat(p.precio_compra).toFixed(2)}</div>
+                    </div>
+                </div>`).join('');
+            dropdown.style.display = 'block';
+        });
+}
+
+function seleccionarProductoSalida(p) {
+    document.getElementById('s-producto-dropdown').style.display = 'none';
+    document.getElementById('s-producto-search').value = '';
+    addSalidaLinea(p);
+    document.getElementById('s-producto-search').focus();
+}
+
+function addSalidaLinea(p) {
+    const pid = parseInt(p.id);
+    const existing = salidaLines.findIndex(l => l.producto_id === pid);
+    if (existing >= 0) {
+        salidaLines[existing].cantidad++;
+    } else {
+        salidaLines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, stock_disponible: parseInt(p.stock), cantidad: 1, costo_unitario: parseFloat(p.precio_compra) || 0 });
+    }
+    renderSalidaLineas();
+    calcularTotalSalida();
+}
+
+function updateSalidaLinea(idx, field, value) {
+    if (field === 'cantidad')       salidaLines[idx].cantidad       = Math.max(1, parseInt(value) || 1);
+    if (field === 'costo_unitario') salidaLines[idx].costo_unitario = Math.max(0, parseFloat(value) || 0);
+    renderSalidaLineas();
+    calcularTotalSalida();
+}
+
+function removeSalidaLinea(idx) { salidaLines.splice(idx, 1); renderSalidaLineas(); calcularTotalSalida(); }
+
+function renderSalidaLineas() {
+    const tbody = document.getElementById('s-lineas-body');
+    const empty = document.getElementById('s-lineas-empty');
+    tbody.querySelectorAll('.linea-row').forEach(r => r.remove());
+    if (!salidaLines.length) { empty.style.display = ''; return; }
+    empty.style.display = 'none';
+    salidaLines.forEach((l, idx) => {
+        const sub = l.cantidad * l.costo_unitario;
+        const excedeStock = l.cantidad > l.stock_disponible;
+        const tr  = document.createElement('tr');
+        tr.className = 'linea-row';
+        tr.innerHTML = `
+            <td style="font-size:.8rem;color:var(--text-muted);font-family:monospace">${l.codigo}</td>
+            <td style="font-weight:500;font-size:.88rem">${l.nombre}${excedeStock ? `<div style="color:var(--danger);font-size:.75rem">Stock disponible: ${l.stock_disponible}</div>` : ''}</td>
+            <td class="text-right">
+                <input type="number" value="${l.cantidad}" min="1"
+                    style="width:72px;text-align:right;padding:5px 7px;border:1px solid ${excedeStock ? 'var(--danger)' : 'var(--border)'};
+                           border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
+                    oninput="updateSalidaLinea(${idx},'cantidad',this.value)">
+            </td>
+            <td class="text-right">
+                <input type="number" value="${l.costo_unitario.toFixed(2)}" min="0" step="0.01"
+                    style="width:90px;text-align:right;padding:5px 7px;border:1px solid var(--border);
+                           border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
+                    oninput="updateSalidaLinea(${idx},'costo_unitario',this.value)">
+            </td>
+            <td class="text-right" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
+            <td>
+                <button onclick="removeSalidaLinea(${idx})"
+                    style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 6px;font-size:.9rem">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>`;
+        tbody.insertBefore(tr, empty);
+    });
+}
+
+function calcularTotalSalida() {
+    const total = salidaLines.reduce((s, l) => s + l.cantidad * l.costo_unitario, 0);
+    document.getElementById('s-total').textContent = 'S/ ' + total.toFixed(2);
+}
+
+function saveSalida() {
+    if (!salidaLines.length) { showToast('Agrega al menos un producto', 'error'); return; }
+    for (const l of salidaLines) {
+        if (l.cantidad <= 0) { showToast('La cantidad debe ser mayor a 0', 'error'); return; }
+        if (l.cantidad > l.stock_disponible) { showToast(`Stock insuficiente en "${l.nombre}" (disponible: ${l.stock_disponible})`, 'error'); return; }
+    }
+    const payload = {
+        motivo:        document.getElementById('s-motivo').value,
+        observaciones: document.getElementById('s-obs').value,
+        items: salidaLines.map(l => ({ producto_id: l.producto_id, cantidad: l.cantidad, costo_unitario: l.costo_unitario })),
+    };
+    const btn = document.getElementById('btn-guardar-salida');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+    fetch(BASE + 'modules/almacen/api.php?action=registrar_salida', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Registrar Salida';
+        if (d.error) { showToast(d.message, 'error'); return; }
+        showToast('Salida ' + d.numero_salida + ' registrada correctamente', 'success');
+        closeModal('modal-nueva-salida');
+        loadSalidas();
+        loadStats();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Registrar Salida';
+        showToast('Error al registrar', 'error');
+    });
+}
 
 // ---- Almacén stock ----
 function loadAlmacenStock() {
@@ -733,7 +1104,10 @@ function verDetalle(id, numero, estado) {
     currentIngresoId = id;
     document.getElementById('detalle-titulo').innerHTML =
         '<i class="fas fa-truck-loading" style="color:var(--primary);margin-right:8px"></i>Detalle: ' + numero;
-    document.getElementById('btn-anular').style.display = estado === 'completado' ? 'inline-flex' : 'none';
+    const btnAnular = document.getElementById('btn-anular');
+    btnAnular.style.display = estado === 'completado' ? 'inline-flex' : 'none';
+    btnAnular.setAttribute('onclick', 'anularIngreso()');
+    btnAnular.innerHTML = '<i class="fas fa-ban"></i> Anular Ingreso';
     document.getElementById('detalle-body').innerHTML =
         '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--text-light)"></i></div>';
     openModal('modal-detalle');
