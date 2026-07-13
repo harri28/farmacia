@@ -97,6 +97,19 @@ include '../../includes/header.php';
 .fact-dt-table thead th { white-space: nowrap; }
 .fact-dt-table tbody td { vertical-align: middle; }
 .fact-dt-table { table-layout: fixed; }
+/* Centrar CDR / Estado / Acciones (SUNAT ya se centra vía .sunat-cell) --
+   posiciones de columna difieren entre las dos tablas, se apunta cada una
+   por su ID. */
+#rpt-ventas-table th:nth-child(6), #rpt-ventas-table td:nth-child(6),
+#rpt-ventas-table th:nth-child(8), #rpt-ventas-table td:nth-child(8),
+#rpt-ventas-table th:nth-child(9), #rpt-ventas-table td:nth-child(9) {
+    text-align: center;
+}
+#notas-table th:nth-child(8), #notas-table td:nth-child(8),
+#notas-table th:nth-child(10), #notas-table td:nth-child(10),
+#notas-table th:nth-child(11), #notas-table td:nth-child(11) {
+    text-align: center;
+}
 .table-wrap { overflow-x: auto; overflow-y: hidden; width: 100%; -webkit-overflow-scrolling: touch; }
 .table-wrap table.dataTable { width: 100% !important; border-collapse: separate !important; }
 .dataTables_wrapper { padding: 0 0 12px; width: 100%; overflow: hidden; box-sizing: border-box; }
@@ -851,7 +864,7 @@ function rptLoadReporte() {
                     <td>${compHtml}</td>
                     <td data-order="${total}" class="text-right"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
                     <td>${xmlBtn}</td><td>${cdrBtn}</td>
-                    <td><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
+                    <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
                     <td>${acciones}</td>
                 </tr>`;
@@ -1102,7 +1115,7 @@ function ncCargarNotas() {
                     <td style="font-size:.82rem"><div style="font-weight:600">${esc(row.referencia_numero_completo||row.documento_modificado_numero_completo||'-')}</div></td>
                     <td class="text-right" data-order="${parseFloat(row.total||0)}"><span class="total-pill">S/ ${parseFloat(row.total||0).toFixed(2)}</span></td>
                     <td>${xml}</td><td>${cdr}</td>
-                    <td><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
+                    <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
                     <td><span class="badge ${estadoClass}">${row.enlace_del_cdr?'Vigente':'Pendiente'}</span></td>
                     <td><div class="actions-inline">${actionIconButton('print','Imprimir ticket',null,`ncImprimirTicket(${parseInt(row.id,10)})`)}${pdf}${reenviar}</div></td>
                 </tr>`;
