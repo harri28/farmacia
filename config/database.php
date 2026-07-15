@@ -123,6 +123,24 @@ function generarNumeroSalida(PDO $db): string
     return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
 }
 
+function app_public_prefix(): string
+{
+    // Igual idea que sunat_public_base_url() en config/sunat.php: en el VPS
+    // el DocumentRoot de Apache ES la raíz de la app (sin subcarpeta), pero
+    // en XAMPP local la app vive bajo htdocs/farmacia. Se calcula el prefijo
+    // comparando la carpeta real del proyecto contra el DocumentRoot, para
+    // que las URLs públicas (ej. el enlace de "Mi Comprobante") funcionen en
+    // ambos entornos sin hardcodear ninguno de los dos.
+    $docRoot = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+    $appRoot = rtrim(str_replace('\\', '/', __DIR__ . '/..'), '/');
+
+    if ($docRoot === '' || strpos($appRoot, $docRoot) !== 0) {
+        return '';
+    }
+
+    return substr($appRoot, strlen($docRoot));
+}
+
 function getTenantConfig(): array
 {
     static $cfg = null;

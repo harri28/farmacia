@@ -636,6 +636,18 @@ switch ($action) {
             ]);
             $ventaId = $ventaStmt->fetch()['id'];
 
+            // Token público para "Mi Comprobante" -- permite al cliente ver
+            // su comprobante sin login, resuelto vía public.comprobante_tokens.
+            $comprobanteToken = bin2hex(random_bytes(16));
+            $db->prepare("
+                INSERT INTO public.comprobante_tokens (token, schema_name, venta_id)
+                VALUES (:token, :schema, :venta_id)
+            ")->execute([
+                ':token'    => $comprobanteToken,
+                ':schema'   => sesionSchema(),
+                ':venta_id' => $ventaId,
+            ]);
+
             foreach ($detallesVenta as $detalle) {
                 $detalleStmt = $db->prepare("
                     INSERT INTO venta_detalles (
@@ -776,6 +788,7 @@ switch ($action) {
                     'unidad_codigo' => $i['unidad_codigo'],
                 ], $detallesVenta),
                 'comprobante' => $comprobanteResult,
+                'comprobante_token' => $comprobanteToken,
             ]);
         } catch (Exception $e) {
             if ($db->inTransaction()) {

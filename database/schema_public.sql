@@ -275,6 +275,21 @@ CREATE INDEX IF NOT EXISTS idx_orden_traslado_detalles_traslado
 CREATE INDEX IF NOT EXISTS idx_orden_traslado_detalles_codigo
     ON public.orden_traslado_detalles (producto_codigo);
 
+-- Tokens públicos de "Mi Comprobante" -- permiten resolver, desde el dominio
+-- raíz y sin login, en qué schema de sucursal y qué venta buscar, a partir
+-- de un token aleatorio impreso/enviado al cliente (QR, WhatsApp). Vive en
+-- public porque hay que poder ubicarlo SIN saber de antemano el schema.
+CREATE TABLE IF NOT EXISTS public.comprobante_tokens (
+    id          SERIAL PRIMARY KEY,
+    token       VARCHAR(40) UNIQUE NOT NULL,
+    schema_name VARCHAR(63) NOT NULL,
+    venta_id    INTEGER     NOT NULL,
+    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_comprobante_tokens_token
+    ON public.comprobante_tokens (token);
+
 -- ---- Compatibilidad con instalaciones anteriores ----
 -- Estas sentencias son seguras de ejecutar varias veces (IF NOT EXISTS)
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS url       VARCHAR(200);

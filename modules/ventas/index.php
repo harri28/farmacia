@@ -886,6 +886,14 @@ const EMPRESA_DIR     = <?= json_encode($_tenant_info['direccion'] ?? '') ?>;
 const EMPRESA_LOGO    = <?= json_encode($_logo_data_uri) ?>;
 const SUCURSAL_NOMBRE = <?= json_encode(sesionSucursal()) ?>;
 const VENDEDOR_NOMBRE = <?= json_encode(sesionNombre()) ?>;
+const APP_ROOT_PATH   = <?= json_encode(app_public_prefix()) ?>;
+
+function buildComprobanteUrl(token) {
+    if (!token) return '';
+    const parts    = window.location.hostname.split('.');
+    const rootHost = parts.length >= 3 ? parts.slice(-2).join('.') : window.location.hostname;
+    return `${window.location.protocol}//${rootHost}${APP_ROOT_PATH}/mi-comprobante.php?t=${encodeURIComponent(token)}`;
+}
 let allProducts = [];
 let showAllProducts = false;
 const GRID_LIMIT = 20;
@@ -2746,7 +2754,7 @@ function showTicket(data) {
 
     document.getElementById('ticket-body').innerHTML = ticketHTML;
 
-    _lastSale = { numero_venta: data.numero_venta, total: data.total, items, cliente: selectedCliente };
+    _lastSale = { numero_venta: data.numero_venta, total: data.total, items, cliente: selectedCliente, token: data.comprobante_token };
     openModal('modal-ticket');
 }
 
@@ -2759,11 +2767,13 @@ function enviarWhatsApp() {
         const precio = parseFloat(i.precio || i.precio_venta || i.product?.precio_venta || 0);
         return `  • ${nombre} x${qty}  S/ ${(precio * qty).toFixed(2)}`;
     });
+    const comprobanteUrl = buildComprobanteUrl(s.token);
     const mensaje =
         `🧾 *Comprobante de venta*\n` +
         `N°: ${s.numero_venta}\n\n` +
         lineas.join('\n') +
         `\n\n*TOTAL: S/ ${parseFloat(s.total).toFixed(2)}*\n\n` +
+        (comprobanteUrl ? `📄 Ver tu comprobante: ${comprobanteUrl}\n\n` : '') +
         `Gracias por su compra 🙏`;
     const phone   = s.cliente?.telefono ? s.cliente.telefono.replace(/\D/g, '') : '';
     const url     = phone
