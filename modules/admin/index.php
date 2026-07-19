@@ -1020,6 +1020,9 @@ function loadConfig() {
             document.getElementById('cfg-sunat-server').value = data.sunat_server || '3';
             document.getElementById('cfg-nombre').value = data.nombre_sistema || 'FarmaSystem';
             updateCertificateSummary(data.certificate_path || '');
+            document.getElementById('certificate-file-name').textContent = data.certificate_path
+                ? 'Certificado guardado: ' + data.certificate_path.split('/').pop()
+                : 'Ningún archivo seleccionado';
             updateUbigeoHelp(data.ubigeo || '', data.departamento || '', data.provincia || '', data.distrito || '');
             _logoPathActual = data.logo_path || null;
             renderLogoPreview(_logoPathActual);
