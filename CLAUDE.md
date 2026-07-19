@@ -182,7 +182,7 @@ Each module has `api.php` with a `switch ($action)` dispatcher:
 - The token is generated in `ventas/api.php`'s `registrar_venta` (`bin2hex(random_bytes(16))`) for every sale (ticket/boleta/factura alike) and returned as `comprobante_token` in the API response.
 - `modules/ventas/index.php`'s `enviarWhatsApp()` builds the public URL via `buildComprobanteUrl()`, which strips the tenant subdomain down to the root domain (`generycpharma.genpharma.cloud` → `genpharma.cloud`) so the link works regardless of which subdomain the sale was made from.
 - `app_public_prefix()` (`config/database.php`) computes the local-vs-production path prefix (same technique as `sunat_public_base_url()` in `config/sunat.php`) so the generated links work on both XAMPP (`/farmacia/...`) and the VPS (no prefix) without hardcoding either.
-- Not yet wired into the printed ticket/A4 view or as a visible QR code — currently only appears in the WhatsApp message text.
+- Also rendered as a QR code on the printed ticket (80mm) and A4 formats (`buildTicketHTML()`/`buildTicketA4HTML()`), bottom of the receipt, 40% QR / 60% URL text split — generated client-side via the vendored `assets/vendor/qrcode/qrcode.min.js` (davidshimjs/qrcodejs), no external network call at print time. Only rendered on the real post-sale ticket (`showTicket()`), not on the pre-sale preview (no token exists yet).
 
 ### Electronic Invoicing
 

@@ -872,6 +872,8 @@ include '../../includes/header.php';
 
 <script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
 <script src="<?= $base_path ?>assets/vendor/select2/select2.min.js"></script>
+<script src="<?= $base_path ?>assets/vendor/qrcode/qrcode.min.js"></script>
+<div id="qr-generator-hidden" style="position:absolute;left:-9999px;top:-9999px"></div>
 <script>
 // ============================================================
 // POS JavaScript
@@ -893,6 +895,17 @@ function buildComprobanteUrl(token) {
     const parts    = window.location.hostname.split('.');
     const rootHost = parts.length >= 3 ? parts.slice(-2).join('.') : window.location.hostname;
     return `${window.location.protocol}//${rootHost}${APP_ROOT_PATH}/mi-comprobante.php?t=${encodeURIComponent(token)}`;
+}
+
+function generarQrDataUri(texto, size) {
+    if (!texto || typeof QRCode === 'undefined') return '';
+    const holder = document.getElementById('qr-generator-hidden');
+    holder.innerHTML = '';
+    new QRCode(holder, { text: texto, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+    const canvas = holder.querySelector('canvas');
+    const dataUri = canvas ? canvas.toDataURL('image/png') : '';
+    holder.innerHTML = '';
+    return dataUri;
 }
 let allProducts = [];
 let showAllProducts = false;
@@ -2284,7 +2297,7 @@ function buildTicketHTML(opts) {
         tipo_comprobante = 'ticket', numero_venta = null,
         numero_comprobante = null, cliente = null,
         payment_breakdown = [], cuotas = [],
-        fecha = '', hora = '', preview = false
+        fecha = '', hora = '', preview = false, comprobante_url = ''
     } = opts;
 
     const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
@@ -2298,6 +2311,13 @@ function buildTicketHTML(opts) {
     const nombreCliente = cliente
         ? ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim()
         : '';
+
+    const qrDataUri = comprobante_url ? generarQrDataUri(comprobante_url, 120) : '';
+    const qrHTML = (comprobante_url && qrDataUri) ? `
+        <div style="display:flex;align-items:center;margin-top:8px">
+            <div style="width:40%"><img src="${qrDataUri}" style="width:100%;max-width:64px;height:auto;display:block"></div>
+            <div style="width:60%;padding-left:6px;font-size:8px;line-height:1.35;word-break:break-all">Consulta tu comprobante:<br>${comprobante_url}</div>
+        </div>` : '';
 
     const sep = (double = false) =>
         `<div style="border-top:${double ? '2px solid' : '1px dashed'} #000;margin:6px 0"></div>`;
@@ -2393,6 +2413,7 @@ function buildTicketHTML(opts) {
             ${preview ? `<div style="margin-top:8px;font-size:10px;font-weight:700;color:#888;border:1px dashed #aaa;padding:2px 8px;display:inline-block">
                 ★ VISTA PREVIA — NO ES COMPROBANTE VÁLIDO ★</div>` : ''}
         </div>
+        ${qrHTML}
     </div>`;
 }
 
@@ -2404,7 +2425,7 @@ function buildTicketA4HTML(opts) {
         tipo_comprobante = 'ticket', numero_venta = null,
         numero_comprobante = null, cliente = null,
         payment_breakdown = [], cuotas = [],
-        fecha = '', hora = '', preview = false
+        fecha = '', hora = '', preview = false, comprobante_url = ''
     } = opts;
 
     const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
@@ -2418,6 +2439,13 @@ function buildTicketA4HTML(opts) {
     const nombreCliente = cliente
         ? ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim()
         : '';
+
+    const qrDataUriA4 = comprobante_url ? generarQrDataUri(comprobante_url, 160) : '';
+    const qrHTMLA4 = (comprobante_url && qrDataUriA4) ? `
+        <div style="display:flex;align-items:center;margin-top:14px">
+            <div style="width:40%"><img src="${qrDataUriA4}" style="width:100%;max-width:90px;height:auto;display:block"></div>
+            <div style="width:60%;padding-left:10px;font-size:10px;color:#555;line-height:1.4;word-break:break-all">Escanea o visita este enlace para ver tu comprobante:<br><span style="color:#4f46e5">${comprobante_url}</span></div>
+        </div>` : '';
 
     const itemsHTML = items.map((i, idx) => {
         const nombre = (i.nombre || i.product?.nombre || '');
@@ -2506,6 +2534,7 @@ function buildTicketA4HTML(opts) {
             <div style="font-weight:700">EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div>
             ${preview ? `<div style="margin-top:8px;font-weight:700;color:#888;border:1px dashed #aaa;padding:2px 8px;display:inline-block">★ VISTA PREVIA — NO ES COMPROBANTE VÁLIDO ★</div>` : ''}
         </div>
+        ${qrHTMLA4}
     </div>`;
 }
 
@@ -2750,6 +2779,7 @@ function showTicket(data) {
         cuotas:            data.cuotas || [],
         fecha, hora,
         preview: false,
+        comprobante_url:   buildComprobanteUrl(data.comprobante_token),
     });
 
     document.getElementById('ticket-body').innerHTML = ticketHTML;
