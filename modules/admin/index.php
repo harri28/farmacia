@@ -1221,6 +1221,7 @@ async function guardarConfig() {
 
         const certInput = document.getElementById('certificate-file-input');
         if (certInput.files[0]) {
+            const uploadedCertName = certInput.files[0].name;
             const fdCert = new FormData();
             fdCert.append('certificate', certInput.files[0]);
             const rCert = await fetch(BASE + 'modules/admin/api.php?action=certificate_subir', {
@@ -1231,7 +1232,7 @@ async function guardarConfig() {
             document.getElementById('cfg-certificate-path').value = rCert.certificate_path || '';
             updateCertificateSummary(rCert.certificate_path || '');
             certInput.value = '';
-            document.getElementById('certificate-file-name').textContent = 'Ningún archivo seleccionado';
+            document.getElementById('certificate-file-name').textContent = '✓ ' + uploadedCertName + ' guardado';
         }
 
         const input = document.getElementById('logo-file-input');
