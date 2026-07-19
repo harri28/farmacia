@@ -148,9 +148,6 @@ $anulado = $venta['estado'] === 'anulada';
         .totales div{display:flex;justify-content:space-between;font-size:.84rem;padding:3px 0;color:#475569}
         .totales .total{font-weight:700;font-size:1rem;color:#1e293b;border-top:1px solid #e2e8f0;margin-top:6px;padding-top:8px}
         .footer{text-align:center;padding:16px;font-size:.72rem;color:#94a3b8;border-top:1px solid #f1f5f9}
-        .badge{display:inline-block;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:6px}
-        .badge-ok{background:#dcfce7;color:#16a34a}
-        .badge-pending{background:#fef9c3;color:#a16207}
     </style>
 </head>
 <body>
@@ -174,11 +171,6 @@ $anulado = $venta['estado'] === 'anulada';
             <?php endif; ?>
             <?php if (!empty($venta['cliente_documento'])): ?>
             <div><strong>Documento:</strong> <?= htmlspecialchars($venta['cliente_documento']) ?></div>
-            <?php endif; ?>
-            <?php if ($venta['enlace_del_cdr']): ?>
-            <div><strong>Estado SUNAT:</strong> <span class="badge badge-ok">Aceptado</span></div>
-            <?php elseif ($venta['comp_tipo']): ?>
-            <div><strong>Estado SUNAT:</strong> <span class="badge badge-pending">En proceso</span></div>
             <?php endif; ?>
         </div>
 

@@ -2312,10 +2312,10 @@ function buildTicketHTML(opts) {
         ? ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim()
         : '';
 
-    const qrDataUri = comprobante_url ? generarQrDataUri(comprobante_url, 120) : '';
+    const qrDataUri = comprobante_url ? generarQrDataUri(comprobante_url, 156) : '';
     const qrHTML = (comprobante_url && qrDataUri) ? `
         <div style="display:flex;align-items:center;margin-top:8px">
-            <div style="width:40%"><img src="${qrDataUri}" style="width:100%;max-width:64px;height:auto;display:block"></div>
+            <div style="width:40%"><img src="${qrDataUri}" style="width:100%;max-width:83px;height:auto;display:block"></div>
             <div style="width:60%;padding-left:6px;font-size:8px;line-height:1.35;word-break:break-all">Consulta tu comprobante:<br>${comprobante_url}</div>
         </div>` : '';
 
@@ -2440,10 +2440,10 @@ function buildTicketA4HTML(opts) {
         ? ((cliente.nombres || '') + ' ' + (cliente.apellidos || '')).trim()
         : '';
 
-    const qrDataUriA4 = comprobante_url ? generarQrDataUri(comprobante_url, 160) : '';
+    const qrDataUriA4 = comprobante_url ? generarQrDataUri(comprobante_url, 208) : '';
     const qrHTMLA4 = (comprobante_url && qrDataUriA4) ? `
         <div style="display:flex;align-items:center;margin-top:14px">
-            <div style="width:40%"><img src="${qrDataUriA4}" style="width:100%;max-width:90px;height:auto;display:block"></div>
+            <div style="width:40%"><img src="${qrDataUriA4}" style="width:100%;max-width:117px;height:auto;display:block"></div>
             <div style="width:60%;padding-left:10px;font-size:10px;color:#555;line-height:1.4;word-break:break-all">Escanea o visita este enlace para ver tu comprobante:<br><span style="color:#4f46e5">${comprobante_url}</span></div>
         </div>` : '';
 
