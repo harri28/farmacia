@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS productos (
     nombre           VARCHAR(200)   NOT NULL,
     descripcion      TEXT,
     categoria_id     INTEGER        REFERENCES categorias(id),
-    precio_compra    DECIMAL(10,2)  DEFAULT 0,
+    precio_compra    DECIMAL(10,3)  DEFAULT 0,
     precio_venta     DECIMAL(10,2)  NOT NULL,
     stock            INTEGER        DEFAULT 0,
     stock_minimo     INTEGER        DEFAULT 5,
