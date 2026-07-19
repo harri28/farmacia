@@ -33,7 +33,7 @@ $env:PGPASSWORD = "1234"; & "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U pos
 ```
 
 **Login URL**: `http://localhost/farmacia/modules/auth/login.php`  
-Login is a 3-step flow: Company (tenant) selector → Branch (sucursal) selector → Credentials.
+Login is a 2-step, credentials-first flow: Username/password → then a sucursal picker scoped to that user's own tenant (see "Login flow" below for the full detail — this replaced an older 3-step "pick company → pick branch → enter credentials" wizard that leaked the full sucursal list pre-auth).
 
 **Entry point after login**: `http://localhost/farmacia/modules/ventas/index.php`  
 Root `index.php` routes by hostname (production has vanity subdomains per tenant, e.g. `generycpharma.genpharma.cloud`), based on whether the host has 3+ dot-labels and isn't `www`:
@@ -214,7 +214,7 @@ Flow: `Borrador → Enviado` (locks items, decrements origin stock) → `Recibid
 
 ### Modules Status
 
-- **Fully implemented**: Ventas (POS + Historial + Favoritos), Inventario (tabbed: Inventario + Categorías), Almacén (tabbed: Ingresos + Proveedores — `proveedores.php` is no longer standalone), Caja, Clientes, Admin (4 tabs: Usuarios + Sucursales + Configuración + Auditoría), Facturación (Reporte de Ventas + Notas de Crédito + Rentabilidad), Traslados, Dashboard, Compras (purchase orders + cuentas por pagar + cuentas por cobrar), Banco (bank accounts + movements, admin/gerente only), Ecommerce (public read-only JSON API explorer for an external storefront — see `ecommerce/api.php` note above)
+- **Fully implemented**: Ventas (POS + Historial + Favoritos), Inventario (tabbed: Inventario + Categorías), Almacén (tabbed: Ingresos + Salidas + Proveedores + Traslados — `proveedores.php` is no longer standalone), Caja, Clientes, Admin (4 tabs: Usuarios + Sucursales + Configuración + Auditoría), Facturación (Reporte de Ventas + Notas de Crédito + Rentabilidad), Traslados, Dashboard, Compras (purchase orders + cuentas por pagar + cuentas por cobrar), Banco (bank accounts + movements, admin/gerente only), Ecommerce (public read-only JSON API explorer for an external storefront — see `ecommerce/api.php` note above)
 
 ### Co-located Separate App
 
