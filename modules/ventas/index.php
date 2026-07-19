@@ -2807,7 +2807,11 @@ function printTicket() {
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function (e) {
         const code    = e.detail.code.trim().toUpperCase();
-        const product = allProducts.find(p => p.codigo.toUpperCase() === code);
+        const product = allProducts.find(p =>
+            (p.codigo_barras && p.codigo_barras.toUpperCase() === code) ||
+            (p.codigo && p.codigo.toUpperCase() === code) ||
+            (p.codigo_interno && p.codigo_interno.toUpperCase() === code)
+        );
 
         if (product) {
             addToCart(parseInt(product.id));
