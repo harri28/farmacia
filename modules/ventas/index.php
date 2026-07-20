@@ -2408,8 +2408,8 @@ function buildTicketHTML(opts) {
 
         ${sep()}
         <div style="text-align:center;font-size:11px;padding:4px 0">
-            <div style="font-weight:700;letter-spacing:.02em">BIENES TRANSFERIDOS / SERVICIOS PRESTADOS</div>
-            <div style="font-weight:700;letter-spacing:.02em">EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div>
+            <div style="font-weight:700;letter-spacing:.02em">BIENES TRANSFERIDOS EN LA AMAZONÍA PARA</div>
+            <div style="font-weight:700;letter-spacing:.02em">SER CONSUMIDOS EN LA MISMA</div>
             ${preview ? `<div style="margin-top:8px;font-size:10px;font-weight:700;color:#888;border:1px dashed #aaa;padding:2px 8px;display:inline-block">
                 ★ VISTA PREVIA — NO ES COMPROBANTE VÁLIDO ★</div>` : ''}
         </div>
@@ -2530,8 +2530,8 @@ function buildTicketA4HTML(opts) {
         </div>
 
         <div style="text-align:center;font-size:10px;color:#555;border-top:1px solid #e5e7eb;padding-top:10px">
-            <div style="font-weight:700">BIENES TRANSFERIDOS / SERVICIOS PRESTADOS</div>
-            <div style="font-weight:700">EN LA REGION DE SELVA PARA SER CONSUMIDOS EN LA MISMA</div>
+            <div style="font-weight:700">BIENES TRANSFERIDOS EN LA AMAZONÍA PARA</div>
+            <div style="font-weight:700">SER CONSUMIDOS EN LA MISMA</div>
             ${preview ? `<div style="margin-top:8px;font-weight:700;color:#888;border:1px dashed #aaa;padding:2px 8px;display:inline-block">★ VISTA PREVIA — NO ES COMPROBANTE VÁLIDO ★</div>` : ''}
         </div>
         ${qrHTMLA4}
