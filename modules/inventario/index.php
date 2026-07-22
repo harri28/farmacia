@@ -223,6 +223,29 @@ include '../../includes/header.php';
 
 </div><!-- /tab-categorias -->
 
+<!-- ===================== TAB: VER PRODUCTO (solo lectura) ===================== -->
+<div id="tab-producto-vista" style="display:none">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title" id="tab-producto-vista-card-title">
+                <i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Información de Producto
+            </div>
+        </div>
+        <div style="padding:20px;display:flex;gap:28px;flex-wrap:wrap">
+            <div style="flex-shrink:0;width:180px">
+                <div style="width:180px;height:180px;border:1px solid var(--border);border-radius:var(--radius);
+                            background:var(--surface-2);display:flex;align-items:center;justify-content:center;overflow:hidden">
+                    <img id="pv-imagen" src="" style="width:100%;height:100%;object-fit:contain;display:none">
+                    <i id="pv-imagen-placeholder" class="fas fa-image" style="font-size:2.2rem;color:var(--text-light)"></i>
+                </div>
+            </div>
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px" id="pv-campos">
+                <!-- poblado por JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ===================== TAB: NUEVO / EDITAR PRODUCTO ===================== -->
 <div id="tab-producto" style="display:none">
     <div class="card">
@@ -673,6 +696,7 @@ let ajusteProducto = null;
 let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
 let tabAnterior = 'inventario';
+let productoEnVista = null;
 
 // Paginación
 let allProductos = [];
@@ -681,13 +705,13 @@ const PAGE_SIZE  = 50;
 
 // ---- Tabs ----
 function switchTab(tab) {
-    ['inventario', 'categorias', 'producto'].forEach(t => {
+    ['inventario', 'categorias', 'producto', 'producto-vista'].forEach(t => {
         document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
         const btn = document.getElementById('tab-btn-' + t);
         if (btn) btn.classList.toggle('active', t === tab);
     });
 
-    const esProducto = tab === 'producto';
+    const esProducto = tab === 'producto' || tab === 'producto-vista';
     document.getElementById('inv-tabs-bar').style.display = esProducto ? 'none' : '';
     document.getElementById('btn-regresar').style.display = esProducto ? 'flex' : 'none';
 
@@ -702,6 +726,10 @@ function switchTab(tab) {
         renderCatTabla();
     } else if (tab === 'producto') {
         document.getElementById('inv-page-actions').innerHTML = '';
+    } else if (tab === 'producto-vista') {
+        document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Detalle de Producto';
+        document.getElementById('inv-page-subtitle').textContent = 'Información del producto';
+        document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>';
     }
 }
 
@@ -936,7 +964,7 @@ function renderPage(page) {
         return `<tr style="font-size:14px">
             <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="font-weight:500">
-                <span onclick='openProductoModal(${JSON.stringify(p)})'
+                <span onclick='verProducto(${JSON.stringify(p)})'
                       style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
             </td>
             <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
@@ -1004,13 +1032,68 @@ function resetFiltros() {
 }
 
 // ---- Tab Producto (crear / editar) ----
+function verProducto(producto) {
+    productoEnVista = producto;
+
+    tabAnterior = document.getElementById('tab-categorias').style.display !== 'none'
+        ? 'categorias' : 'inventario';
+
+    document.getElementById('tab-producto-vista-card-title').innerHTML =
+        `<i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>${producto.nombre}`;
+
+    const img = document.getElementById('pv-imagen');
+    const imgPlaceholder = document.getElementById('pv-imagen-placeholder');
+    if (producto.imagen_url) {
+        img.src = producto.imagen_url;
+        img.style.display = 'block';
+        imgPlaceholder.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        imgPlaceholder.style.display = '';
+    }
+
+    const boolLabel = v => (v == 't' || v === true) ? 'Sí' : 'No';
+    const money = v => 'S/ ' + parseFloat(v || 0).toFixed(2);
+
+    const campos = [
+        ['Código', producto.codigo],
+        ['SKU (código interno)', producto.codigo_interno],
+        ['Nombre', producto.nombre],
+        ['Categoría', producto.categoria || '—'],
+        ['Unidad de medida', producto.unidad],
+        ['Stock', producto.stock],
+        ['Stock mínimo', producto.stock_minimo],
+        ['Precio de venta', money(producto.precio_venta)],
+        ['Precio de compra', money(producto.precio_compra)],
+        ['Laboratorio', producto.laboratorio || '—'],
+        ['Presentación', producto.presentacion || '—'],
+        ['Afectación IGV', producto.afectacion_igv || '—'],
+        ['% IGV', parseFloat(producto.porcentaje_igv || 18).toFixed(2) + '%'],
+        ['Incluye IGV', boolLabel(producto.incluye_igv)],
+        ['Requiere receta', boolLabel(producto.requiere_receta)],
+        ['Favorito', boolLabel(producto.favorito)],
+        ['Fecha de vencimiento', producto.fecha_vencimiento || '—'],
+    ];
+
+    document.getElementById('pv-campos').innerHTML = campos.map(([label, valor]) => `
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid var(--border-light)">
+            <span style="color:var(--text-muted);font-size:.85rem">${label}</span>
+            <span style="font-weight:600;font-size:.85rem;text-align:right">${valor ?? '—'}</span>
+        </div>`).join('');
+
+    switchTab('producto-vista');
+}
+
 function openProductoModal(producto = null) {
     editingId = producto ? producto.id : null;
 
     // Recordar desde qué tab se abrió para poder volver
-    const tabActual = document.getElementById('tab-categorias').style.display !== 'none'
-        ? 'categorias' : 'inventario';
-    tabAnterior = tabActual;
+    if (document.getElementById('tab-producto-vista').style.display !== 'none') {
+        tabAnterior = 'producto-vista';
+    } else {
+        tabAnterior = document.getElementById('tab-categorias').style.display !== 'none'
+            ? 'categorias' : 'inventario';
+    }
 
     const esNuevo = !editingId;
     const titulo  = 'Información de Producto';
