@@ -1376,6 +1376,8 @@ function saveProducto() {
     const codigo      = document.getElementById('p-codigo').value.trim();
     const nombre      = document.getElementById('p-nombre').value.trim();
     const precio_venta = parseFloat(document.getElementById('p-precio-venta').value);
+    const porcentajeIgvInput = parseFloat(document.getElementById('p-porcentaje-igv').value);
+    const porcentajeIgv = isNaN(porcentajeIgvInput) ? 18 : porcentajeIgvInput;
 
     if (!codigo)                 { showToast('El código es requerido', 'error'); return; }
     if (!nombre)                 { showToast('El nombre es requerido', 'error'); return; }
@@ -1396,7 +1398,7 @@ function saveProducto() {
         stock_minimo:    parseInt(document.getElementById('p-stock-minimo').value) || 5,
         unidad:          document.getElementById('p-unidad').value.trim() || 'unidad',
         afectacion_igv_codigo: document.getElementById('p-afectacion-igv-codigo').value || '20',
-        porcentaje_igv:  parseFloat(document.getElementById('p-porcentaje-igv').value) || 18,
+        porcentaje_igv:  porcentajeIgv,
         incluye_igv:     document.getElementById('p-incluye-igv').checked,
         requiere_receta:    document.getElementById('p-receta').checked,
         favorito:           document.getElementById('p-favorito').checked,
