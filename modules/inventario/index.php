@@ -1076,9 +1076,9 @@ function verProducto(producto) {
     ];
 
     document.getElementById('pv-campos').innerHTML = campos.map(([label, valor]) => `
-        <div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid var(--border-light)">
-            <span style="color:var(--text-muted);font-size:.85rem">${label}</span>
-            <span style="font-weight:600;font-size:.85rem;text-align:right">${valor ?? '—'}</span>
+        <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-light)">
+            <span style="font-weight:700;font-size:.85rem">${label}:</span>
+            <span style="font-weight:400;font-size:.85rem">${valor ?? '—'}</span>
         </div>`).join('');
 
     switchTab('producto-vista');
