@@ -243,6 +243,10 @@ include '../../includes/header.php';
                 </div>
             </div>
         </div>
+        <div id="pv-presentaciones-wrap" style="display:none;padding:0 20px 20px">
+            <div style="font-weight:700;font-size:.85rem;margin-bottom:6px">Presentaciones de venta:</div>
+            <div id="pv-presentaciones"></div>
+        </div>
     </div>
 </div>
 
@@ -528,6 +532,28 @@ include '../../includes/header.php';
         </div>
     </div><!-- /card Información de Medicamentos -->
 
+    <!-- ── Card: Presentaciones de venta ── -->
+    <div class="card" style="margin-top:20px">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-boxes-stacked" style="color:var(--primary);margin-right:8px"></i>Presentaciones de venta
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="agregarPresentacion()">
+                <i class="fas fa-plus"></i> Agregar presentación
+            </button>
+        </div>
+        <div style="padding:20px">
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
+                Además de la unidad base del producto, puedes agregar otras formas de venderlo
+                (ej. Blister x10, Caja x100), cada una con su propio precio.
+            </p>
+            <div id="presentaciones-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div id="presentaciones-vacio" style="text-align:center;color:var(--text-light);padding:14px;font-size:.85rem">
+                Sin presentaciones adicionales
+            </div>
+        </div>
+    </div>
+
     <!-- Botones -->
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-bottom:8px">
         <button class="btn btn-outline" onclick="cerrarTabProducto()">
@@ -696,6 +722,7 @@ let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
 let tabAnterior = 'inventario';
 let productoEnVista = null;
+let presentacionesEditando = [];
 
 // Paginación
 let allProductos = [];
@@ -1080,11 +1107,80 @@ function verProducto(producto) {
             <span style="font-weight:400;font-size:.85rem">${valor ?? '—'}</span>
         </div>`).join('');
 
+    const presWrap = document.getElementById('pv-presentaciones-wrap');
+    presWrap.style.display = 'none';
+    fetch(BASE + `modules/inventario/api.php?action=presentaciones_listar&producto_id=${producto.id}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.length) return;
+            presWrap.style.display = '';
+            document.getElementById('pv-presentaciones').innerHTML = data.map(p => `
+                <div style="display:flex;gap:6px;padding:3px 0">
+                    <span style="font-weight:400;font-size:.85rem">${p.nombre} (${p.unidades_equivalentes} unid.):</span>
+                    <span style="font-weight:400;font-size:.85rem">S/ ${parseFloat(p.precio_venta).toFixed(2)}</span>
+                </div>`).join('');
+        })
+        .catch(() => {});
+
     switchTab('producto-vista');
+}
+
+// ---- Presentaciones de venta ----
+function renderPresentacionesEditor() {
+    const cont  = document.getElementById('presentaciones-lista');
+    const vacio = document.getElementById('presentaciones-vacio');
+
+    if (!presentacionesEditando.length) {
+        cont.innerHTML = '';
+        vacio.style.display = '';
+        return;
+    }
+    vacio.style.display = 'none';
+
+    cont.innerHTML = presentacionesEditando.map((p, idx) => `
+        <div style="display:flex;gap:10px;align-items:center">
+            <input type="text" value="${p.nombre ?? ''}" placeholder="Ej: Blister x10"
+                style="flex:2;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                oninput="actualizarPresentacion(${idx}, 'nombre', this.value)">
+            <input type="number" value="${p.unidades_equivalentes ?? ''}" min="1" placeholder="Unidades"
+                style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                oninput="actualizarPresentacion(${idx}, 'unidades_equivalentes', this.value)">
+            <input type="number" value="${p.precio_venta ?? ''}" min="0" step="0.01" placeholder="Precio S/"
+                style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                oninput="actualizarPresentacion(${idx}, 'precio_venta', this.value)">
+            <button type="button" onclick="eliminarPresentacion(${idx})"
+                style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 6px;font-size:.9rem">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>`).join('');
+}
+
+function agregarPresentacion() {
+    presentacionesEditando.push({ nombre: '', unidades_equivalentes: '', precio_venta: '' });
+    renderPresentacionesEditor();
+}
+
+function eliminarPresentacion(idx) {
+    presentacionesEditando.splice(idx, 1);
+    renderPresentacionesEditor();
+}
+
+function actualizarPresentacion(idx, campo, valor) {
+    presentacionesEditando[idx][campo] = valor;
 }
 
 function openProductoModal(producto = null) {
     editingId = producto ? producto.id : null;
+
+    if (editingId) {
+        fetch(BASE + `modules/inventario/api.php?action=presentaciones_listar&producto_id=${editingId}`)
+            .then(r => r.json())
+            .then(data => { presentacionesEditando = data || []; renderPresentacionesEditor(); })
+            .catch(() => { presentacionesEditando = []; renderPresentacionesEditor(); });
+    } else {
+        presentacionesEditando = [];
+        renderPresentacionesEditor();
+    }
 
     // Recordar desde qué tab se abrió para poder volver
     if (document.getElementById('tab-producto-vista').style.display !== 'none') {
@@ -1195,6 +1291,13 @@ function saveProducto() {
         requiere_receta:    document.getElementById('p-receta').checked,
         favorito:           document.getElementById('p-favorito').checked,
         fecha_vencimiento:  document.getElementById('p-fecha-vencimiento').value || null,
+        presentaciones:     presentacionesEditando
+            .filter(p => (p.nombre || '').trim() && parseInt(p.unidades_equivalentes) > 0 && parseFloat(p.precio_venta) > 0)
+            .map(p => ({
+                nombre: p.nombre.trim(),
+                unidades_equivalentes: parseInt(p.unidades_equivalentes),
+                precio_venta: parseFloat(p.precio_venta),
+            })),
     };
 
     const action = editingId ? 'actualizar' : 'crear';

@@ -48,6 +48,26 @@ function resolverCatalogosProducto(PDO $db, string $unidadCodigo, string $afecta
     ];
 }
 
+function guardarPresentacionesProducto(PDO $db, int $productoId, array $presentaciones): void
+{
+    $db->prepare("DELETE FROM producto_presentaciones WHERE producto_id = :pid")
+       ->execute([':pid' => $productoId]);
+
+    $stmt = $db->prepare("
+        INSERT INTO producto_presentaciones (producto_id, nombre, unidades_equivalentes, precio_venta)
+        VALUES (:pid, :nombre, :unidades, :precio)
+    ");
+    foreach ($presentaciones as $p) {
+        $nombre = trim($p['nombre'] ?? '');
+        $unidades = intval($p['unidades_equivalentes'] ?? 0);
+        $precio = floatval($p['precio_venta'] ?? 0);
+        if ($nombre === '' || $unidades <= 0 || $precio <= 0) {
+            continue;
+        }
+        $stmt->execute([':pid' => $productoId, ':nombre' => $nombre, ':unidades' => $unidades, ':precio' => $precio]);
+    }
+}
+
 try {
 
 switch ($action) {
@@ -295,6 +315,9 @@ switch ($action) {
             ':fvenc' => $data['fecha_vencimiento'] ?: null,
         ]);
         $id = $stmt->fetch()['id'];
+        if (!empty($data['presentaciones']) && is_array($data['presentaciones'])) {
+            guardarPresentacionesProducto($db, $id, $data['presentaciones']);
+        }
         jsonResponse(['error' => false, 'message' => 'Producto creado correctamente', 'id' => $id]);
 
     case 'actualizar':
@@ -372,7 +395,22 @@ switch ($action) {
             ':favorito' => !empty($data['favorito']) ? 'TRUE' : 'FALSE',
             ':fvenc' => $data['fecha_vencimiento'] ?: null,
         ]);
+        guardarPresentacionesProducto($db, $id, is_array($data['presentaciones'] ?? null) ? $data['presentaciones'] : []);
         jsonResponse(['error' => false, 'message' => 'Producto actualizado correctamente']);
+
+    case 'presentaciones_listar':
+        $productoId = intval($_GET['producto_id'] ?? 0);
+        if (!$productoId) { echo json_encode([]); break; }
+
+        $stmt = $db->prepare("
+            SELECT id, nombre, unidades_equivalentes, precio_venta
+            FROM producto_presentaciones
+            WHERE producto_id = :pid
+            ORDER BY unidades_equivalentes ASC
+        ");
+        $stmt->execute([':pid' => $productoId]);
+        echo json_encode($stmt->fetchAll());
+        break;
 
     case 'ajustar_stock':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden ajustar stock manualmente'], 403);
