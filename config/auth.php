@@ -4,6 +4,12 @@
 // ============================================================
 
 if (session_status() === PHP_SESSION_NONE) {
+    // La sesion no debe cerrarse por inactividad, solo cuando el usuario
+    // cierre sesion manualmente -- se extiende su duracion a 30 dias tanto
+    // en la cookie del navegador como en el garbage collector de PHP.
+    $sessionLifetime = 60 * 60 * 24 * 30;
+    ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
+    session_set_cookie_params($sessionLifetime, '/', '', false, true);
     session_start();
 }
 

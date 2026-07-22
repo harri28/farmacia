@@ -608,7 +608,7 @@ tbody tr:last-child td { border-bottom: none; }
         flex-shrink: 0;
     }
     .pos-right.cart-open { transform: translateY(0); }
-    .cart-panel { height: auto; flex: 1; overflow-y: auto; max-height: none; }
+    .cart-panel { height: auto; flex: 1; min-height: 0; overflow: hidden; max-height: none; }
     .cart-drawer-close {
         display: flex; align-items: center; justify-content: center;
         background: none; border: none; color: var(--text-muted);
