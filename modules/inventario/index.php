@@ -1076,7 +1076,7 @@ function verProducto(producto) {
     ];
 
     document.getElementById('pv-campos').innerHTML = campos.map(([label, valor]) => `
-        <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-light)">
+        <div style="display:flex;gap:6px;padding:3px 0">
             <span style="font-weight:700;font-size:.85rem">${label}:</span>
             <span style="font-weight:400;font-size:.85rem">${valor ?? '—'}</span>
         </div>`).join('');
