@@ -153,7 +153,7 @@ include '../../includes/header.php';
 <!-- Stats del turno -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-lg">
-        <div class="stat-card">
+        <div class="stat-card" style="cursor:pointer" onclick="abrirReporteCaja()" title="Ver reporte de caja imprimible">
             <div class="stat-icon blue"><i class="fas fa-cash-register"></i></div>
             <div>
                 <div class="stat-value"><?= intval($ventas['count']) ?></div>
@@ -322,6 +322,29 @@ include '../../includes/header.php';
             <button class="btn btn-outline" onclick="closeModal('modal-cerrar')">Cancelar</button>
             <button class="btn btn-danger" id="btn-confirmar-cierre" onclick="confirmarCierre()">
                 <i class="fas fa-lock"></i> Confirmar Cierre
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ---- MODAL: Reporte de Caja ---- -->
+<div class="modal-overlay" id="modal-reporte-caja">
+    <div class="modal" style="max-width:380px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-receipt" style="color:var(--primary);margin-right:8px"></i>Reporte de Caja
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-reporte-caja')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="reporte-caja-body" style="max-height:60vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:10px">
+                <div style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-reporte-caja')">Cerrar</button>
+            <button class="btn btn-primary" onclick="imprimirReporteCaja()">
+                <i class="fas fa-print"></i> Imprimir
             </button>
         </div>
     </div>
@@ -559,6 +582,86 @@ function confirmarCierre() {
         btn.innerHTML = '<i class="fas fa-lock"></i> Confirmar Cierre';
         showToast('Error al cerrar caja', 'error');
     });
+}
+
+// ---- Reporte de caja ----
+const PAGO_LABELS = { efectivo: 'EFECTIVO', yape: 'YAPE', plin: 'PLIN', tarjeta: 'TARJETA', transferencia: 'TRANSFERENCIA' };
+
+function abrirReporteCaja() {
+    if (!CAJA_ID) return;
+    openModal('modal-reporte-caja');
+    const body = document.getElementById('reporte-caja-body');
+    body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    fetch(BASE + `modules/caja/api.php?action=reporte_cierre&caja_id=${CAJA_ID}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { showToast(data.message, 'error'); closeModal('modal-reporte-caja'); return; }
+            _ultimoReporteCaja = data;
+            body.innerHTML = buildReporteCajaHTML(data);
+        })
+        .catch(() => {
+            showToast('Error al cargar el reporte de caja', 'error');
+            closeModal('modal-reporte-caja');
+        });
+}
+
+let _ultimoReporteCaja = null;
+
+function buildReporteCajaHTML(data) {
+    const now   = new Date();
+    const fecha = now.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const hora  = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    const row = (l, r, bold = false) => `<div style="display:flex;justify-content:space-between;font-size:11px;${bold ? 'font-weight:700' : ''}">
+        <span>${l}</span><span>${r}</span></div>`;
+
+    const metodosHTML = (data.metodos_pago || [])
+        .map(m => row(`(+) ${PAGO_LABELS[m.metodo] || m.metodo.toUpperCase()} (S/)`, parseFloat(m.total).toFixed(2)))
+        .join('');
+
+    return `<div id="reporte-caja-ticket" style="font-family:'Courier New',Courier,monospace;color:#000;font-size:11px;line-height:1.5">
+        <div style="text-align:center">${fecha} ${hora}</div>
+        <div style="text-align:center;font-weight:700;margin-top:2px">${(data.caja.usuario_apertura || '').toUpperCase()}</div>
+        <div style="border-top:1px dashed #000;margin:6px 0"></div>
+        <div style="text-align:center;font-weight:700">RESUMEN GENERAL:</div>
+        <div style="border-top:1px dashed #000;margin:6px 0"></div>
+
+        <div style="font-weight:700">METODOS DE PAGOS</div>
+        ${metodosHTML}
+        ${row('(=) TOTAL COBRADO (S/)', parseFloat(data.total_cobrado).toFixed(2), true)}
+        <div style="border-top:1px dashed #000;margin:6px 0"></div>
+
+        <div style="font-weight:700">VENTAS</div>
+        ${row('(+) SUBTOTAL VENTAS (S/)', parseFloat(data.ventas.subtotal).toFixed(2))}
+        ${row('(-) DESCUENTOS (S/)', parseFloat(data.ventas.descuento).toFixed(2))}
+        ${row('(=) TOTAL VENTAS (S/)', parseFloat(data.ventas.total).toFixed(2), true)}
+        ${row('TOTAL CREDITO (S/)', parseFloat(data.ventas.total_credito).toFixed(2))}
+        <div style="border-top:1px dashed #000;margin:6px 0"></div>
+
+        <div style="font-weight:700">SALDO EFECTIVO</div>
+        ${row('(+) EFECTIVO (S/)', parseFloat(data.efectivo_ventas || 0).toFixed(2))}
+        ${row('(+) OTROS INGRESOS (S/)', parseFloat(data.ingresos_adicionales).toFixed(2))}
+        ${row('(-) EGRESOS (S/)', parseFloat(data.egresos).toFixed(2))}
+        ${row('(=) SALDO EFECTIVO (S/)', parseFloat(data.saldo_efectivo).toFixed(2), true)}
+        <div style="border-top:1px dashed #000;margin:6px 0"></div>
+
+        <div style="font-weight:700">OBSERVACIONES</div>
+        ${row('TOTAL ARTICULOS', data.articulos)}
+        ${row('TOTAL ANULADOS (S/)', parseFloat(data.anulados.total).toFixed(2))}
+        ${row('TRANSACCIONES REALIZADAS', data.ventas.count)}
+    </div>`;
+}
+
+function imprimirReporteCaja() {
+    if (!_ultimoReporteCaja) return;
+    const innerHtml = document.getElementById('reporte-caja-ticket').outerHTML;
+    const style = `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:'Courier New',Courier,monospace; font-size:11px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; } @media print { @page { size:80mm auto; margin:4mm 3mm; } body { padding:0; } }`;
+    const w = window.open('', '_blank', 'width=420,height=700');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${innerHtml}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 400);
 }
 
 // ---- Movimientos ----

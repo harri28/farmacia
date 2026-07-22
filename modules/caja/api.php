@@ -65,6 +65,104 @@ switch ($action) {
         ]);
         break;
 
+    // ---- GET: Reporte de cierre / resumen imprimible de la caja ----
+    case 'reporte_cierre':
+        $caja_id = intval($_GET['caja_id'] ?? 0);
+        if (!$caja_id) jsonResponse(['error' => true, 'message' => 'ID de caja inválido'], 400);
+
+        $cStmt = $db->prepare("SELECT * FROM cajas WHERE id = :id");
+        $cStmt->execute([':id' => $caja_id]);
+        $caja = $cStmt->fetch();
+        if (!$caja) jsonResponse(['error' => true, 'message' => 'Caja no encontrada'], 404);
+
+        $v = $db->prepare("
+            SELECT COUNT(*) AS count,
+                   COALESCE(SUM(subtotal), 0) AS subtotal,
+                   COALESCE(SUM(descuento), 0) AS descuento,
+                   COALESCE(SUM(total), 0) AS total,
+                   COALESCE(SUM(total) FILTER (WHERE tipo_pago = 'credito'), 0) AS total_credito
+            FROM ventas
+            WHERE caja_id = :id AND estado = 'completada'
+        ");
+        $v->execute([':id' => $caja_id]);
+        $ventas = $v->fetch();
+
+        // Metodos de pago: se lee de payment_breakdown (cubre tanto ventas con
+        // un solo metodo como las de pago dividido); las ventas a credito no
+        // aportan aqui porque payment_breakdown queda vacio para ellas.
+        $mp = $db->prepare("
+            SELECT elem->>'method' AS metodo, COALESCE(SUM((elem->>'amount')::numeric), 0) AS total
+            FROM ventas v
+            CROSS JOIN LATERAL jsonb_array_elements(COALESCE(v.payment_breakdown, '[]'::jsonb)) AS elem
+            WHERE v.caja_id = :id AND v.estado = 'completada'
+            GROUP BY elem->>'method'
+            ORDER BY total DESC
+        ");
+        $mp->execute([':id' => $caja_id]);
+        $metodos = $mp->fetchAll();
+
+        $efectivoVentas = 0;
+        $totalCobrado    = 0;
+        foreach ($metodos as $m) {
+            $totalCobrado += floatval($m['total']);
+            if ($m['metodo'] === 'efectivo') $efectivoVentas = floatval($m['total']);
+        }
+
+        $art = $db->prepare("
+            SELECT COALESCE(SUM(d.cantidad), 0) AS total
+            FROM venta_detalles d
+            JOIN ventas v ON v.id = d.venta_id
+            WHERE v.caja_id = :id AND v.estado = 'completada'
+        ");
+        $art->execute([':id' => $caja_id]);
+        $articulos = intval($art->fetch()['total']);
+
+        $an = $db->prepare("
+            SELECT COUNT(*) AS count, COALESCE(SUM(total), 0) AS total
+            FROM ventas
+            WHERE caja_id = :id AND estado = 'anulada'
+        ");
+        $an->execute([':id' => $caja_id]);
+        $anulados = $an->fetch();
+
+        $m = $db->prepare("
+            SELECT tipo, COALESCE(SUM(monto), 0) AS total
+            FROM caja_movimientos WHERE caja_id = :id GROUP BY tipo
+        ");
+        $m->execute([':id' => $caja_id]);
+        $ingresosAdic = 0;
+        $egresos      = 0;
+        foreach ($m->fetchAll() as $row) {
+            if ($row['tipo'] === 'ingreso') $ingresosAdic = floatval($row['total']);
+            else                            $egresos      = floatval($row['total']);
+        }
+
+        $saldoEfectivo = floatval($caja['saldo_inicial']) + $efectivoVentas + $ingresosAdic - $egresos;
+
+        jsonResponse([
+            'error'                => false,
+            'caja'                 => $caja,
+            'metodos_pago'         => $metodos,
+            'total_cobrado'        => $totalCobrado,
+            'efectivo_ventas'      => $efectivoVentas,
+            'ventas'               => [
+                'count'         => intval($ventas['count']),
+                'subtotal'      => floatval($ventas['subtotal']),
+                'descuento'     => floatval($ventas['descuento']),
+                'total'         => floatval($ventas['total']),
+                'total_credito' => floatval($ventas['total_credito']),
+            ],
+            'articulos'            => $articulos,
+            'anulados'             => [
+                'count' => intval($anulados['count']),
+                'total' => floatval($anulados['total']),
+            ],
+            'ingresos_adicionales' => $ingresosAdic,
+            'egresos'              => $egresos,
+            'saldo_efectivo'       => $saldoEfectivo,
+        ]);
+        break;
+
     // ---- GET: Usuarios sugeridos (de aperturas anteriores) ----
     case 'usuarios':
         $rows = $db->query("
