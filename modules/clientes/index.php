@@ -835,7 +835,7 @@ async function verHistorial(id) {
         const completadas = ventas.filter(v => v.estado === 'completada');
         const totalGastado = completadas.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
         const documento = c.numero_documento ? `${c.tipo_documento_codigo || ''} - ${c.numero_documento}` : '-';
-        const metodos = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+        const metodos = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia' };
 
         document.getElementById('histBody').innerHTML = `
             <div class="hist-meta">

@@ -650,7 +650,7 @@ include '../../includes/header.php';
                             <option value="efectivo">Efectivo</option>
                             <option value="yape">Yape</option>
                             <option value="plin">Plin</option>
-                            <option value="tarjeta">Tarjeta</option>
+                            <option value="tarjeta">Visa/Mastercard</option>
                             <option value="transferencia">Transferencia</option>
                         </select>
                     </div>
@@ -1555,7 +1555,7 @@ function getPaymentMethodOptions(selected = 'efectivo') {
         ['efectivo', 'Efectivo'],
         ['yape', 'Yape'],
         ['plin', 'Plin'],
-        ['tarjeta', 'Tarjeta'],
+        ['tarjeta', 'Visa/Mastercard'],
         ['transferencia', 'Transferencia'],
     ];
 
@@ -2300,7 +2300,7 @@ function buildTicketHTML(opts) {
         fecha = '', hora = '', preview = false, comprobante_url = ''
     } = opts;
 
-    const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+    const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia' };
     const pagoLabel  = PAGOS[tipo_pago] || tipo_pago;
     const vuelto     = Math.max(0, (monto_recibido || 0) - total);
 
@@ -2428,7 +2428,7 @@ function buildTicketA4HTML(opts) {
         fecha = '', hora = '', preview = false, comprobante_url = ''
     } = opts;
 
-    const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+    const PAGOS = { efectivo:'Efectivo', credito:'Crédito', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia' };
     const pagoLabel = PAGOS[tipo_pago] || tipo_pago;
     const vuelto     = Math.max(0, (monto_recibido || 0) - total);
 

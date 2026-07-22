@@ -272,7 +272,7 @@ let chartVentas = null;
 const fmt = (n) => 'S/ ' + parseFloat(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtN = (n) => parseFloat(n).toLocaleString('es-PE');
 
-const METODO_LABEL = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Tarjeta', transferencia:'Transferencia' };
+const METODO_LABEL = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia' };
 const METODO_COLOR = { efectivo:'var(--success)', yape:'#8b5cf6', plin:'#06b6d4', tarjeta:'var(--primary)', transferencia:'var(--warning)' };
 
 function setDate() {

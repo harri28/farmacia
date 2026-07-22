@@ -134,7 +134,7 @@ include '../../includes/header.php';
     ");
     $metodos_stmt->execute([':id' => $caja['id']]);
     $metodos_pago_turno = $metodos_stmt->fetchAll();
-    $METODO_PAGO_LABELS = ['efectivo' => 'Efectivo', 'yape' => 'Yape', 'plin' => 'Plin', 'tarjeta' => 'Tarjeta', 'transferencia' => 'Transferencia'];
+    $METODO_PAGO_LABELS = ['efectivo' => 'Efectivo', 'yape' => 'Yape', 'plin' => 'Plin', 'tarjeta' => 'Visa/Mastercard', 'transferencia' => 'Transferencia'];
 ?>
 
 <!-- ============================================================

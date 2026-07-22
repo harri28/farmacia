@@ -752,7 +752,7 @@ function rptLoadStats() {
                 { label:'Efectivo',      key:'pago_efectivo',      icon:'money-bill-wave', color:'#16a34a' },
                 { label:'Yape',          key:'pago_yape',          icon:'mobile-alt',      color:'#7c3aed' },
                 { label:'Plin',          key:'pago_plin',          icon:'mobile-alt',      color:'#2563eb' },
-                { label:'Tarjeta',       key:'pago_tarjeta',       icon:'credit-card',     color:'#0891b2' },
+                { label:'Visa/Mastercard', key:'pago_tarjeta',     icon:'credit-card',     color:'#0891b2' },
                 { label:'Transferencia', key:'pago_transferencia', icon:'university',      color:'#d97706' },
             ];
             const totP = pagos.reduce((s,p)=>s+n(d[p.key]),0);
