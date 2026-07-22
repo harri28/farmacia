@@ -510,13 +510,14 @@ include '../../includes/header.php';
                             <th>Producto</th>
                             <th class="text-right" style="width:90px">Cantidad</th>
                             <th class="text-right" style="width:120px">P. Compra (S/)</th>
+                            <th class="text-right" style="width:120px">P. Venta (S/)</th>
                             <th class="text-right" style="width:100px">Subtotal</th>
                             <th style="width:40px"></th>
                         </tr>
                     </thead>
                     <tbody id="n-lineas-body">
                         <tr id="n-lineas-empty">
-                            <td colspan="6" style="text-align:center;padding:24px;color:var(--text-light)">
+                            <td colspan="7" style="text-align:center;padding:24px;color:var(--text-light)">
                                 <i class="fas fa-inbox" style="font-size:1.3rem"></i>
                                 <p style="margin:8px 0 0">Agrega productos escaneando o buscando arriba</p>
                             </td>
@@ -1258,7 +1259,7 @@ function addLinea(p) {
     if (existing >= 0) {
         lines[existing].cantidad++;
     } else {
-        lines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_compra) || 0 });
+        lines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_compra) || 0, precio_venta: parseFloat(p.precio_venta) || 0 });
     }
     renderLineas();
     calcularTotales();
@@ -1267,6 +1268,7 @@ function addLinea(p) {
 function updateLinea(idx, field, value) {
     if (field === 'cantidad')        lines[idx].cantidad        = Math.max(1, parseInt(value) || 1);
     if (field === 'precio_unitario') lines[idx].precio_unitario = parseFloat(value) || 0;
+    if (field === 'precio_venta')    lines[idx].precio_venta    = parseFloat(value) || 0;
     renderLineas();
     calcularTotales();
 }
@@ -1298,6 +1300,12 @@ function renderLineas() {
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateLinea(${idx},'precio_unitario',this.value)">
             </td>
+            <td class="text-right">
+                <input type="number" value="${l.precio_venta.toFixed(2)}" min="0" step="0.01"
+                    style="width:90px;text-align:right;padding:5px 7px;border:1px solid var(--border);
+                           border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
+                    oninput="updateLinea(${idx},'precio_venta',this.value)">
+            </td>
             <td class="text-right" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
             <td>
                 <button onclick="removeLinea(${idx})"
@@ -1328,7 +1336,7 @@ function saveIngreso() {
         numero_factura: document.getElementById('n-factura').value,
         fecha_factura:  document.getElementById('n-fecha').value,
         observaciones:  document.getElementById('n-obs').value,
-        items: lines.map(l => ({ producto_id: l.producto_id, cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
+        items: lines.map(l => ({ producto_id: l.producto_id, cantidad: l.cantidad, precio_unitario: l.precio_unitario, precio_venta: l.precio_venta })),
     };
     const btn = document.getElementById('btn-guardar-ingreso');
     btn.disabled = true;

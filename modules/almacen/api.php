@@ -311,6 +311,13 @@ switch ($action) {
                     $db->prepare("UPDATE productos SET precio_compra = :precio, updated_at = NOW() WHERE id = :id")
                        ->execute([':precio' => $precio, ':id' => $pid]);
                 }
+
+                // Actualizar precio de venta si se ajusto al registrar el ingreso
+                $precioVenta = floatval($item['precio_venta'] ?? 0);
+                if ($precioVenta > 0) {
+                    $db->prepare("UPDATE productos SET precio_venta = :pv, updated_at = NOW() WHERE id = :id")
+                       ->execute([':pv' => $precioVenta, ':id' => $pid]);
+                }
             }
 
             $db->commit();
