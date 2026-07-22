@@ -36,20 +36,6 @@ CREATE TABLE IF NOT EXISTS productos (
     updated_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
 
--- Presentaciones de venta adicionales por producto (ej. Blister x10, Caja x100).
--- El producto en si sigue siendo la unidad base (su propio precio_venta/stock);
--- estas son presentaciones EXTRA sobre esa unidad base, cada una con su propio
--- precio y cuantas unidades base equivale.
-CREATE TABLE IF NOT EXISTS producto_presentaciones (
-    id                     SERIAL PRIMARY KEY,
-    producto_id            INTEGER        NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
-    nombre                 VARCHAR(50)    NOT NULL,
-    unidades_equivalentes  INTEGER        NOT NULL,
-    precio_venta           DECIMAL(10,2)  NOT NULL,
-    created_at             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_producto_presentaciones_producto ON producto_presentaciones(producto_id);
-
 CREATE TABLE IF NOT EXISTS clientes (
     id         SERIAL PRIMARY KEY,
     nombres    VARCHAR(150) NOT NULL,
