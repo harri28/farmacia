@@ -2211,7 +2211,7 @@ function procesarVenta() {
     document.getElementById('cobro-total-venta').textContent = totalStr;
     document.getElementById('cobro-total').textContent       = totalStr;
     document.getElementById('monto-recibido').value          = totalFinal.toFixed(2); // display readonly
-    document.getElementById('monto-cliente').value           = ''; // el cajero no sabe cuánto va a recibir aún
+    document.getElementById('monto-cliente').value           = totalFinal.toFixed(2); // por defecto, pago exacto
     document.getElementById('tipo-pago').value               = 'efectivo';
     document.getElementById('tipo-comprobante').value        = 'boleta';
     document.getElementById('cobro-observacion').value       = '';
