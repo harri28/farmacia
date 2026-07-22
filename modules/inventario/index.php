@@ -231,16 +231,16 @@ include '../../includes/header.php';
                 <i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Información de Producto
             </div>
         </div>
-        <div style="padding:20px;display:flex;gap:28px;flex-wrap:wrap">
+        <div style="padding:20px;display:flex;gap:28px;flex-wrap:wrap-reverse;justify-content:flex-end">
+            <div style="flex:1;min-width:280px;display:flex;flex-direction:column" id="pv-campos">
+                <!-- poblado por JS -->
+            </div>
             <div style="flex-shrink:0;width:180px">
                 <div style="width:180px;height:180px;border:1px solid var(--border);border-radius:var(--radius);
                             background:var(--surface-2);display:flex;align-items:center;justify-content:center;overflow:hidden">
                     <img id="pv-imagen" src="" style="width:100%;height:100%;object-fit:contain;display:none">
                     <i id="pv-imagen-placeholder" class="fas fa-image" style="font-size:2.2rem;color:var(--text-light)"></i>
                 </div>
-            </div>
-            <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px" id="pv-campos">
-                <!-- poblado por JS -->
             </div>
         </div>
     </div>
@@ -1076,7 +1076,7 @@ function verProducto(producto) {
     ];
 
     document.getElementById('pv-campos').innerHTML = campos.map(([label, valor]) => `
-        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid var(--border-light)">
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid var(--border-light)">
             <span style="color:var(--text-muted);font-size:.85rem">${label}</span>
             <span style="font-weight:600;font-size:.85rem;text-align:right">${valor ?? '—'}</span>
         </div>`).join('');
