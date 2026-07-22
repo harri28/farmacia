@@ -36,6 +36,32 @@ CREATE TABLE IF NOT EXISTS productos (
     updated_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Catálogo reutilizable de unidades de medida para "Precios por unidad de
+-- medida" (ej. CAJA, BLISTER, PAQUETE). Extensible desde el formulario de
+-- producto ("+ Nueva unidad").
+CREATE TABLE IF NOT EXISTS unidades_medida_venta (
+    id         SERIAL PRIMARY KEY,
+    nombre     VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO unidades_medida_venta (nombre) VALUES ('CAJA'), ('BLISTER'), ('PAQUETE')
+    ON CONFLICT (nombre) DO NOTHING;
+
+-- Precios adicionales por unidad de medida, por producto (ej. un producto
+-- base vendido por "unidad" puede tener ademas un precio configurado para
+-- venderse por BLISTER de 10, otro por CAJA de 100, etc). El producto sigue
+-- siendo la unidad base (su propio precio_venta/stock no cambian).
+CREATE TABLE IF NOT EXISTS producto_precios_unidad (
+    id             SERIAL PRIMARY KEY,
+    producto_id    INTEGER        NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+    unidad_medida  VARCHAR(50)    NOT NULL,
+    abreviacion    VARCHAR(20),
+    cantidad       INTEGER        NOT NULL,
+    precio_venta   DECIMAL(10,2)  NOT NULL,
+    created_at     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_producto_precios_unidad_producto ON producto_precios_unidad(producto_id);
+
 CREATE TABLE IF NOT EXISTS clientes (
     id         SERIAL PRIMARY KEY,
     nombres    VARCHAR(150) NOT NULL,

@@ -243,6 +243,10 @@ include '../../includes/header.php';
                 </div>
             </div>
         </div>
+        <div id="pv-precios-unidad-wrap" style="display:none;padding:0 20px 20px">
+            <div style="font-weight:700;font-size:.85rem;margin-bottom:6px">Precios por unidad de medida:</div>
+            <div id="pv-precios-unidad"></div>
+        </div>
     </div>
 </div>
 
@@ -528,6 +532,71 @@ include '../../includes/header.php';
         </div>
     </div><!-- /card Información de Medicamentos -->
 
+    <!-- ── Card: Precios por unidad de medida ── -->
+    <div class="card" style="margin-top:20px">
+        <div class="card-header">
+            <div>
+                <div class="card-title">
+                    <i class="fas fa-boxes-stacked" style="color:var(--primary);margin-right:8px"></i>Precios por unidad de medidas
+                </div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">Agrega varios precios a tus productos</div>
+            </div>
+        </div>
+        <div style="padding:20px">
+            <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+                <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                        Unidad de medida
+                        <button type="button" onclick="toggleNuevaUnidadMedida()"
+                                style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;font-weight:600">
+                            <i class="fas fa-plus-circle"></i> Nueva
+                        </button>
+                    </label>
+                    <select id="pu-unidad-select" class="form-control"></select>
+                    <div id="nueva-unidad-medida-form" style="display:none;margin-top:8px">
+                        <div style="display:flex;gap:6px">
+                            <input type="text" id="nueva-unidad-medida-nombre" class="form-control"
+                                   placeholder="Ej: SACHET"
+                                   style="flex:1;font-size:.85rem"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();guardarNuevaUnidadMedida();}
+                                              if(event.key==='Escape'){toggleNuevaUnidadMedida();}">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="guardarNuevaUnidadMedida()" title="Agregar">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleNuevaUnidadMedida()" title="Cancelar">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="agregarPrecioUnidad()" style="margin-bottom:0">
+                    <i class="fas fa-plus"></i> Agregar precio
+                </button>
+            </div>
+
+            <div class="table-wrap" style="margin-top:16px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Unidad de medida</th>
+                            <th>Abreviación</th>
+                            <th class="text-right" style="width:110px">Cantidad</th>
+                            <th class="text-right" style="width:120px">Precio (S/)</th>
+                            <th style="width:40px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="precios-unidad-body">
+                        <tr id="precios-unidad-empty">
+                            <td colspan="5" style="text-align:center;padding:20px;color:var(--text-light)">
+                                Sin precios por unidad de medida configurados
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Botones -->
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-bottom:8px">
         <button class="btn btn-outline" onclick="cerrarTabProducto()">
@@ -696,6 +765,8 @@ let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
 let tabAnterior = 'inventario';
 let productoEnVista = null;
+let unidadesMedidaCatalogo = [];
+let preciosUnidadEditando = [];
 
 // Paginación
 let allProductos = [];
@@ -744,6 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(() => {
         showToast('No se pudieron cargar los catalogos de facturacion', 'error');
     });
+    cargarUnidadesMedidaCatalogo();
     setupSearch();
     setupCatSearch();
     setupTipoAjuste();
@@ -1080,11 +1152,136 @@ function verProducto(producto) {
             <span style="font-weight:400;font-size:.85rem">${valor ?? '—'}</span>
         </div>`).join('');
 
+    const puWrap = document.getElementById('pv-precios-unidad-wrap');
+    puWrap.style.display = 'none';
+    fetch(BASE + `modules/inventario/api.php?action=precios_unidad_listar&producto_id=${producto.id}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.length) return;
+            puWrap.style.display = '';
+            document.getElementById('pv-precios-unidad').innerHTML = data.map(p => `
+                <div style="display:flex;gap:6px;padding:3px 0">
+                    <span style="font-weight:400;font-size:.85rem">${p.unidad_medida}${p.abreviacion ? ' (' + p.abreviacion + ')' : ''} x${p.cantidad}:</span>
+                    <span style="font-weight:400;font-size:.85rem">S/ ${parseFloat(p.precio_venta).toFixed(2)}</span>
+                </div>`).join('');
+        })
+        .catch(() => {});
+
     switchTab('producto-vista');
+}
+
+// ---- Precios por unidad de medida ----
+function cargarUnidadesMedidaCatalogo() {
+    return fetch(BASE + 'modules/inventario/api.php?action=unidades_medida_listar')
+        .then(r => r.json())
+        .then(data => {
+            unidadesMedidaCatalogo = data || [];
+            const select = document.getElementById('pu-unidad-select');
+            select.innerHTML = unidadesMedidaCatalogo.map(u => `<option value="${u.nombre}">${u.nombre}</option>`).join('');
+        });
+}
+
+function toggleNuevaUnidadMedida() {
+    const form = document.getElementById('nueva-unidad-medida-form');
+    const abrir = form.style.display === 'none';
+    form.style.display = abrir ? 'block' : 'none';
+    if (abrir) {
+        document.getElementById('nueva-unidad-medida-nombre').value = '';
+        setTimeout(() => document.getElementById('nueva-unidad-medida-nombre').focus(), 50);
+    }
+}
+
+function guardarNuevaUnidadMedida() {
+    const nombre = document.getElementById('nueva-unidad-medida-nombre').value.trim();
+    if (!nombre) { showToast('El nombre es requerido', 'error'); return; }
+
+    fetch(BASE + 'modules/inventario/api.php?action=unidad_medida_crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre }),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error) { showToast(d.message, 'error'); return; }
+        toggleNuevaUnidadMedida();
+        cargarUnidadesMedidaCatalogo().then(() => {
+            document.getElementById('pu-unidad-select').value = d.nombre;
+        });
+        showToast('Unidad de medida creada', 'success');
+    })
+    .catch(() => showToast('Error al crear la unidad de medida', 'error'));
+}
+
+function agregarPrecioUnidad() {
+    const unidad = document.getElementById('pu-unidad-select').value;
+    if (!unidad) { showToast('Selecciona una unidad de medida', 'error'); return; }
+
+    preciosUnidadEditando.push({ unidad_medida: unidad, abreviacion: '', cantidad: '', precio_venta: '' });
+    renderPreciosUnidadEditor();
+}
+
+function eliminarPrecioUnidad(idx) {
+    preciosUnidadEditando.splice(idx, 1);
+    renderPreciosUnidadEditor();
+}
+
+function actualizarPrecioUnidad(idx, campo, valor) {
+    preciosUnidadEditando[idx][campo] = valor;
+}
+
+function renderPreciosUnidadEditor() {
+    const tbody = document.getElementById('precios-unidad-body');
+    const empty = document.getElementById('precios-unidad-empty');
+    tbody.querySelectorAll('.precio-unidad-row').forEach(r => r.remove());
+
+    if (!preciosUnidadEditando.length) {
+        empty.style.display = '';
+        return;
+    }
+    empty.style.display = 'none';
+
+    preciosUnidadEditando.forEach((p, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = 'precio-unidad-row';
+        tr.innerHTML = `
+            <td style="font-weight:600">${p.unidad_medida}</td>
+            <td>
+                <input type="text" value="${p.abreviacion ?? ''}" placeholder="Ej: BLS"
+                    style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                    oninput="actualizarPrecioUnidad(${idx}, 'abreviacion', this.value)">
+            </td>
+            <td class="text-right">
+                <input type="number" value="${p.cantidad ?? ''}" min="1" placeholder="0"
+                    style="width:90px;text-align:right;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                    oninput="actualizarPrecioUnidad(${idx}, 'cantidad', this.value)">
+            </td>
+            <td class="text-right">
+                <input type="number" value="${p.precio_venta ?? ''}" min="0" step="0.01" placeholder="0.00"
+                    style="width:100px;text-align:right;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem"
+                    oninput="actualizarPrecioUnidad(${idx}, 'precio_venta', this.value)">
+            </td>
+            <td>
+                <button type="button" onclick="eliminarPrecioUnidad(${idx})"
+                    style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 6px;font-size:.9rem">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>`;
+        tbody.insertBefore(tr, empty);
+    });
 }
 
 function openProductoModal(producto = null) {
     editingId = producto ? producto.id : null;
+
+    if (editingId) {
+        fetch(BASE + `modules/inventario/api.php?action=precios_unidad_listar&producto_id=${editingId}`)
+            .then(r => r.json())
+            .then(data => { preciosUnidadEditando = data || []; renderPreciosUnidadEditor(); })
+            .catch(() => { preciosUnidadEditando = []; renderPreciosUnidadEditor(); });
+    } else {
+        preciosUnidadEditando = [];
+        renderPreciosUnidadEditor();
+    }
 
     // Recordar desde qué tab se abrió para poder volver
     if (document.getElementById('tab-producto-vista').style.display !== 'none') {
@@ -1195,6 +1392,14 @@ function saveProducto() {
         requiere_receta:    document.getElementById('p-receta').checked,
         favorito:           document.getElementById('p-favorito').checked,
         fecha_vencimiento:  document.getElementById('p-fecha-vencimiento').value || null,
+        precios_unidad: preciosUnidadEditando
+            .filter(p => (p.unidad_medida || '').trim() && parseInt(p.cantidad) > 0 && parseFloat(p.precio_venta) > 0)
+            .map(p => ({
+                unidad_medida: p.unidad_medida.trim(),
+                abreviacion: (p.abreviacion || '').trim(),
+                cantidad: parseInt(p.cantidad),
+                precio_venta: parseFloat(p.precio_venta),
+            })),
     };
 
     const action = editingId ? 'actualizar' : 'crear';

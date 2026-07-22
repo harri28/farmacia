@@ -48,6 +48,32 @@ function resolverCatalogosProducto(PDO $db, string $unidadCodigo, string $afecta
     ];
 }
 
+function guardarPreciosUnidadProducto(PDO $db, int $productoId, array $precios): void
+{
+    $db->prepare("DELETE FROM producto_precios_unidad WHERE producto_id = :pid")
+       ->execute([':pid' => $productoId]);
+
+    $stmt = $db->prepare("
+        INSERT INTO producto_precios_unidad (producto_id, unidad_medida, abreviacion, cantidad, precio_venta)
+        VALUES (:pid, :unidad, :abrev, :cantidad, :precio)
+    ");
+    foreach ($precios as $p) {
+        $unidad = trim($p['unidad_medida'] ?? '');
+        $cantidad = intval($p['cantidad'] ?? 0);
+        $precio = floatval($p['precio_venta'] ?? 0);
+        if ($unidad === '' || $cantidad <= 0 || $precio <= 0) {
+            continue;
+        }
+        $stmt->execute([
+            ':pid' => $productoId,
+            ':unidad' => $unidad,
+            ':abrev' => trim($p['abreviacion'] ?? '') ?: null,
+            ':cantidad' => $cantidad,
+            ':precio' => $precio,
+        ]);
+    }
+}
+
 try {
 
 switch ($action) {
@@ -295,6 +321,9 @@ switch ($action) {
             ':fvenc' => $data['fecha_vencimiento'] ?: null,
         ]);
         $id = $stmt->fetch()['id'];
+        if (!empty($data['precios_unidad']) && is_array($data['precios_unidad'])) {
+            guardarPreciosUnidadProducto($db, $id, $data['precios_unidad']);
+        }
         jsonResponse(['error' => false, 'message' => 'Producto creado correctamente', 'id' => $id]);
 
     case 'actualizar':
@@ -372,7 +401,45 @@ switch ($action) {
             ':favorito' => !empty($data['favorito']) ? 'TRUE' : 'FALSE',
             ':fvenc' => $data['fecha_vencimiento'] ?: null,
         ]);
+        guardarPreciosUnidadProducto($db, $id, is_array($data['precios_unidad'] ?? null) ? $data['precios_unidad'] : []);
         jsonResponse(['error' => false, 'message' => 'Producto actualizado correctamente']);
+
+    case 'unidades_medida_listar':
+        $rows = $db->query("SELECT id, nombre FROM unidades_medida_venta ORDER BY nombre")->fetchAll();
+        echo json_encode($rows);
+        break;
+
+    case 'unidad_medida_crear':
+        $data   = json_decode(file_get_contents('php://input'), true);
+        $nombre = strtoupper(trim($data['nombre'] ?? ''));
+        if (!$nombre) {
+            jsonResponse(['error' => true, 'message' => 'El nombre es requerido'], 400);
+        }
+
+        $check = $db->prepare("SELECT id FROM unidades_medida_venta WHERE nombre = :nombre");
+        $check->execute([':nombre' => $nombre]);
+        if ($check->fetch()) {
+            jsonResponse(['error' => true, 'message' => 'Ya existe esa unidad de medida'], 409);
+        }
+
+        $stmt = $db->prepare("INSERT INTO unidades_medida_venta (nombre) VALUES (:nombre) RETURNING id, nombre");
+        $stmt->execute([':nombre' => $nombre]);
+        $u = $stmt->fetch();
+        jsonResponse(['error' => false, 'message' => 'Unidad de medida creada', 'id' => $u['id'], 'nombre' => $u['nombre']]);
+
+    case 'precios_unidad_listar':
+        $productoId = intval($_GET['producto_id'] ?? 0);
+        if (!$productoId) { echo json_encode([]); break; }
+
+        $stmt = $db->prepare("
+            SELECT id, unidad_medida, abreviacion, cantidad, precio_venta
+            FROM producto_precios_unidad
+            WHERE producto_id = :pid
+            ORDER BY cantidad ASC
+        ");
+        $stmt->execute([':pid' => $productoId]);
+        echo json_encode($stmt->fetchAll());
+        break;
 
     case 'ajustar_stock':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden ajustar stock manualmente'], 403);
