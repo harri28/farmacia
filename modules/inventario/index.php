@@ -1218,6 +1218,12 @@ function agregarPrecioUnidad() {
     const unidad = select.value;
     if (!unidad) return;
 
+    if (preciosUnidadEditando.some(p => p.unidad_medida === unidad)) {
+        showToast('Esa unidad de medida ya está configurada para este producto', 'error');
+        select.value = '';
+        return;
+    }
+
     preciosUnidadEditando.push({ unidad_medida: unidad, abreviacion: '', cantidad: '', precio_venta: '' });
     renderPreciosUnidadEditor();
     select.value = '';
