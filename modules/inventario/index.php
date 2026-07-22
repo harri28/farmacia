@@ -552,7 +552,9 @@ include '../../includes/header.php';
                             <i class="fas fa-plus-circle"></i> Nueva
                         </button>
                     </label>
-                    <select id="pu-unidad-select" class="form-control"></select>
+                    <select id="pu-unidad-select" class="form-control" onchange="agregarPrecioUnidad()">
+                        <option value="">Seleccione</option>
+                    </select>
                     <div id="nueva-unidad-medida-form" style="display:none;margin-top:8px">
                         <div style="display:flex;gap:6px">
                             <input type="text" id="nueva-unidad-medida-nombre" class="form-control"
@@ -569,9 +571,6 @@ include '../../includes/header.php';
                         </div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="agregarPrecioUnidad()" style="margin-bottom:0">
-                    <i class="fas fa-plus"></i> Agregar precio
-                </button>
             </div>
 
             <div class="table-wrap" style="margin-top:16px">
@@ -1177,7 +1176,8 @@ function cargarUnidadesMedidaCatalogo() {
         .then(data => {
             unidadesMedidaCatalogo = data || [];
             const select = document.getElementById('pu-unidad-select');
-            select.innerHTML = unidadesMedidaCatalogo.map(u => `<option value="${u.nombre}">${u.nombre}</option>`).join('');
+            select.innerHTML = '<option value="">Seleccione</option>' +
+                unidadesMedidaCatalogo.map(u => `<option value="${u.nombre}">${u.nombre}</option>`).join('');
         });
 }
 
@@ -1206,6 +1206,7 @@ function guardarNuevaUnidadMedida() {
         toggleNuevaUnidadMedida();
         cargarUnidadesMedidaCatalogo().then(() => {
             document.getElementById('pu-unidad-select').value = d.nombre;
+            agregarPrecioUnidad();
         });
         showToast('Unidad de medida creada', 'success');
     })
@@ -1213,11 +1214,13 @@ function guardarNuevaUnidadMedida() {
 }
 
 function agregarPrecioUnidad() {
-    const unidad = document.getElementById('pu-unidad-select').value;
-    if (!unidad) { showToast('Selecciona una unidad de medida', 'error'); return; }
+    const select = document.getElementById('pu-unidad-select');
+    const unidad = select.value;
+    if (!unidad) return;
 
     preciosUnidadEditando.push({ unidad_medida: unidad, abreviacion: '', cantidad: '', precio_venta: '' });
     renderPreciosUnidadEditor();
+    select.value = '';
 }
 
 function eliminarPrecioUnidad(idx) {
