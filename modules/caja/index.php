@@ -171,7 +171,8 @@ include '../../includes/header.php';
             <div class="stat-icon" style="background:rgba(255,255,255,.2);color:#fff"><i class="fas fa-cash-register"></i></div>
             <div>
                 <div class="stat-value" style="color:#fff"><?= intval($ventas['count']) ?></div>
-                <div class="stat-label" style="color:rgba(255,255,255,.85)">Ventas del turno</div>
+                <div class="stat-label" style="color:rgba(255,255,255,.85)">Reporte de Ventas</div>
+                <div style="font-size:.68rem;color:rgba(255,255,255,.7);margin-top:2px">clic para imprimir</div>
             </div>
         </div>
     </div>
