@@ -167,11 +167,11 @@ include '../../includes/header.php';
 <!-- Stats del turno -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-lg">
-        <div class="stat-card" style="cursor:pointer" onclick="abrirReporteCaja()" title="Ver reporte de caja imprimible">
-            <div class="stat-icon blue"><i class="fas fa-cash-register"></i></div>
+        <div class="stat-card" style="cursor:pointer;background:linear-gradient(135deg, var(--primary), var(--primary-dark));border-color:transparent" onclick="abrirReporteCaja()" title="Ver reporte de caja imprimible">
+            <div class="stat-icon" style="background:rgba(255,255,255,.2);color:#fff"><i class="fas fa-cash-register"></i></div>
             <div>
-                <div class="stat-value"><?= intval($ventas['count']) ?></div>
-                <div class="stat-label">Ventas del turno</div>
+                <div class="stat-value" style="color:#fff"><?= intval($ventas['count']) ?></div>
+                <div class="stat-label" style="color:rgba(255,255,255,.85)">Ventas del turno</div>
             </div>
         </div>
     </div>
