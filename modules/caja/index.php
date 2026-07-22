@@ -121,6 +121,20 @@ include '../../includes/header.php';
     }
     $saldo_esperado = floatval($caja['saldo_inicial']) + floatval($ventas['total']) + $ingresos_adic - $egresos;
     $apertura_dt    = new DateTime($caja['apertura_at']);
+
+    // Desglose por metodo de pago del turno (lee payment_breakdown, cubre
+    // pagos simples y divididos; el credito no aporta porque queda vacio)
+    $metodos_stmt = $db->prepare("
+        SELECT elem->>'method' AS metodo, COALESCE(SUM((elem->>'amount')::numeric), 0) AS total
+        FROM ventas v
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(v.payment_breakdown, '[]'::jsonb)) AS elem
+        WHERE v.caja_id = :id AND v.estado = 'completada'
+        GROUP BY elem->>'method'
+        ORDER BY total DESC
+    ");
+    $metodos_stmt->execute([':id' => $caja['id']]);
+    $metodos_pago_turno = $metodos_stmt->fetchAll();
+    $METODO_PAGO_LABELS = ['efectivo' => 'Efectivo', 'yape' => 'Yape', 'plin' => 'Plin', 'tarjeta' => 'Tarjeta', 'transferencia' => 'Transferencia'];
 ?>
 
 <!-- ============================================================
@@ -166,7 +180,7 @@ include '../../includes/header.php';
             <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
             <div>
                 <div class="stat-value">S/ <?= number_format(floatval($ventas['total']), 2) ?></div>
-                <div class="stat-label">Ingresos por ventas</div>
+                <div class="stat-label">Ventas Totales</div>
             </div>
         </div>
     </div>
@@ -198,6 +212,20 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
+<?php if (!empty($metodos_pago_turno)): ?>
+<!-- Detalle por metodo de pago del turno -->
+<div class="row g-3 mb-4">
+    <?php foreach ($metodos_pago_turno as $mp): ?>
+    <div class="col-6 col-md-4 col-lg">
+        <div style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;font-size:.85rem;background:var(--surface-2)">
+            <span style="color:var(--text-muted)"><?= htmlspecialchars($METODO_PAGO_LABELS[$mp['metodo']] ?? ucfirst($mp['metodo'])) ?></span>
+            <span style="font-weight:700">S/ <?= number_format(floatval($mp['total']), 2) ?></span>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
 
 <div class="row g-4 align-items-start">
 
