@@ -19,6 +19,16 @@ include '../../includes/header.php';
 ?>
 
 <style>
+/* Quita las flechas de incremento/decremento de los inputs numéricos
+   de la tabla de "Nuevo Ingreso" (Cantidad, P. Compra, P. Venta) */
+#n-lineas-body input[type="number"]::-webkit-outer-spin-button,
+#n-lineas-body input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#n-lineas-body input[type="number"] {
+    -moz-appearance: textfield;
+}
 .alm-tabs {
     display: flex;
     gap: 6px;
