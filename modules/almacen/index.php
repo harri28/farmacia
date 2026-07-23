@@ -20,13 +20,16 @@ include '../../includes/header.php';
 
 <style>
 /* Quita las flechas de incremento/decremento de los inputs numéricos
-   de la tabla de "Nuevo Ingreso" (Cantidad, P. Compra, P. Venta) */
+   de las tablas de "Nuevo Ingreso" y "Nueva Salida" (Cantidad, Precios) */
 #n-lineas-body input[type="number"]::-webkit-outer-spin-button,
-#n-lineas-body input[type="number"]::-webkit-inner-spin-button {
+#n-lineas-body input[type="number"]::-webkit-inner-spin-button,
+#s-lineas-body input[type="number"]::-webkit-outer-spin-button,
+#s-lineas-body input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
-#n-lineas-body input[type="number"] {
+#n-lineas-body input[type="number"],
+#s-lineas-body input[type="number"] {
     -moz-appearance: textfield;
 }
 .alm-tabs {
@@ -913,7 +916,11 @@ function addSalidaLinea(p) {
 function updateSalidaLinea(idx, field, value) {
     if (field === 'cantidad')       salidaLines[idx].cantidad       = Math.max(0.01, parseFloat(value) || 1);
     if (field === 'costo_unitario') salidaLines[idx].costo_unitario = Math.max(0, parseFloat(value) || 0);
-    renderSalidaLineas();
+
+    const sub = salidaLines[idx].cantidad * salidaLines[idx].costo_unitario;
+    const subtotalCell = document.querySelector(`.salida-subtotal[data-idx="${idx}"]`);
+    if (subtotalCell) subtotalCell.textContent = 'S/ ' + sub.toFixed(2);
+
     calcularTotalSalida();
 }
 
@@ -945,7 +952,7 @@ function renderSalidaLineas() {
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateSalidaLinea(${idx},'costo_unitario',this.value)">
             </td>
-            <td class="text-right" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
+            <td class="text-right salida-subtotal" data-idx="${idx}" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
             <td>
                 <button onclick="removeSalidaLinea(${idx})"
                     style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 6px;font-size:.9rem">
