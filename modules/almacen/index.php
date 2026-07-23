@@ -1279,7 +1279,11 @@ function updateLinea(idx, field, value) {
     if (field === 'cantidad')        lines[idx].cantidad        = Math.max(0.01, parseFloat(value) || 1);
     if (field === 'precio_unitario') lines[idx].precio_unitario = parseFloat(value) || 0;
     if (field === 'precio_venta')    lines[idx].precio_venta    = parseFloat(value) || 0;
-    renderLineas();
+
+    const sub = lines[idx].cantidad * lines[idx].precio_unitario;
+    const subtotalCell = document.querySelector(`.linea-subtotal[data-idx="${idx}"]`);
+    if (subtotalCell) subtotalCell.textContent = 'S/ ' + sub.toFixed(2);
+
     calcularTotales();
 }
 
@@ -1316,7 +1320,7 @@ function renderLineas() {
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateLinea(${idx},'precio_venta',this.value)">
             </td>
-            <td class="text-right" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
+            <td class="text-right linea-subtotal" data-idx="${idx}" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
             <td>
                 <button onclick="removeLinea(${idx})"
                     style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px 6px;font-size:.9rem">
