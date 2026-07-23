@@ -794,8 +794,7 @@ function rptRenderSummary(totalDocs, totalAmount) {
         s.className = 'tabla-summary';
         document.querySelector('#pane-reporte .table-wrap')?.insertAdjacentElement('afterend', s);
     }
-    s.innerHTML = `<div class="summary-pill"><span class="summary-label">Comprobantes</span><strong>${totalDocs}</strong></div>
-        <div class="summary-pill"><span class="summary-label">Total emitido</span><strong>S/ ${Number(totalAmount||0).toFixed(2)}</strong></div>`;
+    s.innerHTML = `<div class="summary-pill"><span class="summary-label">Comprobantes</span><strong>${totalDocs}</strong></div>`;
 }
 
 function rptShortSunat(rawStatus, responseCode = null) {
