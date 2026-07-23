@@ -255,10 +255,10 @@ CREATE TABLE IF NOT EXISTS public.orden_traslado_detalles (
     traslado_id             INTEGER NOT NULL REFERENCES public.ordenes_traslado(id) ON DELETE CASCADE,
     producto_codigo         VARCHAR(50) NOT NULL,
     producto_nombre         VARCHAR(200) NOT NULL,
-    cantidad                INTEGER NOT NULL,
+    cantidad                DECIMAL(10,2) NOT NULL,
     costo_unitario          DECIMAL(10,2) DEFAULT 0,
-    stock_origen_snapshot   INTEGER DEFAULT 0,
-    stock_destino_snapshot  INTEGER DEFAULT 0,
+    stock_origen_snapshot   DECIMAL(10,2) DEFAULT 0,
+    stock_destino_snapshot  DECIMAL(10,2) DEFAULT 0,
     observaciones           TEXT,
     created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_orden_traslado_detalles_cantidad

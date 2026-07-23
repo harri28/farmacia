@@ -266,7 +266,7 @@ switch ($action) {
 
             foreach ($items as $item) {
                 $codigo = trim((string) ($item['codigo'] ?? ''));
-                $cantidad = (int) ($item['cantidad'] ?? 0);
+                $cantidad = (float) ($item['cantidad'] ?? 0);
                 $costo = round((float) ($item['costo_unitario'] ?? 0), 2);
                 if ($codigo === '' || $cantidad <= 0) {
                     throw new Exception('Todos los productos deben tener código y cantidad válida.');
@@ -290,8 +290,8 @@ switch ($action) {
                     ':nombre' => $productoOrigen['nombre'],
                     ':cantidad' => $cantidad,
                     ':costo' => $costo > 0 ? $costo : (float) ($productoOrigen['precio_compra'] ?? 0),
-                    ':stock_origen' => (int) ($productoOrigen['stock'] ?? 0),
-                    ':stock_destino' => (int) ($productoDestino['stock'] ?? 0),
+                    ':stock_origen' => (float) ($productoOrigen['stock'] ?? 0),
+                    ':stock_destino' => (float) ($productoDestino['stock'] ?? 0),
                     ':observaciones' => trim((string) ($item['observaciones'] ?? '')) ?: null,
                 ]);
             }
@@ -340,7 +340,7 @@ switch ($action) {
                 if (!$producto) {
                     throw new Exception("No se encontró el producto {$item['producto_codigo']} en origen.");
                 }
-                if ((int) $producto['stock'] < (int) $item['cantidad']) {
+                if ((float) $producto['stock'] < (float) $item['cantidad']) {
                     throw new Exception("Stock insuficiente para {$item['producto_nombre']} (disponible: {$producto['stock']}).");
                 }
 
@@ -351,7 +351,7 @@ switch ($action) {
                     WHERE codigo = :codigo
                 ");
                 $upd->execute([
-                    ':cantidad' => (int) $item['cantidad'],
+                    ':cantidad' => (float) $item['cantidad'],
                     ':codigo' => $item['producto_codigo'],
                 ]);
             }
@@ -416,7 +416,7 @@ switch ($action) {
                     WHERE codigo = :codigo
                 ");
                 $upd->execute([
-                    ':cantidad' => (int) $item['cantidad'],
+                    ':cantidad' => (float) $item['cantidad'],
                     ':costo' => round((float) ($item['costo_unitario'] ?? 0), 2),
                     ':codigo' => $item['producto_codigo'],
                 ]);
@@ -474,7 +474,7 @@ switch ($action) {
                             updated_at = NOW()
                         WHERE codigo = :codigo
                     ")->execute([
-                        ':cantidad' => (int) $item['cantidad'],
+                        ':cantidad' => (float) $item['cantidad'],
                         ':codigo' => $item['producto_codigo'],
                     ]);
                 }

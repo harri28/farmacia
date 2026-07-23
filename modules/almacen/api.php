@@ -287,7 +287,7 @@ switch ($action) {
             $ingresoId = $stmt->fetch()['id'];
 
             foreach ($data['items'] as $item) {
-                $qty    = intval($item['cantidad']);
+                $qty    = floatval($item['cantidad']);
                 $precio = floatval($item['precio_unitario']);
                 $sub    = $qty * $precio;
                 $pid    = intval($item['producto_id']);
@@ -421,7 +421,7 @@ switch ($action) {
             // Verificar stock suficiente antes de descontar nada
             foreach ($data['items'] as $item) {
                 $pid = intval($item['producto_id']);
-                $qty = intval($item['cantidad']);
+                $qty = floatval($item['cantidad']);
                 $prod = $db->prepare("SELECT nombre, stock FROM productos WHERE id = :id AND activo = TRUE");
                 $prod->execute([':id' => $pid]);
                 $p = $prod->fetch();
@@ -452,7 +452,7 @@ switch ($action) {
 
             foreach ($data['items'] as $item) {
                 $pid    = intval($item['producto_id']);
-                $qty    = intval($item['cantidad']);
+                $qty    = floatval($item['cantidad']);
                 $costo  = floatval($item['costo_unitario'] ?? 0);
                 $sub    = $qty * $costo;
 

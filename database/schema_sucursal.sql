@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS productos (
     categoria_id     INTEGER        REFERENCES categorias(id),
     precio_compra    DECIMAL(10,3)  DEFAULT 0,
     precio_venta     DECIMAL(10,2)  NOT NULL,
-    stock            INTEGER        DEFAULT 0,
-    stock_minimo     INTEGER        DEFAULT 5,
+    stock            DECIMAL(10,2)  DEFAULT 0,
+    stock_minimo     DECIMAL(10,2)  DEFAULT 5,
     unidad           VARCHAR(50)    DEFAULT 'unidad',
     laboratorio      VARCHAR(100),
     presentacion     VARCHAR(100),
@@ -107,14 +107,16 @@ CREATE TABLE IF NOT EXISTS ventas (
 );
 
 CREATE TABLE IF NOT EXISTS venta_detalles (
-    id              SERIAL PRIMARY KEY,
-    venta_id        INTEGER       REFERENCES ventas(id) ON DELETE CASCADE,
-    producto_id     INTEGER       REFERENCES productos(id),
-    cantidad        INTEGER       NOT NULL,
-    precio_unitario DECIMAL(10,2) NOT NULL,
-    descuento       DECIMAL(10,2) DEFAULT 0,
-    subtotal        DECIMAL(10,2) NOT NULL,
-    created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+    id                     SERIAL PRIMARY KEY,
+    venta_id               INTEGER       REFERENCES ventas(id) ON DELETE CASCADE,
+    producto_id            INTEGER       REFERENCES productos(id),
+    cantidad               DECIMAL(10,2) NOT NULL,
+    precio_unitario        DECIMAL(10,2) NOT NULL,
+    descuento              DECIMAL(10,2) DEFAULT 0,
+    subtotal               DECIMAL(10,2) NOT NULL,
+    unidad_medida_vendida  VARCHAR(50),        -- NULL = unidad base del producto
+    factor_equivalencia    DECIMAL(10,2) DEFAULT 1,  -- unidades base que representa 1 "cantidad" de esta linea
+    created_at             TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS proveedores (
@@ -145,7 +147,7 @@ CREATE TABLE IF NOT EXISTS ingreso_detalles (
     id              SERIAL PRIMARY KEY,
     ingreso_id      INTEGER       REFERENCES ingresos(id) ON DELETE CASCADE,
     producto_id     INTEGER       REFERENCES productos(id),
-    cantidad        INTEGER       NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL,
     precio_unitario DECIMAL(10,2) NOT NULL,
     subtotal        DECIMAL(10,2) NOT NULL,
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
@@ -167,7 +169,7 @@ CREATE TABLE IF NOT EXISTS salida_detalles (
     id              SERIAL PRIMARY KEY,
     salida_id       INTEGER       REFERENCES salidas(id) ON DELETE CASCADE,
     producto_id     INTEGER       REFERENCES productos(id),
-    cantidad        INTEGER       NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL,
     costo_unitario  DECIMAL(10,2) NOT NULL DEFAULT 0,
     subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
@@ -237,7 +239,7 @@ CREATE TABLE IF NOT EXISTS orden_compra_detalles (
     orden_id        INTEGER       NOT NULL REFERENCES ordenes_compra(id) ON DELETE CASCADE,
     producto_id     INTEGER       REFERENCES productos(id),
     descripcion     VARCHAR(200),
-    cantidad        INTEGER       NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL,
     precio_unitario DECIMAL(10,2) NOT NULL,
     subtotal        DECIMAL(10,2) NOT NULL
 );

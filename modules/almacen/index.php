@@ -908,14 +908,14 @@ function addSalidaLinea(p) {
     if (existing >= 0) {
         salidaLines[existing].cantidad++;
     } else {
-        salidaLines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, stock_disponible: parseInt(p.stock), cantidad: 1, costo_unitario: parseFloat(p.precio_compra) || 0 });
+        salidaLines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, stock_disponible: parseFloat(p.stock), cantidad: 1, costo_unitario: parseFloat(p.precio_compra) || 0 });
     }
     renderSalidaLineas();
     calcularTotalSalida();
 }
 
 function updateSalidaLinea(idx, field, value) {
-    if (field === 'cantidad')       salidaLines[idx].cantidad       = Math.max(1, parseInt(value) || 1);
+    if (field === 'cantidad')       salidaLines[idx].cantidad       = Math.max(0.01, parseFloat(value) || 1);
     if (field === 'costo_unitario') salidaLines[idx].costo_unitario = Math.max(0, parseFloat(value) || 0);
     renderSalidaLineas();
     calcularTotalSalida();
@@ -938,7 +938,7 @@ function renderSalidaLineas() {
             <td style="font-size:.8rem;color:var(--text-muted);font-family:monospace">${l.codigo}</td>
             <td style="font-weight:500;font-size:.88rem">${l.nombre}${excedeStock ? `<div style="color:var(--danger);font-size:.75rem">Stock disponible: ${l.stock_disponible}</div>` : ''}</td>
             <td class="text-right">
-                <input type="number" value="${l.cantidad}" min="1"
+                <input type="number" value="${l.cantidad}" min="0.01" step="0.01"
                     style="width:72px;text-align:right;padding:5px 7px;border:1px solid ${excedeStock ? 'var(--danger)' : 'var(--border)'};
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateSalidaLinea(${idx},'cantidad',this.value)">
@@ -1013,9 +1013,9 @@ function loadAlmacenStock() {
         .then(r => r.json())
         .then(data => {
             let items = data;
-            if (filtro === 'disponible') items = data.filter(p => parseInt(p.stock) > parseInt(p.stock_minimo || 0));
-            if (filtro === 'bajo')       items = data.filter(p => parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo || 0));
-            if (filtro === 'sin')        items = data.filter(p => parseInt(p.stock) <= 0);
+            if (filtro === 'disponible') items = data.filter(p => parseFloat(p.stock) > parseFloat(p.stock_minimo || 0));
+            if (filtro === 'bajo')       items = data.filter(p => parseFloat(p.stock) > 0 && parseFloat(p.stock) <= parseFloat(p.stock_minimo || 0));
+            if (filtro === 'sin')        items = data.filter(p => parseFloat(p.stock) <= 0);
 
             counter.textContent = items.length + ' producto(s)';
 
@@ -1024,8 +1024,8 @@ function loadAlmacenStock() {
                 return;
             }
             tbody.innerHTML = items.map(p => {
-                const stock = parseInt(p.stock);
-                const min   = parseInt(p.stock_minimo || 0);
+                const stock = parseFloat(p.stock);
+                const min   = parseFloat(p.stock_minimo || 0);
                 const badge = stock <= 0
                     ? '<span class="badge badge-danger">Sin stock</span>'
                     : stock <= min
@@ -1276,7 +1276,7 @@ function addLinea(p) {
 }
 
 function updateLinea(idx, field, value) {
-    if (field === 'cantidad')        lines[idx].cantidad        = Math.max(1, parseInt(value) || 1);
+    if (field === 'cantidad')        lines[idx].cantidad        = Math.max(0.01, parseFloat(value) || 1);
     if (field === 'precio_unitario') lines[idx].precio_unitario = parseFloat(value) || 0;
     if (field === 'precio_venta')    lines[idx].precio_venta    = parseFloat(value) || 0;
     renderLineas();
@@ -1299,7 +1299,7 @@ function renderLineas() {
             <td style="font-size:.8rem;color:var(--text-muted);font-family:monospace">${l.codigo}</td>
             <td style="font-weight:500;font-size:.88rem">${l.nombre}</td>
             <td class="text-right">
-                <input type="number" value="${l.cantidad}" min="1"
+                <input type="number" value="${l.cantidad}" min="0.01" step="0.01"
                     style="width:72px;text-align:right;padding:5px 7px;border:1px solid var(--border);
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateLinea(${idx},'cantidad',this.value)">
@@ -1440,7 +1440,7 @@ function loadTraslados(){
                     <td>${esc(r.sucursal_origen)}</td>
                     <td>${esc(r.sucursal_destino)}${pendienteRecibir ? '<div class="pending-hint"><i class="fas fa-hand-holding-box"></i> Pendiente de recibir</div>' : ''}</td>
                     <td>${parseInt(r.total_items||0)}</td>
-                    <td>${parseInt(r.total_unidades||0)}</td>
+                    <td>${parseFloat(r.total_unidades||0)}</td>
                     <td><span class="badge ${badgeTraslado(r.estado)}">${esc(r.estado)}</span></td>
                     <td>${dt.toLocaleDateString('es-PE')}<br><small style="color:var(--text-muted)">${dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</small></td>
                     <td><div class="inline-actions">${acciones.join('')}</div></td>
@@ -1469,8 +1469,8 @@ function renderItemsTraslado(){
     tbody.innerHTML = trasladoItems.map((item, i) => `<tr>
         <td>${esc(item.codigo)}</td>
         <td>${esc(item.nombre)}</td>
-        <td>${parseInt(item.stock||0)}</td>
-        <td><input type="number" min="1" max="${parseInt(item.stock||0)}" value="${parseInt(item.cantidad||1)}" onchange="trasladoItems[${i}].cantidad=parseInt(this.value||1)"></td>
+        <td>${parseFloat(item.stock||0)}</td>
+        <td><input type="number" min="0.01" step="0.01" max="${parseFloat(item.stock||0)}" value="${parseFloat(item.cantidad||1)}" onchange="trasladoItems[${i}].cantidad=parseFloat(this.value||1)"></td>
         <td><input type="number" min="0" step="0.01" value="${parseFloat(item.costo_unitario||0).toFixed(2)}" onchange="trasladoItems[${i}].costo_unitario=parseFloat(this.value||0)"></td>
         <td><button class="btn-del-row" onclick="eliminarItemTraslado(${i})"><i class="fas fa-trash"></i></button></td>
     </tr>`).join('');
@@ -1486,7 +1486,7 @@ function buscarProductosTraslado(q){
         .then(data => {
             if (data.error){ box.innerHTML=`<div class="trs-result-item">${esc(data.message||'Error al buscar')}</div>`; box.style.display='block'; return; }
             if (!data.length){ box.innerHTML='<div class="trs-result-item">Sin resultados</div>'; box.style.display='block'; return; }
-            box.innerHTML = data.map(p=>`<div class="trs-result-item" onclick='agregarProductoTraslado(${JSON.stringify(p).replace(/'/g,"&#39;")})'><strong>${esc(p.codigo)}</strong> — ${esc(p.nombre)}<br><small>Stock: ${parseInt(p.stock||0)} · Costo: S/ ${parseFloat(p.precio_compra||0).toFixed(2)}</small></div>`).join('');
+            box.innerHTML = data.map(p=>`<div class="trs-result-item" onclick='agregarProductoTraslado(${JSON.stringify(p).replace(/'/g,"&#39;")})'><strong>${esc(p.codigo)}</strong> — ${esc(p.nombre)}<br><small>Stock: ${parseFloat(p.stock||0)} · Costo: S/ ${parseFloat(p.precio_compra||0).toFixed(2)}</small></div>`).join('');
             box.style.display = 'block';
         });
 }
@@ -1494,12 +1494,12 @@ function buscarProductosTraslado(q){
 function agregarProductoTraslado(producto){
     const existing = trasladoItems.findIndex(i => i.codigo === producto.codigo);
     if (existing >= 0){
-        const nextQty = parseInt(trasladoItems[existing].cantidad||1) + 1;
-        if (nextQty > parseInt(producto.stock||0)){ showToast('No hay más stock disponible en origen','error'); return; }
+        const nextQty = parseFloat(trasladoItems[existing].cantidad||1) + 1;
+        if (nextQty > parseFloat(producto.stock||0)){ showToast('No hay más stock disponible en origen','error'); return; }
         trasladoItems[existing].cantidad = nextQty;
     } else {
-        if (parseInt(producto.stock||0) <= 0){ showToast('El producto no tiene stock disponible','error'); return; }
-        trasladoItems.push({ producto_id:producto.id, codigo:producto.codigo, nombre:producto.nombre, stock:parseInt(producto.stock||0), cantidad:1, costo_unitario:parseFloat(producto.precio_compra||0) });
+        if (parseFloat(producto.stock||0) <= 0){ showToast('El producto no tiene stock disponible','error'); return; }
+        trasladoItems.push({ producto_id:producto.id, codigo:producto.codigo, nombre:producto.nombre, stock:parseFloat(producto.stock||0), cantidad:1, costo_unitario:parseFloat(producto.precio_compra||0) });
     }
     document.getElementById('trs-producto-buscar').value = '';
     document.getElementById('trs-resultados').style.display = 'none';
@@ -1539,7 +1539,7 @@ async function verDetalleTraslado(id){
         <div style="margin-bottom:12px"><strong>Observaciones:</strong><br>${esc(data.observaciones||'Sin observaciones')}</div>
         <table class="items-table">
             <thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Stock origen</th><th>Stock destino</th></tr></thead>
-            <tbody>${(data.items||[]).map(item=>`<tr><td>${esc(item.producto_codigo)}</td><td>${esc(item.producto_nombre)}</td><td>${parseInt(item.cantidad)}</td><td>${parseInt(item.stock_origen_snapshot||0)}</td><td>${parseInt(item.stock_destino_snapshot||0)}</td></tr>`).join('')}</tbody>
+            <tbody>${(data.items||[]).map(item=>`<tr><td>${esc(item.producto_codigo)}</td><td>${esc(item.producto_nombre)}</td><td>${parseFloat(item.cantidad)}</td><td>${parseFloat(item.stock_origen_snapshot||0)}</td><td>${parseFloat(item.stock_destino_snapshot||0)}</td></tr>`).join('')}</tbody>
         </table>`;
     const actions = [];
     if (data.estado==='borrador' && parseInt(data.sucursal_origen_id)===CURRENT_SUCURSAL_ID){
