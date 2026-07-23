@@ -26,6 +26,7 @@
   - El botón de ajuste rápido (ícono ⚙) en Inventario → tabla de productos.
   - El campo Stock del formulario "Editar Producto" (al crear un producto nuevo, el campo sí es editable por cualquier rol con acceso a Inventario, ya que ahí no hay valor previo que sobrescribir).
 - Estas dos correcciones manuales están pensadas como ajustes puntuales (ej. conteo físico, error de digitación), no como reemplazo del flujo de Ingresos/Salidas de Almacén.
+- **Pendiente de decisión (feedback de cliente, 2026-07-23):** hoy la venta se bloquea si `stock < cantidad` (`ventas/api.php`, acción `registrar_venta`), incluso con stock 0 — aplica a todos los roles por igual. El cliente reporta que el cajero muchas veces no puede actualizar el stock (lo hace la jefa al cierre de turno) y hay productos que se registran tarde, por lo que pide poder vender igual aunque el stock figure en 0. No implementado aún porque permitir stock negativo rompe las alertas actuales de "agotados" (`stock = 0` exacto) y "stock bajo" (`stock > 0 AND stock <= stock_minimo`), que dejarían de detectar esos productos. Opciones a evaluar más adelante: (a) permitir stock negativo y ajustar esas alertas a `stock <= 0`/`stock <= stock_minimo` sin exigir `stock > 0`, (b) agregar una confirmación explícita al vender sin stock en vez de bloquear en silencio, o ambas.
 
 ## Reglas de clientes
 - Existe un cliente por defecto **"Clientes Varios"** (`numero_documento = '00000000'`) para ventas rápidas (tickets/nota de venta) sin identificar al comprador.

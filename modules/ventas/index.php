@@ -1072,7 +1072,7 @@ function loadProducts() {
     fetch(BASE + 'modules/ventas/api.php?action=productos')
         .then(r => r.json())
         .then(data => {
-            allProducts = data.filter(p => parseInt(p.stock) > 0);
+            allProducts = data;
             showAllProducts = false;
             renderProducts(sortProductsSmart(allProducts), GRID_LIMIT);
         })
@@ -1092,11 +1092,14 @@ function renderProducts(products, limit) {
     }
 
     const buildCard = p => {
-        const isLow = parseInt(p.stock) > 0 && parseInt(p.stock) <= parseInt(p.stock_minimo);
-        const cls   = isLow ? 'low-stock' : '';
-        const stockLabel = isLow
-            ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
-            : `<span class="product-stock">Stock: ${p.stock}</span>`;
+        const isOut = parseInt(p.stock) <= 0;
+        const isLow = !isOut && parseInt(p.stock) <= parseInt(p.stock_minimo);
+        const cls   = isOut ? 'out-stock' : (isLow ? 'low-stock' : '');
+        const stockLabel = isOut
+            ? `<span class="product-stock out">Agotado</span>`
+            : (isLow
+                ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
+                : `<span class="product-stock">Stock: ${p.stock}</span>`);
         return `
         <div class="product-card ${cls}" onclick="addToCart(${p.id})" data-id="${p.id}">
             ${p.favorito == 't' ? '<span class="fav-icon"><i class="fas fa-star"></i></span>' : ''}
@@ -2941,8 +2944,12 @@ function setupBarcodeScanner() {
         );
 
         if (product) {
-            addToCart(parseInt(product.id));
-            showToast('<i class="fas fa-barcode"></i> ' + product.nombre, 'success');
+            if (parseInt(product.stock) <= 0) {
+                showToast('<i class="fas fa-exclamation-triangle"></i> ' + product.nombre + ' — sin stock disponible', 'error');
+            } else {
+                addToCart(parseInt(product.id));
+                showToast('<i class="fas fa-barcode"></i> ' + product.nombre, 'success');
+            }
         } else {
             // Código no encontrado: mostrar en búsqueda para que el cajero vea
             document.getElementById('search-input').value = e.detail.code;
