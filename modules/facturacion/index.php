@@ -252,29 +252,6 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-12 col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><i class="fas fa-wallet" style="color:var(--primary)"></i> Por método de pago</div>
-                </div>
-                <div style="padding:0 8px 8px" id="rpt-resumen-pago">
-                    <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><i class="fas fa-file-invoice" style="color:var(--primary)"></i> Por tipo de comprobante</div>
-                </div>
-                <div style="padding:0 8px 8px" id="rpt-resumen-comp">
-                    <div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="card">
         <div class="card-header">
             <div class="card-title">Detalle de ventas</div>
@@ -737,54 +714,7 @@ function rptSetPeriodo(p) {
     rptBuscar();
 }
 
-function rptBuscar() { rptLoadStats(); rptLoadReporte(); }
-
-function rptLoadStats() {
-    document.getElementById('rpt-resumen-pago').innerHTML =
-        '<div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
-    document.getElementById('rpt-resumen-comp').innerHTML =
-        '<div style="padding:20px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
-    fetch(BASE + 'modules/facturacion/api.php?' + rptBuildQuery({ action:'stats' }))
-        .then(r => r.json())
-        .then(d => {
-            const n = v => parseFloat(v||0);
-            const pagos = [
-                { label:'Efectivo',      key:'pago_efectivo',      icon:'money-bill-wave', color:'#16a34a' },
-                { label:'Yape',          key:'pago_yape',          icon:'mobile-alt',      color:'#7c3aed' },
-                { label:'Plin',          key:'pago_plin',          icon:'mobile-alt',      color:'#2563eb' },
-                { label:'Visa/Mastercard', key:'pago_tarjeta',     icon:'credit-card',     color:'#0891b2' },
-                { label:'Transferencia', key:'pago_transferencia', icon:'university',      color:'#d97706' },
-            ];
-            const totP = pagos.reduce((s,p)=>s+n(d[p.key]),0);
-            document.getElementById('rpt-resumen-pago').innerHTML = pagos.filter(p=>n(d[p.key])>0).map(p => {
-                const pct = totP>0 ? (n(d[p.key])/totP*100).toFixed(1) : 0;
-                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)">
-                    <i class="fas fa-${p.icon}" style="color:${p.color};width:16px;text-align:center"></i>
-                    <span style="flex:1;font-size:.85rem;font-weight:500">${p.label}</span>
-                    <div style="width:80px;background:#f1f5f9;border-radius:4px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${p.color};border-radius:4px"></div></div>
-                    <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
-                    <strong style="font-size:.88rem;min-width:80px;text-align:right">S/ ${n(d[p.key]).toFixed(2)}</strong>
-                </div>`;
-            }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
-            const comps = [
-                { label:'Ticket',  key:'comp_ticket',  icon:'receipt',      color:'#64748b' },
-                { label:'Boleta',  key:'comp_boleta',  icon:'file-alt',     color:'#2563eb' },
-                { label:'Factura', key:'comp_factura', icon:'file-invoice', color:'#7c3aed' },
-            ];
-            const totC = comps.reduce((s,c)=>s+parseInt(d[c.key]||0),0);
-            document.getElementById('rpt-resumen-comp').innerHTML = comps.filter(c=>parseInt(d[c.key]||0)>0).map(c => {
-                const cnt = parseInt(d[c.key]||0), pct = totC>0?(cnt/totC*100).toFixed(1):0;
-                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)">
-                    <i class="fas fa-${c.icon}" style="color:${c.color};width:16px;text-align:center"></i>
-                    <span style="flex:1;font-size:.85rem;font-weight:500">${c.label}</span>
-                    <div style="width:80px;background:#f1f5f9;border-radius:4px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${c.color};border-radius:4px"></div></div>
-                    <span style="font-size:.78rem;color:var(--text-muted);width:38px;text-align:right">${pct}%</span>
-                    <strong style="font-size:.88rem;min-width:60px;text-align:right">${cnt} ventas</strong>
-                </div>`;
-            }).join('') || '<p style="padding:16px;color:var(--text-muted);text-align:center;font-size:.85rem">Sin datos para el período</p>';
-        })
-        .catch(() => showToast('Error al cargar estadísticas','error'));
-}
+function rptBuscar() { rptLoadReporte(); }
 
 function rptRenderSummary(totalDocs, totalAmount) {
     let s = document.getElementById('rpt-tabla-summary');
