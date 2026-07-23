@@ -334,11 +334,6 @@ include '../../includes/header.php';
                     <span style="color:var(--success)">S/ <?= number_format($saldo_esperado, 2) ?></span>
                 </div>
             </div>
-
-            <p style="font-size:.82rem;color:var(--text-muted);margin:0">
-                El monto de cierre se registra automáticamente según el total esperado.
-                Cualquier faltante o excedente se resuelve internamente en la empresa.
-            </p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal('modal-cerrar')">Cancelar</button>
