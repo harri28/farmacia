@@ -815,6 +815,19 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- MODAL: Selección de unidad de medida -->
+<div class="modal-overlay" id="modal-unidad-medida">
+    <div class="modal" style="max-width:360px">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-boxes-stacked" style="color:var(--primary);margin-right:8px"></i>Selecciona una equivalencia</h3>
+            <button class="modal-close" onclick="closeModal('modal-unidad-medida')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="unidad-medida-opciones" style="display:flex;flex-direction:column;gap:10px">
+            <!-- poblado por JS -->
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: Nuevo Cliente -->
 <div class="modal-overlay" id="modal-nuevo-cliente">
     <div class="modal" style="max-width:860px;width:min(860px,calc(100vw - 32px))">
@@ -1164,18 +1177,88 @@ function filterProducts(query, catId) {
 }
 
 // ---- Carrito ----
+const _presentacionesCache = {};
+let _productoParaUnidad = null;
+let _presentacionesActuales = [];
+
 function addToCart(productId) {
     const product = allProducts.find(p => parseInt(p.id) === productId);
     if (!product || parseInt(product.stock) <= 0) return;
 
-    const existing = cart.find(i => i.id === productId);
+    if (_presentacionesCache[productId] !== undefined) {
+        continuarAgregarAlCarrito(product, _presentacionesCache[productId]);
+        return;
+    }
+    fetch(BASE + `modules/inventario/api.php?action=presentaciones_listar&producto_id=${productId}`)
+        .then(r => r.json())
+        .then(data => {
+            _presentacionesCache[productId] = data || [];
+            continuarAgregarAlCarrito(product, _presentacionesCache[productId]);
+        })
+        .catch(() => continuarAgregarAlCarrito(product, []));
+}
+
+function continuarAgregarAlCarrito(product, presentaciones) {
+    if (!presentaciones.length) {
+        agregarAlCarritoConUnidad(product, null, 1);
+        return;
+    }
+    _productoParaUnidad = product;
+    _presentacionesActuales = presentaciones;
+
+    const opciones = [{ unidad_medida: null, precio_venta: product.precio_venta }, ...presentaciones];
+    document.getElementById('unidad-medida-opciones').innerHTML = opciones.map(op => {
+        const precioMostrado = getProductUnitSalePrice({ ...product, precio_venta: op.precio_venta });
+        const label = op.unidad_medida || 'Unidad';
+        const attr = op.unidad_medida ? `'${op.unidad_medida.replace(/'/g, "\\'")}'` : 'null';
+        return `<button type="button" class="btn btn-outline" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px"
+            onclick="seleccionarUnidadMedida(${attr})">
+            <span style="font-weight:600">${label}</span>
+            <span style="color:var(--primary);font-weight:700">S/ ${precioMostrado.toFixed(2)}</span>
+        </button>`;
+    }).join('');
+    openModal('modal-unidad-medida');
+}
+
+function seleccionarUnidadMedida(unidadMedida) {
+    const product = _productoParaUnidad;
+    closeModal('modal-unidad-medida');
+    if (!product) return;
+
+    if (!unidadMedida) {
+        agregarAlCarritoConUnidad(product, null, 1);
+        return;
+    }
+    const presentacion = _presentacionesActuales.find(p => p.unidad_medida === unidadMedida);
+    if (!presentacion) return;
+    agregarAlCarritoConUnidad(product, presentacion, parseFloat(presentacion.cantidad) || 1);
+}
+
+function agregarAlCarritoConUnidad(product, presentacion, factor) {
+    const productId    = parseInt(product.id);
+    const unidadMedida = presentacion ? presentacion.unidad_medida : null;
+    const key          = productId + '|' + (unidadMedida || '');
+    const stockBase     = parseFloat(product.stock) || 0;
+    const maxQty        = Math.floor(stockBase / factor);
+
+    if (maxQty <= 0) { showToast('No hay stock disponible', 'error'); return; }
+
+    const existing = cart.find(i => i.key === key);
     if (existing) {
-        if (existing.qty >= parseInt(product.stock)) {
+        if (existing.qty >= maxQty) {
             showToast('No hay más stock disponible', 'error'); return;
         }
         existing.qty++;
     } else {
-        cart.push({ id: productId, product, qty: 1 });
+        const productClone = presentacion ? { ...product, precio_venta: presentacion.precio_venta } : product;
+        cart.push({
+            id: productId,
+            key,
+            product: productClone,
+            qty: 1,
+            unidadMedida,
+            factorEquivalencia: factor,
+        });
     }
     renderCart();
     // Feedback visual
@@ -1186,16 +1269,21 @@ function addToCart(productId) {
     }
 }
 
-function changeQty(id, delta) {
-    const idx = cart.findIndex(i => i.id === id);
+function changeQty(key, delta) {
+    const idx = cart.findIndex(i => i.key === key);
     if (idx === -1) return;
-    cart[idx].qty += delta;
-    if (cart[idx].qty <= 0) cart.splice(idx, 1);
+    const item = cart[idx];
+    if (delta > 0) {
+        const maxQty = Math.floor((parseFloat(item.product.stock) || 0) / item.factorEquivalencia);
+        if (item.qty >= maxQty) { showToast('No hay más stock disponible', 'error'); return; }
+    }
+    item.qty += delta;
+    if (item.qty <= 0) cart.splice(idx, 1);
     renderCart();
 }
 
-function removeItem(id) {
-    cart = cart.filter(i => i.id !== id);
+function removeItem(key) {
+    cart = cart.filter(i => i.key !== key);
     renderCart();
 }
 
@@ -1245,20 +1333,21 @@ function renderCart() {
 
     cart.forEach(item => {
         const subtotal = item.qty * getProductUnitSalePrice(item.product);
+        const unidadBadge = item.unidadMedida ? ` <span style="color:var(--primary);font-weight:700">(${item.unidadMedida})</span>` : '';
         const div = document.createElement('div');
         div.className = 'cart-item';
         div.innerHTML = `
             <div class="cart-item-info">
-                <div class="cart-item-name">${item.product.nombre}</div>
+                <div class="cart-item-name">${item.product.nombre}${unidadBadge}</div>
                 <div class="cart-item-price">S/ ${getProductUnitSalePrice(item.product).toFixed(2)} c/u</div>
                 <div class="cart-item-controls">
-                    <button class="qty-btn" onclick="changeQty(${item.id},-1)"><i class="fas fa-minus"></i></button>
+                    <button class="qty-btn" onclick="changeQty('${item.key}',-1)"><i class="fas fa-minus"></i></button>
                     <span class="qty-value">${item.qty}</span>
-                    <button class="qty-btn" onclick="changeQty(${item.id},1)"><i class="fas fa-plus"></i></button>
+                    <button class="qty-btn" onclick="changeQty('${item.key}',1)"><i class="fas fa-plus"></i></button>
                 </div>
             </div>
             <div class="cart-item-right">
-                <button class="cart-item-del" onclick="removeItem(${item.id})"><i class="fas fa-trash"></i></button>
+                <button class="cart-item-del" onclick="removeItem('${item.key}')"><i class="fas fa-trash"></i></button>
                 <div class="cart-item-total">S/ ${subtotal.toFixed(2)}</div>
             </div>`;
         itemsEl.insertBefore(div, emptyEl);
@@ -2334,12 +2423,13 @@ function buildTicketHTML(opts) {
         const qty    = i.qty    || i.cantidad || 1;
         const pu     = parseFloat(i.precio || i.precio_venta || i.product?.precio_venta || 0);
         const sub    = parseFloat(i.precio_total || (pu * qty)).toFixed(2);
+        const unidadLabel = i.unidad_medida_vendida || 'unid.';
         return `<div style="margin-bottom:5px">
             <div style="display:flex;justify-content:space-between;font-size:11px">
                 <span style="flex:1;padding-right:6px;word-break:break-word">${nombre}</span>
                 <span style="white-space:nowrap;font-weight:600">S/${sub}</span>
             </div>
-            <div style="font-size:10px;color:#555;padding-left:2px">${qty} unid. x S/${pu.toFixed(2)}</div>
+            <div style="font-size:10px;color:#555;padding-left:2px">${qty} ${unidadLabel} x S/${pu.toFixed(2)}</div>
         </div>`;
     }).join('');
 
@@ -2452,9 +2542,10 @@ function buildTicketA4HTML(opts) {
         const qty    = i.qty    || i.cantidad || 1;
         const pu     = parseFloat(i.precio || i.precio_venta || i.product?.precio_venta || 0);
         const sub    = parseFloat(i.precio_total || (pu * qty)).toFixed(2);
+        const unidadLabel = i.unidad_medida_vendida ? ` <span style="color:#4f46e5">(${i.unidad_medida_vendida})</span>` : '';
         return `<tr>
             <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${idx + 1}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${nombre}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${nombre}${unidadLabel}</td>
             <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">${qty}</td>
             <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">S/ ${pu.toFixed(2)}</td>
             <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right">S/ ${sub}</td>
@@ -2577,6 +2668,7 @@ function previsualizarComprobante() {
             qty: i.qty,
             precio: getProductUnitSalePrice(i.product),
             precio_total: getProductUnitSalePrice(i.product) * i.qty,
+            unidad_medida_vendida: i.unidadMedida || null,
         })),
         total:            totalFinal,
         igv:              totals.igv,
@@ -2717,7 +2809,7 @@ function confirmarVenta() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
 
     const payload = {
-        items: cart.map(i => ({ producto_id: i.id, cantidad: i.qty, precio: parseFloat(i.product.precio_venta) })),
+        items: cart.map(i => ({ producto_id: i.id, cantidad: i.qty, precio: parseFloat(i.product.precio_venta), unidad_medida: i.unidadMedida || null })),
         cliente_id: selectedCliente ? selectedCliente.id : null,
         tipo_pago: tipoPago,
         tipo_comprobante: tipoComp,

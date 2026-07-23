@@ -464,7 +464,31 @@ switch ($action) {
                 if (!$producto) {
                     throw new Exception("Producto ID {$productoId} no encontrado");
                 }
-                if ((float) $producto['stock'] < $cantidad) {
+
+                // Si el item viene con una unidad de medida configurada (ej.
+                // BLISTER), se resuelve su precio y factor del lado del
+                // servidor (nunca se confia en lo que mande el navegador).
+                $unidadVendida = trim((string) ($item['unidad_medida'] ?? ''));
+                $factorEquivalencia = 1.0;
+                if ($unidadVendida !== '') {
+                    $puStmt = $db->prepare("
+                        SELECT unidad_medida, cantidad, precio_venta
+                        FROM producto_precios_unidad
+                        WHERE producto_id = :pid AND unidad_medida = :unidad
+                    ");
+                    $puStmt->execute([':pid' => $productoId, ':unidad' => $unidadVendida]);
+                    $presentacion = $puStmt->fetch();
+                    if (!$presentacion) {
+                        throw new Exception("La unidad de medida '{$unidadVendida}' no esta configurada para: {$producto['nombre']}");
+                    }
+                    $factorEquivalencia = (float) $presentacion['cantidad'];
+                    $producto['precio_venta'] = $presentacion['precio_venta'];
+                } else {
+                    $unidadVendida = null;
+                }
+
+                $cantidadBase = round($cantidad * $factorEquivalencia, 2);
+                if ((float) $producto['stock'] < $cantidadBase) {
                     throw new Exception("Stock insuficiente para: {$producto['nombre']} (disponible: {$producto['stock']})");
                 }
 
@@ -472,6 +496,9 @@ switch ($action) {
                 $detalle['producto_id'] = $productoId;
                 $detalle['nombre'] = $producto['nombre'];
                 $detalle['codigo'] = $producto['codigo'];
+                $detalle['unidad_medida_vendida'] = $unidadVendida;
+                $detalle['factor_equivalencia'] = $factorEquivalencia;
+                $detalle['cantidad_base'] = $cantidadBase;
 
                 $productosInfo[$productoId] = $detalle;
                 $detallesVenta[] = $detalle;
@@ -656,13 +683,15 @@ switch ($action) {
                         venta_id, producto_id, cantidad, precio_unitario, descuento, subtotal,
                         unidad_id, unidad_codigo, afectacion_igv_id, afectacion_igv_codigo,
                         descripcion, codigo_interno, codigo_sunat, igv, valor_unitario,
-                        valor_total, precio_total, icbper, factor_icbper
+                        valor_total, precio_total, icbper, factor_icbper,
+                        unidad_medida_vendida, factor_equivalencia
                     )
                     VALUES (
                         :venta_id, :producto_id, :cantidad, :precio_unitario, :descuento, :subtotal,
                         :unidad_id, :unidad_codigo, :afectacion_id, :afectacion_codigo,
                         :descripcion, :codigo_interno, :codigo_sunat, :igv, :valor_unitario,
-                        :valor_total, :precio_total, :icbper, :factor_icbper
+                        :valor_total, :precio_total, :icbper, :factor_icbper,
+                        :unidad_medida_vendida, :factor_equivalencia
                     )
                 ");
                 $detalleStmt->execute([
@@ -685,16 +714,18 @@ switch ($action) {
                     ':precio_total' => $detalle['precio_total'],
                     ':icbper' => $detalle['icbper'],
                     ':factor_icbper' => $detalle['factor_icbper'],
+                    ':unidad_medida_vendida' => $detalle['unidad_medida_vendida'],
+                    ':factor_equivalencia' => $detalle['factor_equivalencia'],
                 ]);
 
                 $db->prepare("
                     UPDATE productos
-                    SET stock = stock - :cantidad,
-                        total_vendido = total_vendido + :cantidad,
+                    SET stock = stock - :cantidad_base,
+                        total_vendido = total_vendido + :cantidad_base,
                         updated_at = NOW()
                     WHERE id = :id
                 ")->execute([
-                    ':cantidad' => $detalle['cantidad'],
+                    ':cantidad_base' => $detalle['cantidad_base'],
                     ':id' => $detalle['producto_id'],
                 ]);
             }
@@ -788,6 +819,7 @@ switch ($action) {
                     'afectacion_igv_codigo' => $i['afectacion_codigo'],
                     'afectacion_tipo' => $i['afectacion_tipo'],
                     'unidad_codigo' => $i['unidad_codigo'],
+                    'unidad_medida_vendida' => $i['unidad_medida_vendida'] ?? null,
                 ], $detallesVenta),
                 'comprobante' => $comprobanteResult,
                 'comprobante_token' => $comprobanteToken,
@@ -866,11 +898,12 @@ switch ($action) {
                 throw new Exception('La venta ya esta anulada');
             }
 
-            $detalles = $db->prepare("SELECT producto_id, cantidad FROM venta_detalles WHERE venta_id = :id");
+            $detalles = $db->prepare("SELECT producto_id, cantidad, COALESCE(factor_equivalencia, 1) AS factor_equivalencia FROM venta_detalles WHERE venta_id = :id");
             $detalles->execute([':id' => $id]);
             foreach ($detalles->fetchAll() as $det) {
+                $cantidadBase = (float) $det['cantidad'] * (float) $det['factor_equivalencia'];
                 $db->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid")
-                    ->execute([':qty' => $det['cantidad'], ':pid' => $det['producto_id']]);
+                    ->execute([':qty' => $cantidadBase, ':pid' => $det['producto_id']]);
             }
 
             $db->prepare("UPDATE ventas SET estado = 'anulada' WHERE id = :id")
