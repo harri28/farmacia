@@ -350,6 +350,14 @@ switch ($action) {
         $catalogos = resolverCatalogosProducto($db, $unidadCodigo, $afectacionCodigo);
         $esGravado = ($catalogos['afectacion_tipo'] ?? '') === 'GRAV';
 
+        if (isAdmin()) {
+            $nuevoStock = intval($data['stock'] ?? 0);
+        } else {
+            $stockActual = $db->prepare("SELECT stock FROM productos WHERE id = :id");
+            $stockActual->execute([':id' => $id]);
+            $nuevoStock = intval($stockActual->fetch()['stock'] ?? 0);
+        }
+
         $stmt = $db->prepare("
             UPDATE productos SET
                 codigo = :codigo,
@@ -397,7 +405,7 @@ switch ($action) {
             ':incluye_igv' => ($esGravado && $incluyeIgv) ? 'TRUE' : 'FALSE',
             ':p_compra' => floatval($data['precio_compra'] ?? 0),
             ':p_venta' => floatval($data['precio_venta']),
-            ':stock' => intval($data['stock'] ?? 0),
+            ':stock' => $nuevoStock,
             ':stock_min' => intval($data['stock_minimo'] ?? 5),
             ':receta' => !empty($data['requiere_receta']) ? 'TRUE' : 'FALSE',
             ':favorito' => !empty($data['favorito']) ? 'TRUE' : 'FALSE',

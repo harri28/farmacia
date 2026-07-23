@@ -1323,6 +1323,7 @@ function openProductoModal(producto = null) {
     const incluyeIgvGuardado = producto?.incluye_igv == 't' || producto?.incluye_igv === true;
 
     stockGroup.style.display = 'block';
+    document.getElementById('p-stock').disabled = !!(editingId && !esAdmin);
 
     // Poblar campos
     document.getElementById('p-codigo').value        = producto?.codigo        ?? '';
