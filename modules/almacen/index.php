@@ -542,10 +542,6 @@ include '../../includes/header.php';
                         <span style="color:var(--text-muted)">Subtotal</span>
                         <span id="n-subtotal">S/ 0.00</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;padding:3px 0">
-                        <span style="color:var(--text-muted)">IGV (18%)</span>
-                        <span id="n-igv">S/ 0.00</span>
-                    </div>
                     <div style="display:flex;justify-content:space-between;padding:6px 0 0;border-top:1px solid var(--border);margin-top:6px;font-weight:700;font-size:1rem">
                         <span>TOTAL</span>
                         <span id="n-total" style="color:var(--success)">S/ 0.00</span>
@@ -1333,9 +1329,7 @@ function renderLineas() {
 
 function calcularTotales() {
     const subtotal = lines.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
-    const igv      = subtotal * 0.18;
     document.getElementById('n-subtotal').textContent = 'S/ ' + subtotal.toFixed(2);
-    document.getElementById('n-igv').textContent      = 'S/ ' + igv.toFixed(2);
     document.getElementById('n-total').textContent    = 'S/ ' + subtotal.toFixed(2);
 }
 

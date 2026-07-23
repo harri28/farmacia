@@ -232,7 +232,6 @@ switch ($action) {
         foreach ($data['items'] as $item) {
             $subtotal += floatval($item['cantidad']) * floatval($item['precio_unitario']);
         }
-        $igv   = round($subtotal * 0.18, 2);
         $total = $subtotal;
 
         $db->beginTransaction();
@@ -261,11 +260,6 @@ switch ($action) {
                 $columnas[] = 'subtotal';
                 $values[] = ':sub';
                 $params[':sub'] = $subtotal;
-            }
-            if (almacenTablaTieneColumna($db, 'ingresos', 'igv')) {
-                $columnas[] = 'igv';
-                $values[] = ':igv';
-                $params[':igv'] = $igv;
             }
             if (almacenTablaTieneColumna($db, 'ingresos', 'usuario')) {
                 $columnas[] = 'usuario';
