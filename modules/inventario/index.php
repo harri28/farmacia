@@ -1137,7 +1137,7 @@ function verProducto(producto) {
         ['Categoría', producto.categoria || '—'],
         ['Unidad de medida', producto.unidad],
         ['Stock', producto.stock],
-        ['Stock mínimo', producto.stock_minimo],
+        ['Alerta', producto.stock_minimo],
         ['Precio de venta', money(producto.precio_venta)],
         ['Precio de compra', money(producto.precio_compra)],
         ['Laboratorio', producto.laboratorio || '—'],
@@ -1322,8 +1322,7 @@ function openProductoModal(producto = null) {
     const productoEsGravado = !afectacionProducto || afectacionProducto.tipo === 'GRAV';
     const incluyeIgvGuardado = producto?.incluye_igv == 't' || producto?.incluye_igv === true;
 
-    // Campo stock solo en creación
-    stockGroup.style.display = editingId ? 'none' : 'block';
+    stockGroup.style.display = 'block';
 
     // Poblar campos
     document.getElementById('p-codigo').value        = producto?.codigo        ?? '';
