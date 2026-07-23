@@ -75,6 +75,13 @@ switch ($action) {
         $caja = $cStmt->fetch();
         if (!$caja) jsonResponse(['error' => true, 'message' => 'Caja no encontrada'], 404);
 
+        // El reporte es individual por cajero: solo cuenta las ventas del
+        // usuario actualmente conectado dentro de esta caja, para que dos
+        // cajeros que compartan la misma caja (sin cerrarla entre turnos)
+        // cada uno vea solo lo suyo. El cuadre de efectivo (saldo_inicial,
+        // ingresos/egresos mas abajo) sigue siendo de toda la caja.
+        $usuarioId = sesionId();
+
         $v = $db->prepare("
             SELECT COUNT(*) AS count,
                    COALESCE(SUM(subtotal), 0) AS subtotal,
@@ -82,9 +89,9 @@ switch ($action) {
                    COALESCE(SUM(total), 0) AS total,
                    COALESCE(SUM(total) FILTER (WHERE tipo_pago = 'credito'), 0) AS total_credito
             FROM ventas
-            WHERE caja_id = :id AND estado = 'completada'
+            WHERE caja_id = :id AND estado = 'completada' AND usuario_id = :uid
         ");
-        $v->execute([':id' => $caja_id]);
+        $v->execute([':id' => $caja_id, ':uid' => $usuarioId]);
         $ventas = $v->fetch();
 
         // Metodos de pago: se lee de payment_breakdown (cubre tanto ventas con
@@ -94,11 +101,11 @@ switch ($action) {
             SELECT elem->>'method' AS metodo, COALESCE(SUM((elem->>'amount')::numeric), 0) AS total
             FROM ventas v
             CROSS JOIN LATERAL jsonb_array_elements(COALESCE(v.payment_breakdown, '[]'::jsonb)) AS elem
-            WHERE v.caja_id = :id AND v.estado = 'completada'
+            WHERE v.caja_id = :id AND v.estado = 'completada' AND v.usuario_id = :uid
             GROUP BY elem->>'method'
             ORDER BY total DESC
         ");
-        $mp->execute([':id' => $caja_id]);
+        $mp->execute([':id' => $caja_id, ':uid' => $usuarioId]);
         $metodos = $mp->fetchAll();
 
         $efectivoVentas = 0;
@@ -112,17 +119,17 @@ switch ($action) {
             SELECT COALESCE(SUM(d.cantidad), 0) AS total
             FROM venta_detalles d
             JOIN ventas v ON v.id = d.venta_id
-            WHERE v.caja_id = :id AND v.estado = 'completada'
+            WHERE v.caja_id = :id AND v.estado = 'completada' AND v.usuario_id = :uid
         ");
-        $art->execute([':id' => $caja_id]);
+        $art->execute([':id' => $caja_id, ':uid' => $usuarioId]);
         $articulos = intval($art->fetch()['total']);
 
         $an = $db->prepare("
             SELECT COUNT(*) AS count, COALESCE(SUM(total), 0) AS total
             FROM ventas
-            WHERE caja_id = :id AND estado = 'anulada'
+            WHERE caja_id = :id AND estado = 'anulada' AND usuario_id = :uid
         ");
-        $an->execute([':id' => $caja_id]);
+        $an->execute([':id' => $caja_id, ':uid' => $usuarioId]);
         $anulados = $an->fetch();
 
         $m = $db->prepare("

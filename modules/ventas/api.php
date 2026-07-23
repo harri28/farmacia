@@ -589,7 +589,7 @@ switch ($action) {
             $numeroVenta = generarNumeroVenta($db);
             $ventaStmt = $db->prepare("
                 INSERT INTO ventas (
-                    numero_venta, cliente_id, caja_id, subtotal, descuento, igv, total,
+                    numero_venta, cliente_id, caja_id, usuario_id, subtotal, descuento, igv, total,
                     tipo_pago, tipo_comprobante, estado, vendedor, observaciones,
                     fecha_emision, fecha_vencimiento, hora_emision, moneda_codigo,
                     tipo_documento_id, codigo_tipo_documento, serie, correlativo,
@@ -598,8 +598,8 @@ switch ($action) {
                     icbper, monto_credito, vuelto, cuotas, payment_breakdown
                 )
                 VALUES (
-                    :numero_venta, :cliente_id, :caja_id, :subtotal, :descuento, :igv, :total,
-                    :tipo_pago, :tipo_comprobante, 'completada', 'Administrador', :observaciones,
+                    :numero_venta, :cliente_id, :caja_id, :usuario_id, :subtotal, :descuento, :igv, :total,
+                    :tipo_pago, :tipo_comprobante, 'completada', :vendedor, :observaciones,
                     CURRENT_DATE, CURRENT_DATE, CURRENT_TIME, 'PEN',
                     :tipo_documento_id, :codigo_tipo_documento, :serie, :correlativo,
                     '0101', :forma_pago_id, :sunat_forma_pago,
@@ -612,6 +612,8 @@ switch ($action) {
                 ':numero_venta' => $numeroVenta,
                 ':cliente_id' => $data['cliente_id'] ?: null,
                 ':caja_id' => $cajaId,
+                ':usuario_id' => sesionId() ?: null,
+                ':vendedor' => sesionNombre() ?: 'Administrador',
                 ':subtotal' => $subtotal,
                 ':descuento' => $descuento,
                 ':igv' => $igv,

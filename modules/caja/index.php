@@ -109,6 +109,16 @@ include '../../includes/header.php';
     $ventas_stmt->execute([':id' => $caja['id']]);
     $ventas = $ventas_stmt->fetch();
 
+    // Ventas del cajero actualmente conectado (para la tarjeta "Ventas
+    // Totales" y el reporte imprimible -- distinto del $ventas de arriba,
+    // que es de TODA la caja y se usa para el cuadre de efectivo)
+    $ventas_usuario_stmt = $db->prepare("
+        SELECT COUNT(*) AS count, COALESCE(SUM(total),0) AS total
+        FROM ventas WHERE caja_id = :id AND estado = 'completada' AND usuario_id = :uid
+    ");
+    $ventas_usuario_stmt->execute([':id' => $caja['id'], ':uid' => sesionId()]);
+    $ventas_usuario = $ventas_usuario_stmt->fetch();
+
     $movs_stmt = $db->prepare("
         SELECT tipo, COALESCE(SUM(monto),0) AS total
         FROM caja_movimientos WHERE caja_id = :id GROUP BY tipo
@@ -128,11 +138,11 @@ include '../../includes/header.php';
         SELECT elem->>'method' AS metodo, COALESCE(SUM((elem->>'amount')::numeric), 0) AS total
         FROM ventas v
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(v.payment_breakdown, '[]'::jsonb)) AS elem
-        WHERE v.caja_id = :id AND v.estado = 'completada'
+        WHERE v.caja_id = :id AND v.estado = 'completada' AND v.usuario_id = :uid
         GROUP BY elem->>'method'
         ORDER BY total DESC
     ");
-    $metodos_stmt->execute([':id' => $caja['id']]);
+    $metodos_stmt->execute([':id' => $caja['id'], ':uid' => sesionId()]);
     $metodos_pago_turno = $metodos_stmt->fetchAll();
     $METODO_PAGO_LABELS = ['efectivo' => 'Efectivo', 'yape' => 'Yape', 'plin' => 'Plin', 'tarjeta' => 'Visa/Mastercard', 'transferencia' => 'Transferencia'];
 ?>
@@ -170,7 +180,7 @@ include '../../includes/header.php';
         <div class="stat-card" style="cursor:pointer;background:linear-gradient(135deg, var(--primary), var(--primary-dark));border-color:transparent" onclick="abrirReporteCaja()" title="Ver reporte de caja imprimible">
             <div class="stat-icon" style="background:rgba(255,255,255,.2);color:#fff"><i class="fas fa-cash-register"></i></div>
             <div>
-                <div class="stat-value" style="color:#fff"><?= intval($ventas['count']) ?></div>
+                <div class="stat-value" style="color:#fff"><?= intval($ventas_usuario['count']) ?></div>
                 <div class="stat-label" style="color:rgba(255,255,255,.85)">Reporte de Ventas</div>
                 <div style="font-size:.68rem;color:rgba(255,255,255,.7);margin-top:2px">clic para imprimir</div>
             </div>
