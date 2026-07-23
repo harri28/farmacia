@@ -808,6 +808,9 @@ include '../../includes/header.php';
             <button class="btn btn-outline btn-sm" onclick="enviarWhatsApp()" style="border-color:#25d366;color:#25d366">
                 <i class="fab fa-whatsapp"></i> WhatsApp
             </button>
+            <button class="btn btn-outline btn-sm" onclick="copiarEnlaceComprobante()">
+                <i class="fas fa-link"></i> Copiar enlace de comprobante
+            </button>
             <button class="btn btn-primary" onclick="closeModal('modal-ticket');resetPOS()">
                 <i class="fas fa-plus"></i> Nueva Venta
             </button>
@@ -2910,6 +2913,32 @@ function enviarWhatsApp() {
         ? `https://wa.me/51${phone}?text=${encodeURIComponent(mensaje)}`
         : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
+}
+
+function copiarEnlaceComprobante() {
+    if (!_lastSale || !_lastSale.token) { showToast('No hay comprobante disponible', 'error'); return; }
+    const url = buildComprobanteUrl(_lastSale.token);
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url)
+            .then(() => showToast('Enlace copiado al portapapeles', 'success'))
+            .catch(() => showToast('No se pudo copiar el enlace', 'error'));
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = url;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showToast('Enlace copiado al portapapeles', 'success');
+    } catch (e) {
+        showToast('No se pudo copiar el enlace', 'error');
+    }
+    document.body.removeChild(textarea);
 }
 
 function resetPOS() {
