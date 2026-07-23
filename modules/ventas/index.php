@@ -822,8 +822,11 @@ include '../../includes/header.php';
             <h3 class="modal-title"><i class="fas fa-boxes-stacked" style="color:var(--primary);margin-right:8px"></i>Selecciona una equivalencia</h3>
             <button class="modal-close" onclick="closeModal('modal-unidad-medida')"><i class="fas fa-times"></i></button>
         </div>
-        <div class="modal-body" id="unidad-medida-opciones" style="display:flex;flex-direction:column;gap:10px">
-            <!-- poblado por JS -->
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+            <div id="unidad-medida-producto-nombre" style="font-weight:600;color:var(--text-muted);margin-bottom:-2px"></div>
+            <div id="unidad-medida-opciones" style="display:flex;flex-direction:column;gap:10px">
+                <!-- poblado por JS -->
+            </div>
         </div>
     </div>
 </div>
@@ -1205,6 +1208,8 @@ function continuarAgregarAlCarrito(product, presentaciones) {
     }
     _productoParaUnidad = product;
     _presentacionesActuales = presentaciones;
+
+    document.getElementById('unidad-medida-producto-nombre').textContent = product.nombre;
 
     const opciones = [{ unidad_medida: null, precio_venta: product.precio_venta }, ...presentaciones];
     document.getElementById('unidad-medida-opciones').innerHTML = opciones.map(op => {
