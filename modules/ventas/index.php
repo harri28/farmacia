@@ -1189,7 +1189,7 @@ function addToCart(productId) {
         continuarAgregarAlCarrito(product, _presentacionesCache[productId]);
         return;
     }
-    fetch(BASE + `modules/inventario/api.php?action=presentaciones_listar&producto_id=${productId}`)
+    fetch(BASE + `modules/inventario/api.php?action=precios_unidad_listar&producto_id=${productId}`)
         .then(r => r.json())
         .then(data => {
             _presentacionesCache[productId] = data || [];
