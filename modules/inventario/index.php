@@ -757,6 +757,7 @@ include '../../includes/header.php';
 // ============================================================
 
 const BASE = '../../';
+const esAdmin = <?= isAdmin() ? 'true' : 'false' ?>;
 let categorias  = [];
 let editingId   = null;
 let ajusteProducto = null;
@@ -1042,6 +1043,10 @@ function renderPage(page) {
             <td style="text-align:center;padding-left:32px;min-width:90px">
                 <span style="${stockCls}">${p.stock}</span>
                 ${stockBadge}
+                ${esAdmin ? `<button type="button" onclick='openAjusteModal(${JSON.stringify(p)})' title="Ajustar stock"
+                    style="background:none;border:none;color:var(--primary);cursor:pointer;padding:2px 4px;margin-left:4px">
+                    <i class="fas fa-sliders"></i>
+                </button>` : ''}
             </td>
             <td style="color:var(--text-muted);padding-left:32px;min-width:100px">${p.unidad || 'unidad'}</td>
             <td class="text-right" style="color:var(--text-muted);padding-left:32px;min-width:80px">${p.stock_minimo}</td>
