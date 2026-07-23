@@ -1371,16 +1371,18 @@ function saveIngreso() {
 
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function(e) {
-        const code      = e.detail.code.trim();
-        const modalOpen = document.getElementById('modal-nuevo').classList.contains('open');
-        if (!modalOpen) return;
+        const code = e.detail.code.trim();
+        const ingresoOpen = document.getElementById('modal-nuevo').classList.contains('open');
+        const salidaOpen  = document.getElementById('modal-nueva-salida').classList.contains('open');
+        if (!ingresoOpen && !salidaOpen) return;
         fetch(BASE + `modules/almacen/api.php?action=buscar_producto&q=${encodeURIComponent(code)}`)
             .then(r => r.json())
             .then(data => {
                 const exact = data.find(p => p.codigo.toUpperCase() === code.toUpperCase());
                 const prod  = exact || data[0];
                 if (prod) {
-                    addLinea(prod);
+                    if (ingresoOpen) addLinea(prod);
+                    else addSalidaLinea(prod);
                     showToast('<i class="fas fa-barcode"></i> ' + prod.nombre, 'success');
                 } else {
                     showToast('Código <strong>' + code + '</strong> no encontrado en inventario', 'error');

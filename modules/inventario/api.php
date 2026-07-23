@@ -457,9 +457,13 @@ switch ($action) {
         $id       = intval($data['id'] ?? 0);
         $tipo     = $data['tipo'] ?? '';
         $cantidad = intval($data['cantidad'] ?? 0);
+        $motivo   = trim($data['motivo'] ?? '');
 
         if (!$id || !in_array($tipo, ['entrada', 'salida'], true) || $cantidad <= 0) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
+        }
+        if ($motivo === '') {
+            jsonResponse(['error' => true, 'message' => 'El motivo es obligatorio'], 400);
         }
 
         if ($tipo === 'salida') {
@@ -475,9 +479,16 @@ switch ($action) {
         }
 
         $delta = $tipo === 'entrada' ? $cantidad : -$cantidad;
-        $stmt  = $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :id RETURNING stock");
+        $stmt  = $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :id RETURNING stock, nombre");
         $stmt->execute([':delta' => $delta, ':id' => $id]);
-        $nuevo_stock = $stmt->fetch()['stock'];
+        $row = $stmt->fetch();
+        $nuevo_stock = $row['stock'];
+
+        registrarAuditoria(
+            'Ajuste de stock (' . $tipo . ')',
+            'inventario',
+            "Producto: {$row['nombre']} | Cantidad: {$cantidad} | Motivo: {$motivo} | Nuevo stock: {$nuevo_stock}"
+        );
 
         jsonResponse(['error' => false, 'message' => 'Stock ajustado correctamente', 'nuevo_stock' => $nuevo_stock]);
 

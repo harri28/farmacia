@@ -644,8 +644,8 @@ include '../../includes/header.php';
                 <input type="number" id="ajuste-cantidad" class="form-control" placeholder="0" min="1" style="font-size:1.1rem">
             </div>
             <div class="form-group">
-                <label class="form-label">Motivo <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
-                <input type="text" id="ajuste-motivo" class="form-control" placeholder="Ej: Compra, Devolución, Merma...">
+                <label class="form-label">Motivo <span style="font-size:.8rem;color:var(--danger)">(obligatorio)</span></label>
+                <input type="text" id="ajuste-motivo" class="form-control" placeholder="Ej: Compra, Devolución, Merma, Conteo físico...">
             </div>
         </div>
         <div class="modal-footer">
@@ -1473,8 +1473,10 @@ function openAjusteModal(producto) {
 function saveAjuste() {
     const cantidad = parseInt(document.getElementById('ajuste-cantidad').value);
     const tipo     = document.querySelector('input[name="tipo-ajuste"]:checked').value;
+    const motivo   = document.getElementById('ajuste-motivo').value.trim();
 
     if (!cantidad || cantidad <= 0) { showToast('Ingresa una cantidad válida', 'error'); return; }
+    if (!motivo) { showToast('El motivo es obligatorio', 'error'); return; }
 
     const btn = document.getElementById('btn-guardar-ajuste');
     btn.disabled = true;
@@ -1483,7 +1485,7 @@ function saveAjuste() {
     fetch(BASE + 'modules/inventario/api.php?action=ajustar_stock', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id: ajusteProducto.id, tipo, cantidad }),
+        body:    JSON.stringify({ id: ajusteProducto.id, tipo, cantidad, motivo }),
     })
     .then(r => r.json())
     .then(data => {
