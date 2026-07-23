@@ -2650,13 +2650,27 @@ function printReceipt(innerHtml, formato) {
     const isA4 = formato === 'a4';
     const style = isA4
         ? `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:Arial,sans-serif; font-size:12px; color:#111; padding:20mm 15mm; } @media print { @page { size:A4; margin:15mm; } body { padding:0; } }`
-        : `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:'Courier New',Courier,monospace; font-size:12px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; } @media print { @page { size:80mm auto; margin:4mm 3mm; } body { padding:0; } }`;
+        : `* { margin:0; padding:0; box-sizing:border-box; } body { font-family:'Courier New',Courier,monospace; font-size:12px; color:#000; width:80mm; margin:0 auto; padding:4mm 3mm; }`;
     const w = window.open('', '_blank', isA4 ? 'width=900,height=1000' : 'width=420,height=700');
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>${style}</style></head><body>${innerHtml}</body></html>`);
     w.document.close();
     w.focus();
-    setTimeout(() => { w.print(); }, 400);
+
+    setTimeout(() => {
+        if (!isA4) {
+            // Alto de pagina dinamico segun el contenido real: un "auto" fijo
+            // en @page no siempre lo respeta el driver de la impresora
+            // termica, y cortaba el ticket en dos hojas cuando habia varios
+            // productos. Se mide el alto ya renderizado (con el QR incluido)
+            // y se agrega un margen de seguridad.
+            const heightMm = Math.ceil(w.document.body.scrollHeight * 0.2646) + 15;
+            const pageStyle = w.document.createElement('style');
+            pageStyle.textContent = `@media print { @page { size:80mm ${heightMm}mm; margin:4mm 3mm; } body { padding:0; } }`;
+            w.document.head.appendChild(pageStyle);
+        }
+        w.print();
+    }, 400);
 }
 
 function previsualizarComprobante() {
