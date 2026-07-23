@@ -335,17 +335,10 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom:8px">
-                <label class="form-label">Monto contado físicamente (S/)</label>
-                <div class="input-group">
-                    <span class="input-group-icon" style="font-weight:700;font-size:.85rem">S/</span>
-                    <input type="number" id="cierre-monto-real" class="form-control"
-                        value="<?= number_format($saldo_esperado, 2) ?>"
-                        min="0" step="0.01" style="font-size:1.1rem;font-weight:700"
-                        oninput="calcularDiferencia()">
-                </div>
-            </div>
-            <div id="diferencia-info" style="font-size:.85rem;text-align:right;min-height:20px"></div>
+            <p style="font-size:.82rem;color:var(--text-muted);margin:0">
+                El monto de cierre se registra automáticamente según el total esperado.
+                Cualquier faltante o excedente se resuelve internamente en la empresa.
+            </p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal('modal-cerrar')">Cancelar</button>
@@ -564,28 +557,10 @@ function aperturarCaja() {
 
 // ---- Cierre ----
 function openCerrarModal() {
-    calcularDiferencia();
     openModal('modal-cerrar');
-    setTimeout(() => document.getElementById('cierre-monto-real').select(), 100);
-}
-
-function calcularDiferencia() {
-    const esperado = <?= $caja ? $saldo_esperado : 0 ?>;
-    const real     = parseFloat(document.getElementById('cierre-monto-real')?.value) || 0;
-    const diff     = real - esperado;
-    const el       = document.getElementById('diferencia-info');
-    if (!el) return;
-    if (diff === 0) {
-        el.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check"></i> Sin diferencia</span>';
-    } else {
-        const signo = diff > 0 ? '+' : '';
-        const color = diff > 0 ? 'var(--success)' : 'var(--danger)';
-        el.innerHTML = `<span style="color:${color}">Diferencia: ${signo}S/ ${Math.abs(diff).toFixed(2)}</span>`;
-    }
 }
 
 function confirmarCierre() {
-    const monto_real = parseFloat(document.getElementById('cierre-monto-real').value) || 0;
     const btn = document.getElementById('btn-confirmar-cierre');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando...';
@@ -593,7 +568,7 @@ function confirmarCierre() {
     fetch(BASE + 'modules/caja/api.php?action=cerrar', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ caja_id: CAJA_ID, monto_real }),
+        body:    JSON.stringify({ caja_id: CAJA_ID }),
     })
     .then(r => r.json())
     .then(d => {

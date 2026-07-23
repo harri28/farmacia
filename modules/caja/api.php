@@ -224,22 +224,40 @@ switch ($action) {
 
     // ---- POST: Cerrar caja ----
     case 'cerrar':
-        $data       = json_decode(file_get_contents('php://input'), true);
-        $caja_id    = intval($data['caja_id'] ?? 0);
-        $monto_real = floatval($data['monto_real'] ?? 0); // monto contado físicamente
+        $data    = json_decode(file_get_contents('php://input'), true);
+        $caja_id = intval($data['caja_id'] ?? 0);
 
         if (!$caja_id) jsonResponse(['error' => true, 'message' => 'ID de caja inválido'], 400);
 
         $caja = $db->prepare("SELECT * FROM cajas WHERE id = :id AND estado = 'abierta'");
         $caja->execute([':id' => $caja_id]);
-        if (!$caja->fetch()) jsonResponse(['error' => true, 'message' => 'Caja no encontrada o ya cerrada'], 404);
+        $cajaRow = $caja->fetch();
+        if (!$cajaRow) jsonResponse(['error' => true, 'message' => 'Caja no encontrada o ya cerrada'], 404);
+
+        // El monto de cierre se calcula en el servidor -- no se acepta un monto
+        // enviado desde el navegador. Cualquier faltante/excedente se resuelve
+        // internamente en la empresa, fuera del sistema.
+        $v = $db->prepare("SELECT COALESCE(SUM(total), 0) AS total FROM ventas WHERE caja_id = :id AND estado = 'completada'");
+        $v->execute([':id' => $caja_id]);
+        $ventasTotal = floatval($v->fetch()['total']);
+
+        $m = $db->prepare("SELECT tipo, COALESCE(SUM(monto), 0) AS total FROM caja_movimientos WHERE caja_id = :id GROUP BY tipo");
+        $m->execute([':id' => $caja_id]);
+        $ingresosAdic = 0;
+        $egresos      = 0;
+        foreach ($m->fetchAll() as $row) {
+            if ($row['tipo'] === 'ingreso') $ingresosAdic = floatval($row['total']);
+            else                            $egresos      = floatval($row['total']);
+        }
+
+        $saldoEsperado = floatval($cajaRow['saldo_inicial']) + $ventasTotal + $ingresosAdic - $egresos;
 
         $stmt = $db->prepare("
             UPDATE cajas
             SET estado = 'cerrada', cierre_at = NOW(), saldo_actual = :monto
             WHERE id = :id
         ");
-        $stmt->execute([':monto' => $monto_real, ':id' => $caja_id]);
+        $stmt->execute([':monto' => $saldoEsperado, ':id' => $caja_id]);
         jsonResponse(['error' => false, 'message' => 'Caja cerrada correctamente']);
 
     // ---- POST: Registrar movimiento (ingreso/egreso) ----
