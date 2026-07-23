@@ -266,7 +266,7 @@ include '../../includes/header.php';
             <table id="rpt-ventas-table" class="display fact-dt-table" style="width:100%;min-width:1180px">
                 <thead><tr>
                     <th>Fecha</th><th>Cliente</th><th>Comprobante</th>
-                    <th class="text-right">Total</th><th>XML</th><th>CDR</th>
+                    <th class="text-center">Total</th><th>XML</th><th>CDR</th>
                     <th>SUNAT</th><th>Estado</th><th>Acciones</th>
                 </tr></thead>
                 <tbody id="rpt-tabla-body">
@@ -340,7 +340,7 @@ include '../../includes/header.php';
             <table id="notas-table" class="display fact-dt-table" style="width:100%;min-width:1120px">
                 <thead><tr>
                     <th>Fecha</th><th>Documento</th><th>Cliente</th><th>Motivo</th>
-                    <th>Referencia</th><th class="text-right">Total</th>
+                    <th>Referencia</th><th class="text-center">Total</th>
                     <th>XML</th><th>CDR</th><th>SUNAT</th><th>Estado</th><th>Acciones</th>
                 </tr></thead>
                 <tbody id="notas-body">
@@ -791,7 +791,7 @@ function rptLoadReporte() {
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
                     <td><div class="client-block"><div class="client-name">${esc(v.cliente)}</div>${clienteDoc?`<div class="client-doc">${esc(clienteDoc)}</div>`:''}</div></td>
                     <td>${compHtml}</td>
-                    <td data-order="${total}" class="text-right"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
+                    <td data-order="${total}" class="text-center"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
                     <td>${xmlBtn}</td><td>${cdrBtn}</td>
                     <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
@@ -1042,7 +1042,7 @@ function ncCargarNotas() {
                     <td><div style="font-size:.83rem"><div style="font-weight:600">${esc(row.cliente)}</div>${clienteDoc?`<div style="font-size:.74rem;color:var(--text-muted)">${esc(clienteDoc)}</div>`:''}</div></td>
                     <td style="font-size:.82rem"><div style="font-weight:600">${esc(row.codigo_tipo_nota_credito||'-')}</div><div style="font-size:.74rem;color:var(--text-muted)">${esc(row.motivo_nota_credito||'')}</div></td>
                     <td style="font-size:.82rem"><div style="font-weight:600">${esc(row.referencia_numero_completo||row.documento_modificado_numero_completo||'-')}</div></td>
-                    <td class="text-right" data-order="${parseFloat(row.total||0)}"><span class="total-pill">S/ ${parseFloat(row.total||0).toFixed(2)}</span></td>
+                    <td class="text-center" data-order="${parseFloat(row.total||0)}"><span class="total-pill">S/ ${parseFloat(row.total||0).toFixed(2)}</span></td>
                     <td>${xml}</td><td>${cdr}</td>
                     <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
                     <td><span class="badge ${estadoClass}">${row.enlace_del_cdr?'Vigente':'Pendiente'}</span></td>
