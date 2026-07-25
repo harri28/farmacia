@@ -730,7 +730,7 @@ include '../../includes/header.php';
                 <input type="number" id="ajuste-cantidad" class="form-control" placeholder="0" min="1" style="font-size:1.1rem">
             </div>
             <div class="form-group">
-                <label class="form-label">Motivo <span style="font-size:.8rem;color:var(--danger)">(obligatorio)</span></label>
+                <label class="form-label">Motivo <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
                 <input type="text" id="ajuste-motivo" class="form-control" placeholder="Ej: Compra, Devolución, Merma, Conteo físico...">
             </div>
         </div>
@@ -1641,7 +1641,6 @@ function saveAjuste() {
     const motivo   = document.getElementById('ajuste-motivo').value.trim();
 
     if (!cantidad || cantidad <= 0) { showToast('Ingresa una cantidad válida', 'error'); return; }
-    if (!motivo) { showToast('El motivo es obligatorio', 'error'); return; }
 
     const btn = document.getElementById('btn-guardar-ajuste');
     btn.disabled = true;

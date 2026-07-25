@@ -476,9 +476,6 @@ switch ($action) {
         if (!$id || !in_array($tipo, ['entrada', 'salida'], true) || $cantidad <= 0) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
         }
-        if ($motivo === '') {
-            jsonResponse(['error' => true, 'message' => 'El motivo es obligatorio'], 400);
-        }
 
         if ($tipo === 'salida') {
             $prod = $db->prepare("SELECT stock, nombre FROM productos WHERE id = :id");
