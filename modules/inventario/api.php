@@ -602,11 +602,16 @@ switch ($action) {
 
     case 'toma_listar':
         $rows = $db->query("
-            SELECT id, codigo, nombre, categorias_ids, plazo_dias, fecha_inicio, fecha_limite,
-                   estado, total_productos, total_contados, fecha_cierre, created_at,
-                   (estado = 'activa' AND fecha_limite < NOW()) AS vencida
-            FROM toma_inventario_sesiones
-            ORDER BY created_at DESC
+            SELECT s.id, s.codigo, s.nombre, s.categorias_ids, s.plazo_dias, s.fecha_inicio, s.fecha_limite,
+                   s.estado, s.total_productos, s.total_contados, s.fecha_cierre, s.created_at,
+                   (s.estado = 'activa' AND s.fecha_limite < NOW()) AS vencida,
+                   (
+                       SELECT string_agg(c.nombre, ', ' ORDER BY c.nombre)
+                       FROM categorias c
+                       WHERE c.id = ANY(s.categorias_ids)
+                   ) AS categorias_nombres
+            FROM toma_inventario_sesiones s
+            ORDER BY s.created_at DESC
         ")->fetchAll();
         echo json_encode($rows);
         break;

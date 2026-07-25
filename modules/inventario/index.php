@@ -241,6 +241,7 @@ include '../../includes/header.php';
                     <tr>
                         <th>Código</th>
                         <th>Nombre</th>
+                        <th>Categorías</th>
                         <th style="text-align:center;width:90px">Plazo</th>
                         <th style="width:150px">Fecha límite</th>
                         <th style="text-align:center;width:120px">Progreso</th>
@@ -249,7 +250,7 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody id="toma-tabla-body">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -1706,7 +1707,7 @@ function badgeEstadoToma(sesion) {
 
 function cargarTomaSesiones() {
     document.getElementById('toma-tabla-body').innerHTML =
-        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     fetch(BASE + 'modules/inventario/api.php?action=toma_listar')
         .then(r => r.json())
         .then(data => {
@@ -1720,13 +1721,14 @@ function cargarTomaSesiones() {
 function renderTomaSesiones() {
     const tbody = document.getElementById('toma-tabla-body');
     if (!tomaSesiones.length) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
         return;
     }
     tbody.innerHTML = tomaSesiones.map(s => `
         <tr>
             <td style="font-family:monospace">${s.codigo}</td>
             <td>${s.nombre || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td style="font-size:.85rem">${s.categorias_nombres || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="text-align:center">${s.plazo_dias} día(s)</td>
             <td>${new Date(s.fecha_limite).toLocaleString('es-PE')}</td>
             <td style="text-align:center">${s.total_contados}/${s.total_productos}</td>
@@ -1740,15 +1742,33 @@ function renderTomaSesiones() {
     `).join('');
 }
 
+function parsePgIntArray(raw) {
+    if (Array.isArray(raw)) return raw.map(Number);
+    if (typeof raw !== 'string') return [];
+    return raw.replace(/[{}]/g, '').split(',').filter(Boolean).map(Number);
+}
+
 function abrirNuevaTomaModal() {
     document.getElementById('nt-nombre').value = '';
     document.getElementById('nt-plazo').value  = '';
     document.getElementById('nt-todas').checked = false;
-    document.getElementById('nt-categorias-list').innerHTML = categorias.map(c => `
+
+    const categoriasAbiertas = new Set();
+    tomaSesiones.forEach(s => {
+        if (s.estado === 'activa') {
+            parsePgIntArray(s.categorias_ids).forEach(id => categoriasAbiertas.add(id));
+        }
+    });
+
+    document.getElementById('nt-categorias-list').innerHTML = categorias.map(c => {
+        const abierta = categoriasAbiertas.has(parseInt(c.id));
+        return `
         <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.88rem">
-            <input type="checkbox" class="nt-cat-check" value="${c.id}"> ${c.nombre} <span style="color:var(--text-muted)">(${c.total_productos})</span>
-        </label>
-    `).join('');
+            <input type="checkbox" class="nt-cat-check" value="${c.id}" ${abierta ? 'checked' : ''}>
+            ${c.nombre} <span style="color:var(--text-muted)">(${c.total_productos})</span>
+            ${abierta ? '<span style="color:var(--primary);font-size:.75rem;font-weight:600"> · ya en sesión activa</span>' : ''}
+        </label>`;
+    }).join('');
     openModal('modal-nueva-toma');
 }
 
