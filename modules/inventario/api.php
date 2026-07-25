@@ -586,13 +586,14 @@ switch ($action) {
                 ]);
             }
 
+            $db->commit();
+
             registrarAuditoria(
                 'Creación de toma de inventario',
                 'inventario',
                 "Sesión: {$codigo} | Categorías: " . implode(',', $categoriaIds) . " | Productos: " . count($productos) . " | Plazo: {$plazoDias} día(s)"
             );
 
-            $db->commit();
             jsonResponse(['error' => false, 'message' => 'Toma de inventario creada', 'id' => $sesionId, 'codigo' => $codigo, 'total_productos' => count($productos)]);
         } catch (Throwable $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
@@ -798,13 +799,14 @@ switch ($action) {
                 WHERE id = :id
             ")->execute([':uid' => sesionId(), ':id' => $id]);
 
+            $db->commit();
+
             registrarAuditoria(
                 'Cierre de toma de inventario',
                 'inventario',
                 "Sesión: {$sesionRow['codigo']} | Productos ajustados: " . count($filas) . " | Sin contar: {$sinContar}"
             );
 
-            $db->commit();
             jsonResponse(['error' => false, 'message' => 'Sesión aplicada correctamente', 'productos_ajustados' => count($filas), 'sin_contar' => $sinContar]);
         } catch (Throwable $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
