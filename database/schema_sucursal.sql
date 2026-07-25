@@ -284,6 +284,58 @@ CREATE TABLE IF NOT EXISTS gastos (
     created_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Toma de Inventario: sesion de conteo fisico (cabecera) + una fila
+-- de detalle por producto incluido. El conteo se guarda aparte de
+-- productos.stock; las diferencias solo se aplican al cerrar la
+-- sesion (accion toma_aplicar en inventario/api.php).
+CREATE TABLE IF NOT EXISTS toma_inventario_sesiones (
+    id                 SERIAL PRIMARY KEY,
+    codigo             VARCHAR(30)   UNIQUE NOT NULL,
+    nombre             VARCHAR(150),
+    categorias_ids     INTEGER[]     NOT NULL,
+    plazo_dias         INTEGER       NOT NULL DEFAULT 1,
+    fecha_inicio       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_limite       TIMESTAMP     NOT NULL,
+    estado             VARCHAR(20)   NOT NULL DEFAULT 'activa',
+    total_productos    INTEGER       NOT NULL DEFAULT 0,
+    total_contados     INTEGER       NOT NULL DEFAULT 0,
+    usuario_creador_id INTEGER,
+    usuario_cierre_id  INTEGER,
+    observaciones      TEXT,
+    fecha_cierre       TIMESTAMP,
+    created_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_toma_inv_sesiones_estado CHECK (estado IN ('activa', 'completada', 'cancelada')),
+    CONSTRAINT chk_toma_inv_sesiones_plazo  CHECK (plazo_dias >= 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_toma_inv_sesiones_estado
+    ON toma_inventario_sesiones (estado, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS toma_inventario_detalles (
+    id                SERIAL PRIMARY KEY,
+    sesion_id         INTEGER       NOT NULL REFERENCES toma_inventario_sesiones(id) ON DELETE CASCADE,
+    producto_id       INTEGER       REFERENCES productos(id) ON DELETE SET NULL,
+    producto_codigo   VARCHAR(50)   NOT NULL,
+    producto_nombre   VARCHAR(200)  NOT NULL,
+    categoria_id      INTEGER,
+    categoria_nombre  VARCHAR(100),
+    unidad            VARCHAR(50),
+    stock_sistema     DECIMAL(10,2) NOT NULL,
+    cantidad_contada  DECIMAL(10,2),
+    diferencia        DECIMAL(10,2),
+    usuario_conteo_id INTEGER,
+    contado_en        TIMESTAMP,
+    created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_toma_inv_detalles_cantidad CHECK (cantidad_contada IS NULL OR cantidad_contada >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_toma_inv_detalles_sesion_producto
+    ON toma_inventario_detalles (sesion_id, producto_id) WHERE producto_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_toma_inv_detalles_sesion
+    ON toma_inventario_detalles (sesion_id);
+
 -- Categorías iniciales en la tabla local de la sucursal
 INSERT INTO categorias (nombre, descripcion) VALUES
     ('Medicamentos',          'Fármacos y medicamentos en general'),

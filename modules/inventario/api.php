@@ -74,6 +74,20 @@ function guardarPreciosUnidadProducto(PDO $db, int $productoId, array $precios):
     }
 }
 
+function tomaInvGenerarCodigo(PDO $db): string
+{
+    $prefijo = 'TI' . date('Ymd') . '-';
+    $stmt = $db->prepare("
+        SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
+        FROM toma_inventario_sesiones
+        WHERE codigo LIKE :prefijo
+    ");
+    $stmt->execute([':prefijo' => $prefijo . '%']);
+    $ultimo = (int) ($stmt->fetch()['ultimo'] ?? 0);
+
+    return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
+}
+
 try {
 
 switch ($action) {
@@ -504,6 +518,301 @@ switch ($action) {
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch();
         jsonResponse(['error' => false, 'activo' => $row['activo']]);
+
+    case 'toma_crear':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden crear una toma de inventario'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $categoriaIds = array_values(array_unique(array_filter(array_map('intval', $data['categorias_ids'] ?? []))));
+        $plazoDias = intval($data['plazo_dias'] ?? 0);
+        $nombre = trim($data['nombre'] ?? '');
+
+        if (empty($categoriaIds)) {
+            jsonResponse(['error' => true, 'message' => 'Selecciona al menos una categoría'], 400);
+        }
+        if ($plazoDias < 1) {
+            jsonResponse(['error' => true, 'message' => 'El plazo debe ser de al menos 1 día'], 400);
+        }
+
+        $catsLiteral = '{' . implode(',', $categoriaIds) . '}';
+
+        $db->beginTransaction();
+        try {
+            $productosStmt = $db->prepare("
+                SELECT p.id, p.codigo, p.nombre, p.categoria_id, p.unidad, p.stock, c.nombre AS categoria_nombre
+                FROM productos p
+                LEFT JOIN categorias c ON c.id = p.categoria_id
+                WHERE p.activo = TRUE AND p.categoria_id = ANY(:cats::integer[])
+            ");
+            $productosStmt->execute([':cats' => $catsLiteral]);
+            $productos = $productosStmt->fetchAll();
+
+            if (!$productos) {
+                throw new Exception('Las categorías seleccionadas no tienen productos activos');
+            }
+
+            $codigo = tomaInvGenerarCodigo($db);
+
+            $stmt = $db->prepare("
+                INSERT INTO toma_inventario_sesiones
+                    (codigo, nombre, categorias_ids, plazo_dias, fecha_limite, total_productos, usuario_creador_id)
+                VALUES
+                    (:codigo, :nombre, :cats::integer[], :dias, NOW() + (:dias_txt || ' days')::interval, :total, :uid)
+                RETURNING id
+            ");
+            $stmt->execute([
+                ':codigo'   => $codigo,
+                ':nombre'   => $nombre !== '' ? $nombre : null,
+                ':cats'     => $catsLiteral,
+                ':dias'     => $plazoDias,
+                ':dias_txt' => (string) $plazoDias,
+                ':total'    => count($productos),
+                ':uid'      => sesionId(),
+            ]);
+            $sesionId = $stmt->fetch()['id'];
+
+            $detStmt = $db->prepare("
+                INSERT INTO toma_inventario_detalles
+                    (sesion_id, producto_id, producto_codigo, producto_nombre, categoria_id, categoria_nombre, unidad, stock_sistema)
+                VALUES
+                    (:sesion_id, :producto_id, :producto_codigo, :producto_nombre, :categoria_id, :categoria_nombre, :unidad, :stock_sistema)
+            ");
+            foreach ($productos as $p) {
+                $detStmt->execute([
+                    ':sesion_id'        => $sesionId,
+                    ':producto_id'      => $p['id'],
+                    ':producto_codigo'  => $p['codigo'],
+                    ':producto_nombre'  => $p['nombre'],
+                    ':categoria_id'     => $p['categoria_id'],
+                    ':categoria_nombre' => $p['categoria_nombre'],
+                    ':unidad'           => $p['unidad'],
+                    ':stock_sistema'    => $p['stock'],
+                ]);
+            }
+
+            registrarAuditoria(
+                'Creación de toma de inventario',
+                'inventario',
+                "Sesión: {$codigo} | Categorías: " . implode(',', $categoriaIds) . " | Productos: " . count($productos) . " | Plazo: {$plazoDias} día(s)"
+            );
+
+            $db->commit();
+            jsonResponse(['error' => false, 'message' => 'Toma de inventario creada', 'id' => $sesionId, 'codigo' => $codigo, 'total_productos' => count($productos)]);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
+
+    case 'toma_listar':
+        $rows = $db->query("
+            SELECT id, codigo, nombre, categorias_ids, plazo_dias, fecha_inicio, fecha_limite,
+                   estado, total_productos, total_contados, fecha_cierre, created_at,
+                   (estado = 'activa' AND fecha_limite < NOW()) AS vencida
+            FROM toma_inventario_sesiones
+            ORDER BY created_at DESC
+        ")->fetchAll();
+        echo json_encode($rows);
+        break;
+
+    case 'toma_detalle':
+        $id = intval($_GET['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+
+        $sesionStmt = $db->prepare("
+            SELECT id, codigo, nombre, categorias_ids, plazo_dias, fecha_inicio, fecha_limite,
+                   estado, total_productos, total_contados, observaciones, fecha_cierre, created_at,
+                   (estado = 'activa' AND fecha_limite < NOW()) AS vencida
+            FROM toma_inventario_sesiones WHERE id = :id
+        ");
+        $sesionStmt->execute([':id' => $id]);
+        $sesion = $sesionStmt->fetch();
+        if (!$sesion) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
+
+        $detStmt = $db->prepare("
+            SELECT id, producto_id, producto_codigo, producto_nombre, categoria_id, categoria_nombre,
+                   unidad, stock_sistema, cantidad_contada, diferencia, contado_en
+            FROM toma_inventario_detalles
+            WHERE sesion_id = :id
+            ORDER BY producto_nombre ASC
+        ");
+        $detStmt->execute([':id' => $id]);
+        $sesion['detalles'] = $detStmt->fetchAll();
+
+        echo json_encode($sesion);
+        break;
+
+    case 'toma_guardar_conteo':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden registrar el conteo'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $detalleId = intval($data['detalle_id'] ?? 0);
+        $cantidadRaw = array_key_exists('cantidad', $data) ? $data['cantidad'] : null;
+        $cantidad = ($cantidadRaw === null || $cantidadRaw === '') ? null : floatval($cantidadRaw);
+
+        if (!$detalleId) {
+            jsonResponse(['error' => true, 'message' => 'Detalle inválido'], 400);
+        }
+        if ($cantidad !== null && $cantidad < 0) {
+            jsonResponse(['error' => true, 'message' => 'La cantidad no puede ser negativa'], 400);
+        }
+
+        $check = $db->prepare("
+            SELECT d.id, d.stock_sistema, s.estado
+            FROM toma_inventario_detalles d
+            JOIN toma_inventario_sesiones s ON s.id = d.sesion_id
+            WHERE d.id = :id
+        ");
+        $check->execute([':id' => $detalleId]);
+        $row = $check->fetch();
+        if (!$row) {
+            jsonResponse(['error' => true, 'message' => 'Renglón no encontrado'], 404);
+        }
+        if ($row['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'No se puede modificar una sesión que no está activa'], 422);
+        }
+
+        $diferencia = $cantidad === null ? null : round($cantidad - (float) $row['stock_sistema'], 2);
+
+        $upd = $db->prepare("
+            UPDATE toma_inventario_detalles
+            SET cantidad_contada = :cantidad,
+                diferencia = :diferencia,
+                usuario_conteo_id = :uid,
+                contado_en = :contado_en
+            WHERE id = :id
+            RETURNING sesion_id, cantidad_contada, diferencia, contado_en
+        ");
+        $upd->execute([
+            ':cantidad'   => $cantidad,
+            ':diferencia' => $diferencia,
+            ':uid'        => $cantidad === null ? null : sesionId(),
+            ':contado_en' => $cantidad === null ? null : date('Y-m-d H:i:s'),
+            ':id'         => $detalleId,
+        ]);
+        $result = $upd->fetch();
+
+        $db->prepare("
+            UPDATE toma_inventario_sesiones
+            SET total_contados = (SELECT COUNT(*) FROM toma_inventario_detalles WHERE sesion_id = :sid AND cantidad_contada IS NOT NULL),
+                updated_at = NOW()
+            WHERE id = :sid
+        ")->execute([':sid' => $result['sesion_id']]);
+
+        jsonResponse([
+            'error'            => false,
+            'cantidad_contada' => $result['cantidad_contada'],
+            'diferencia'       => $result['diferencia'],
+            'contado_en'       => $result['contado_en'],
+        ]);
+
+    case 'toma_extender':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden extender el plazo'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = intval($data['id'] ?? 0);
+        $diasAdicionales = intval($data['dias_adicionales'] ?? 0);
+
+        if (!$id || $diasAdicionales < 1) {
+            jsonResponse(['error' => true, 'message' => 'Datos inválidos'], 400);
+        }
+
+        $sesion = $db->prepare("SELECT codigo, estado FROM toma_inventario_sesiones WHERE id = :id");
+        $sesion->execute([':id' => $id]);
+        $row = $sesion->fetch();
+        if (!$row) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
+        if ($row['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'Solo se puede extender una sesión activa'], 422);
+        }
+
+        $stmt = $db->prepare("
+            UPDATE toma_inventario_sesiones
+            SET fecha_limite = fecha_limite + (:dias_txt || ' days')::interval,
+                plazo_dias = plazo_dias + :dias,
+                updated_at = NOW()
+            WHERE id = :id
+            RETURNING fecha_limite
+        ");
+        $stmt->execute([':dias_txt' => (string) $diasAdicionales, ':dias' => $diasAdicionales, ':id' => $id]);
+        $nuevaFecha = $stmt->fetch()['fecha_limite'];
+
+        registrarAuditoria('Extensión de plazo de toma de inventario', 'inventario', "Sesión: {$row['codigo']} | +{$diasAdicionales} día(s) | Nueva fecha límite: {$nuevaFecha}");
+
+        jsonResponse(['error' => false, 'fecha_limite' => $nuevaFecha]);
+
+    case 'toma_cancelar':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden cancelar una toma de inventario'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = intval($data['id'] ?? 0);
+        $motivo = trim($data['motivo'] ?? '');
+        if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+
+        $sesion = $db->prepare("SELECT codigo, estado FROM toma_inventario_sesiones WHERE id = :id");
+        $sesion->execute([':id' => $id]);
+        $row = $sesion->fetch();
+        if (!$row) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
+        if ($row['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'Solo se puede cancelar una sesión activa'], 422);
+        }
+
+        $db->prepare("
+            UPDATE toma_inventario_sesiones
+            SET estado = 'cancelada', fecha_cierre = NOW(), usuario_cierre_id = :uid, updated_at = NOW()
+            WHERE id = :id
+        ")->execute([':uid' => sesionId(), ':id' => $id]);
+
+        registrarAuditoria('Cancelación de toma de inventario', 'inventario', "Sesión: {$row['codigo']}" . ($motivo !== '' ? " | Motivo: {$motivo}" : ''));
+
+        jsonResponse(['error' => false, 'message' => 'Sesión cancelada']);
+
+    case 'toma_aplicar':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden cerrar una toma de inventario'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = intval($data['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+
+        $sesion = $db->prepare("SELECT codigo, estado, total_productos FROM toma_inventario_sesiones WHERE id = :id");
+        $sesion->execute([':id' => $id]);
+        $sesionRow = $sesion->fetch();
+        if (!$sesionRow) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
+        if ($sesionRow['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'La sesión ya fue cerrada o cancelada'], 422);
+        }
+
+        $db->beginTransaction();
+        try {
+            $pendientes = $db->prepare("
+                SELECT id, producto_id, diferencia
+                FROM toma_inventario_detalles
+                WHERE sesion_id = :id AND cantidad_contada IS NOT NULL AND producto_id IS NOT NULL AND diferencia <> 0
+            ");
+            $pendientes->execute([':id' => $id]);
+            $filas = $pendientes->fetchAll();
+
+            $updStock = $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :pid");
+            foreach ($filas as $f) {
+                $updStock->execute([':delta' => $f['diferencia'], ':pid' => $f['producto_id']]);
+            }
+
+            $totalContadosStmt = $db->prepare("SELECT COUNT(*) AS n FROM toma_inventario_detalles WHERE sesion_id = :id AND cantidad_contada IS NOT NULL");
+            $totalContadosStmt->execute([':id' => $id]);
+            $contados = (int) $totalContadosStmt->fetch()['n'];
+            $sinContar = (int) $sesionRow['total_productos'] - $contados;
+
+            $db->prepare("
+                UPDATE toma_inventario_sesiones
+                SET estado = 'completada', fecha_cierre = NOW(), usuario_cierre_id = :uid, updated_at = NOW()
+                WHERE id = :id
+            ")->execute([':uid' => sesionId(), ':id' => $id]);
+
+            registrarAuditoria(
+                'Cierre de toma de inventario',
+                'inventario',
+                "Sesión: {$sesionRow['codigo']} | Productos ajustados: " . count($filas) . " | Sin contar: {$sinContar}"
+            );
+
+            $db->commit();
+            jsonResponse(['error' => false, 'message' => 'Sesión aplicada correctamente', 'productos_ajustados' => count($filas), 'sin_contar' => $sinContar]);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
 
     default:
         jsonResponse(['error' => true, 'message' => 'Accion no valida'], 404);

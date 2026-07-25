@@ -115,9 +115,6 @@ include '../../includes/header.php';
     <button class="alm-tab" id="tab-btn-almacen"    onclick="switchTab('almacen')">
         <i class="fas fa-boxes"></i> Almacén
     </button>
-    <button class="alm-tab" id="tab-btn-inventario" onclick="switchTab('inventario')">
-        <i class="fas fa-clipboard-list"></i> Toma de Inventario
-    </button>
     <button class="alm-tab" id="tab-btn-traslados" onclick="switchTab('traslados')">
         <i class="fas fa-exchange-alt"></i> Traslados
     </button>
@@ -318,39 +315,6 @@ include '../../includes/header.php';
         </div>
     </div>
 </div><!-- /tab-almacen -->
-
-<!-- ===================== TAB: TOMA DE INVENTARIO ===================== -->
-<div id="tab-inventario" style="display:none">
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <div class="card-title"><i class="fas fa-clipboard-list" style="color:var(--primary);margin-right:6px"></i>Tomas de inventario</div>
-            <span id="inv-count" style="font-size:.82rem;color:var(--text-muted)"></span>
-        </div>
-        <div class="table-wrap table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>N° Toma</th>
-                        <th>Fecha inicio</th>
-                        <th>Fecha cierre</th>
-                        <th>Responsable</th>
-                        <th class="text-right">Productos contados</th>
-                        <th class="text-right">Diferencias</th>
-                        <th>Estado</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="inv-body">
-                    <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">
-                        <i class="fas fa-clipboard-list" style="font-size:2rem;display:block;margin-bottom:10px;opacity:.3"></i>
-                        No hay tomas de inventario registradas
-                    </td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div><!-- /tab-inventario -->
 
 <!-- ===================== TAB: TRASLADOS ===================== -->
 <div id="tab-traslados" style="display:none">
@@ -674,12 +638,11 @@ let trasladoItems = [];
 let sucursalesTraslado = [];
 
 // ---- Tabs ----
-const TABS = ['ingresos', 'salidas', 'almacen', 'inventario', 'traslados'];
+const TABS = ['ingresos', 'salidas', 'almacen', 'traslados'];
 const TAB_CFG = {
     ingresos:   { title: '<i class="fas fa-truck-loading" style="color:var(--primary);margin-right:8px"></i>Ingresos de Stock',  subtitle: 'Registra la recepción de mercadería de proveedores',       actions: '<button class="btn btn-primary" onclick="openNuevoIngreso()"><i class="fas fa-plus"></i> Nuevo Ingreso</button>' },
     salidas:    { title: '<i class="fas fa-sign-out-alt" style="color:var(--primary);margin-right:8px"></i>Registro de Salida', subtitle: 'Registra salidas de stock por merma, vencimiento o devolución', actions: '<button class="btn btn-primary" onclick="openNuevaSalida()"><i class="fas fa-plus"></i> Nueva Salida</button>' },
     almacen:    { title: '<i class="fas fa-boxes" style="color:var(--primary);margin-right:8px"></i>Almacén',                   subtitle: 'Resumen y estado actual del stock por producto',               actions: '' },
-    inventario: { title: '<i class="fas fa-clipboard-list" style="color:var(--primary);margin-right:8px"></i>Toma de Inventario', subtitle: 'Inicia y gestiona conteos físicos de inventario',            actions: '<button class="btn btn-primary" onclick="openNuevoInventario()"><i class="fas fa-plus"></i> Nueva Toma</button>' },
     traslados:  { title: '<i class="fas fa-exchange-alt" style="color:var(--primary);margin-right:8px"></i>Traslados',            subtitle: 'Mueve productos entre sucursales de forma controlada',     actions: '<button class="btn btn-primary" onclick="abrirNuevoTraslado()"><i class="fas fa-plus"></i> Nuevo traslado</button>' },
 };
 
@@ -695,7 +658,6 @@ function switchTab(tab) {
     location.hash = tab;
 
     if (tab === 'almacen')    loadAlmacenStock();
-    if (tab === 'inventario') loadInventario();
     if (tab === 'salidas')    loadSalidas();
     if (tab === 'traslados')  loadSucursalesTraslado().then(loadTraslados);
 }
@@ -1048,10 +1010,6 @@ function loadAlmacenStock() {
         })
         .catch(() => showToast('Error al cargar stock', 'error'));
 }
-
-// ---- Toma de inventario (pendiente backend) ----
-function loadInventario()       { /* pendiente implementación backend */ }
-function openNuevoInventario()  { showToast('Próximamente disponible', 'info'); }
 
 // ========================================================
 // INGRESOS

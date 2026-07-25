@@ -105,6 +105,11 @@ include '../../includes/header.php';
     <button class="inv-tab" id="tab-btn-categorias" onclick="switchTab('categorias')">
         <i class="fas fa-tags"></i> Categorías
     </button>
+    <?php if (isAdmin()): ?>
+    <button class="inv-tab" id="tab-btn-toma" onclick="switchTab('toma')">
+        <i class="fas fa-clipboard-check"></i> Toma de Inventario
+    </button>
+    <?php endif; ?>
 </div>
 
 <!-- ===================== TAB: INVENTARIO ===================== -->
@@ -222,6 +227,87 @@ include '../../includes/header.php';
     </div>
 
 </div><!-- /tab-categorias -->
+
+<!-- ===================== TAB: TOMA DE INVENTARIO (lista de sesiones) ===================== -->
+<div id="tab-toma" style="display:none">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Sesiones de Toma de Inventario</div>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="toma-count">—</span>
+        </div>
+        <div class="table-wrap table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th style="text-align:center;width:90px">Plazo</th>
+                        <th style="width:150px">Fecha límite</th>
+                        <th style="text-align:center;width:120px">Progreso</th>
+                        <th style="width:110px">Estado</th>
+                        <th style="width:100px"></th>
+                    </tr>
+                </thead>
+                <tbody id="toma-tabla-body">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-toma -->
+
+<!-- ===================== TAB: TOMA DE INVENTARIO (detalle / grilla de conteo) ===================== -->
+<div id="tab-toma-detalle" style="display:none">
+    <button onclick="switchTab('toma')" style="display:flex;align-items:center;gap:7px;padding:6px 14px;margin-bottom:12px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--surface-2);color:var(--text-muted);font-size:.85rem;font-weight:500;cursor:pointer">
+        <i class="fas fa-arrow-left"></i> Volver a sesiones
+    </button>
+
+    <div class="card mb-4">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div>
+                <div style="font-weight:700;font-size:1.05rem" id="toma-detalle-codigo">—</div>
+                <div style="font-size:.85rem;color:var(--text-muted);margin-top:2px" id="toma-detalle-subinfo">—</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" id="toma-detalle-acciones"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4" style="display:flex;flex-direction:row;gap:14px;align-items:center;flex-wrap:wrap">
+        <div class="input-group" style="flex:1;min-width:220px;margin:0">
+            <span class="input-group-icon"><i class="fas fa-search"></i></span>
+            <input type="text" id="toma-detalle-q" class="form-control" placeholder="Buscar por nombre o código...">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--text-muted);cursor:pointer">
+            <input type="checkbox" id="toma-detalle-solo-pendientes"> Ver solo pendientes
+        </label>
+    </div>
+
+    <div class="card">
+        <div class="table-wrap table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th style="width:80px">Unidad</th>
+                        <th class="text-right" style="width:100px">Stock sistema</th>
+                        <th class="text-right" style="width:120px">Conteo físico</th>
+                        <th class="text-right" style="width:100px">Diferencia</th>
+                        <th style="width:150px">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="toma-detalle-body">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-toma-detalle -->
 
 <!-- ===================== TAB: VER PRODUCTO (solo lectura) ===================== -->
 <div id="tab-producto-vista" style="display:none">
@@ -712,6 +798,69 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Nueva Toma de Inventario ===================== -->
+<div class="modal-overlay" id="modal-nueva-toma">
+    <div class="modal" style="max-width:480px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-clipboard-check" style="color:var(--primary);margin-right:8px"></i>Nueva Toma de Inventario
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-nueva-toma')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Nombre <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
+                <input type="text" id="nt-nombre" class="form-control" placeholder="Ej: Conteo trimestral">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Categorías a incluir</label>
+                <div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;max-height:220px;overflow-y:auto">
+                    <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:6px">
+                        <input type="checkbox" id="nt-todas" onchange="toggleTodasCategorias(this.checked)"> Seleccionar todas
+                    </label>
+                    <div id="nt-categorias-list"></div>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Plazo (días) <span style="color:var(--danger)">*</span></label>
+                <input type="number" id="nt-plazo" class="form-control" placeholder="Ej: 3" min="1" step="1">
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:4px">
+                    Se incluirán los productos activos de las categorías seleccionadas al momento de crear la sesión.
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-nueva-toma')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-nueva-toma" onclick="guardarNuevaTomaModal()">
+                <i class="fas fa-save"></i> Crear sesión
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: Confirmar cierre de Toma de Inventario ===================== -->
+<div class="modal-overlay" id="modal-confirmar-aplicar-toma">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-triangle-exclamation" style="color:var(--danger);margin-right:8px"></i>Cerrar y aplicar sesión
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-confirmar-aplicar-toma')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.93rem;color:var(--text)">
+                Esto aplicará las diferencias de los productos contados directamente al stock real. Los productos sin contar no se modifican. <strong>Esta acción no se puede deshacer.</strong>
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-confirmar-aplicar-toma')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-aplicar-toma" onclick="confirmarAplicarToma()">
+                <i class="fas fa-check"></i> Cerrar y aplicar
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <link href="<?= $base_path ?>assets/vendor/select2/select2.min.css" rel="stylesheet">
@@ -773,16 +922,24 @@ let allProductos = [];
 let currentPage  = 1;
 const PAGE_SIZE  = 50;
 
+// Toma de Inventario
+let tomaSesiones = [];
+let tomaSesionActual = null;
+let tomaDetallesActuales = [];
+let tomaRefreshInterval = null;
+
 // ---- Tabs ----
 function switchTab(tab) {
-    ['inventario', 'categorias', 'producto', 'producto-vista'].forEach(t => {
+    ['inventario', 'categorias', 'producto', 'producto-vista', 'toma', 'toma-detalle'].forEach(t => {
         document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
         const btn = document.getElementById('tab-btn-' + t);
         if (btn) btn.classList.toggle('active', t === tab);
     });
 
+    if (tab !== 'toma-detalle') detenerRefrescoBadgesToma();
+
     const esProducto = tab === 'producto' || tab === 'producto-vista';
-    document.getElementById('inv-tabs-bar').style.display = esProducto ? 'none' : '';
+    document.getElementById('inv-tabs-bar').style.display = (esProducto || tab === 'toma-detalle') ? 'none' : '';
     document.getElementById('btn-regresar').style.display = esProducto ? 'flex' : 'none';
 
     if (tab === 'inventario') {
@@ -800,6 +957,13 @@ function switchTab(tab) {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Detalle de Producto';
         document.getElementById('inv-page-subtitle').textContent = 'Información del producto';
         document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>';
+    } else if (tab === 'toma') {
+        document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-clipboard-check" style="color:var(--primary);margin-right:8px"></i>Toma de Inventario';
+        document.getElementById('inv-page-subtitle').textContent = 'Conteo físico de productos por categoría';
+        document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="abrirNuevaTomaModal()"><i class="fas fa-plus"></i> Nueva Toma</button>';
+        cargarTomaSesiones();
+    } else if (tab === 'toma-detalle') {
+        document.getElementById('inv-page-actions').innerHTML = '';
     }
 }
 
@@ -821,6 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTipoAjuste();
     setupBarcodeScanner();
     setupFacturacionProducto();
+    setupTomaDetalleFiltros();
 });
 
 // ---- Stats ----
@@ -1520,6 +1685,313 @@ function toggleActivo(id) {
         loadStats();
     })
     .catch(() => showToast('Error al cambiar estado', 'error'));
+}
+
+// ---- Toma de Inventario ----
+function formatearTiempoRelativo(isoTimestamp) {
+    if (!isoTimestamp) return '—';
+    const diffMin = Math.floor((Date.now() - new Date(isoTimestamp).getTime()) / 60000);
+    if (diffMin < 1)  return 'hace un momento';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24)   return `hace ${diffH} h`;
+    return `hace ${Math.floor(diffH / 24)} d`;
+}
+
+function badgeEstadoToma(sesion) {
+    if (sesion.estado === 'completada') return '<span class="badge" style="background:var(--success);color:#fff">Completada</span>';
+    if (sesion.estado === 'cancelada')  return '<span class="badge" style="background:var(--text-light);color:#fff">Cancelada</span>';
+    if (sesion.vencida === true || sesion.vencida === 't') return '<span class="badge" style="background:var(--danger);color:#fff">Vencida</span>';
+    return '<span class="badge" style="background:var(--primary);color:#fff">Activa</span>';
+}
+
+function cargarTomaSesiones() {
+    document.getElementById('toma-tabla-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    fetch(BASE + 'modules/inventario/api.php?action=toma_listar')
+        .then(r => r.json())
+        .then(data => {
+            tomaSesiones = Array.isArray(data) ? data : [];
+            document.getElementById('toma-count').textContent = tomaSesiones.length + ' sesión(es)';
+            renderTomaSesiones();
+        })
+        .catch(() => showToast('Error al cargar las sesiones', 'error'));
+}
+
+function renderTomaSesiones() {
+    const tbody = document.getElementById('toma-tabla-body');
+    if (!tomaSesiones.length) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = tomaSesiones.map(s => `
+        <tr>
+            <td style="font-family:monospace">${s.codigo}</td>
+            <td>${s.nombre || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td style="text-align:center">${s.plazo_dias} día(s)</td>
+            <td>${new Date(s.fecha_limite).toLocaleString('es-PE')}</td>
+            <td style="text-align:center">${s.total_contados}/${s.total_productos}</td>
+            <td>${badgeEstadoToma(s)}</td>
+            <td>
+                <button class="btn btn-outline btn-sm" onclick="abrirTomaDetalle(${s.id})">
+                    <i class="fas fa-eye"></i> Ver
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function abrirNuevaTomaModal() {
+    document.getElementById('nt-nombre').value = '';
+    document.getElementById('nt-plazo').value  = '';
+    document.getElementById('nt-todas').checked = false;
+    document.getElementById('nt-categorias-list').innerHTML = categorias.map(c => `
+        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.88rem">
+            <input type="checkbox" class="nt-cat-check" value="${c.id}"> ${c.nombre} <span style="color:var(--text-muted)">(${c.total_productos})</span>
+        </label>
+    `).join('');
+    openModal('modal-nueva-toma');
+}
+
+function toggleTodasCategorias(checked) {
+    document.querySelectorAll('.nt-cat-check').forEach(chk => { chk.checked = checked; });
+}
+
+function guardarNuevaTomaModal() {
+    const categoriaIds = Array.from(document.querySelectorAll('.nt-cat-check:checked')).map(chk => parseInt(chk.value));
+    const plazoDias = parseInt(document.getElementById('nt-plazo').value);
+    const nombre = document.getElementById('nt-nombre').value.trim();
+
+    if (!categoriaIds.length) { showToast('Selecciona al menos una categoría', 'error'); return; }
+    if (!plazoDias || plazoDias < 1) { showToast('Ingresa un plazo válido (mínimo 1 día)', 'error'); return; }
+
+    const btn = document.getElementById('btn-guardar-nueva-toma');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_crear', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ categorias_ids: categoriaIds, plazo_dias: plazoDias, nombre }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Crear sesión';
+        if (data.error) { showToast(data.message, 'error'); return; }
+        closeModal('modal-nueva-toma');
+        showToast(`Sesión ${data.codigo} creada con ${data.total_productos} producto(s)`, 'success');
+        abrirTomaDetalle(data.id);
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Crear sesión';
+        showToast('Error al crear la sesión', 'error');
+    });
+}
+
+function abrirTomaDetalle(id) {
+    fetch(BASE + `modules/inventario/api.php?action=toma_detalle&id=${id}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { showToast(data.message, 'error'); return; }
+            tomaSesionActual = data;
+            tomaDetallesActuales = data.detalles || [];
+            document.getElementById('toma-detalle-q').value = '';
+            document.getElementById('toma-detalle-solo-pendientes').checked = false;
+            switchTab('toma-detalle');
+            renderTomaDetalleHeader();
+            renderTomaDetalleTabla();
+            if (tomaSesionActual.estado === 'activa') iniciarRefrescoBadgesToma();
+        })
+        .catch(() => showToast('Error al cargar el detalle de la sesión', 'error'));
+}
+
+function renderTomaDetalleHeader() {
+    const s = tomaSesionActual;
+    document.getElementById('toma-detalle-codigo').innerHTML =
+        `${s.codigo}${s.nombre ? ' — ' + s.nombre : ''} ${badgeEstadoToma(s)}`;
+    document.getElementById('toma-detalle-subinfo').textContent =
+        `Plazo: ${s.plazo_dias} día(s) · Fecha límite: ${new Date(s.fecha_limite).toLocaleString('es-PE')} · Contados: ${s.total_contados}/${s.total_productos}`;
+
+    const acciones = document.getElementById('toma-detalle-acciones');
+    if (esAdmin && s.estado === 'activa') {
+        acciones.innerHTML = `
+            <button class="btn btn-outline btn-sm" onclick="extenderPlazoToma()"><i class="fas fa-calendar-plus"></i> Extender plazo</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="cancelarToma()"><i class="fas fa-ban"></i> Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-confirmar-aplicar-toma')"><i class="fas fa-check-double"></i> Cerrar y aplicar</button>
+        `;
+    } else {
+        acciones.innerHTML = '';
+    }
+}
+
+function tomaDetalleFiltrados() {
+    const q = document.getElementById('toma-detalle-q').value.trim().toLowerCase();
+    const soloPendientes = document.getElementById('toma-detalle-solo-pendientes').checked;
+    return tomaDetallesActuales.filter(d => {
+        if (soloPendientes && d.cantidad_contada !== null) return false;
+        if (!q) return true;
+        return d.producto_nombre.toLowerCase().includes(q) || d.producto_codigo.toLowerCase().includes(q);
+    });
+}
+
+function renderTomaDetalleTabla() {
+    const tbody = document.getElementById('toma-detalle-body');
+    const filas = tomaDetalleFiltrados();
+    const sesionActiva = tomaSesionActual.estado === 'activa';
+    const editable = esAdmin && sesionActiva;
+
+    if (!filas.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filas.map(d => {
+        const diferenciaTxt = d.cantidad_contada === null ? '—' :
+            (parseFloat(d.diferencia) === 0 ? '0.00' : (parseFloat(d.diferencia) > 0 ? '+' : '') + parseFloat(d.diferencia).toFixed(2));
+        const diferenciaColor = d.cantidad_contada === null ? 'var(--text-muted)' :
+            (parseFloat(d.diferencia) === 0 ? 'var(--success)' : 'var(--danger)');
+        const badge = !d.producto_id
+            ? '<span class="text-muted">Producto eliminado</span>'
+            : (d.cantidad_contada === null
+                ? '<span style="color:var(--text-muted)">Sin contar</span>'
+                : (sesionActiva
+                    ? `<span data-contado-en="${d.contado_en}" class="toma-badge-relativo">${formatearTiempoRelativo(d.contado_en)}</span>`
+                    : '<span>Actualizado</span>'));
+
+        return `
+        <tr>
+            <td style="font-family:monospace;color:var(--text-muted)">${d.producto_codigo}</td>
+            <td>${d.producto_nombre}</td>
+            <td>${d.categoria_nombre || '—'}</td>
+            <td>${d.unidad || 'unidad'}</td>
+            <td class="text-right">${parseFloat(d.stock_sistema).toFixed(2)}</td>
+            <td class="text-right">
+                <input type="number" step="0.01" min="0"
+                    value="${d.cantidad_contada === null ? '' : parseFloat(d.cantidad_contada)}"
+                    ${(editable && d.producto_id) ? '' : 'disabled'}
+                    data-detalle-id="${d.id}"
+                    style="width:100px;text-align:right;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem"
+                    onblur="guardarConteoProducto(${d.id}, this.value, this)"
+                    onkeydown="if(event.key==='Enter'){this.blur();}">
+            </td>
+            <td class="text-right" style="font-weight:600;color:${diferenciaColor}">${diferenciaTxt}</td>
+            <td>${badge}</td>
+        </tr>`;
+    }).join('');
+}
+
+function guardarConteoProducto(detalleId, valor, inputEl) {
+    const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
+    if (!detalle) return;
+
+    const cantidad = valor === '' ? null : parseFloat(valor);
+    const valorAnterior = detalle.cantidad_contada === null ? null : parseFloat(detalle.cantidad_contada);
+    if (cantidad === valorAnterior) return; // no cambió, no llama a la API
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_guardar_conteo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ detalle_id: detalleId, cantidad }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        detalle.cantidad_contada = data.cantidad_contada;
+        detalle.diferencia = data.diferencia;
+        detalle.contado_en = data.contado_en;
+        if (data.cantidad_contada !== null) {
+            tomaSesionActual.total_contados = tomaDetallesActuales.filter(d => d.cantidad_contada !== null).length;
+        }
+        renderTomaDetalleHeader();
+        renderTomaDetalleTabla();
+    })
+    .catch(() => showToast('Error al guardar el conteo', 'error'));
+}
+
+function extenderPlazoToma() {
+    const dias = parseInt(prompt('¿Cuántos días adicionales deseas agregar al plazo?', '1'));
+    if (!dias || dias < 1) return;
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_extender', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: tomaSesionActual.id, dias_adicionales: dias }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        showToast('Plazo extendido correctamente', 'success');
+        abrirTomaDetalle(tomaSesionActual.id);
+    })
+    .catch(() => showToast('Error al extender el plazo', 'error'));
+}
+
+function cancelarToma() {
+    if (!confirm('¿Cancelar esta toma de inventario? No se aplicará ningún cambio de stock.')) return;
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_cancelar', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: tomaSesionActual.id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        showToast('Sesión cancelada', 'success');
+        abrirTomaDetalle(tomaSesionActual.id);
+    })
+    .catch(() => showToast('Error al cancelar la sesión', 'error'));
+}
+
+function confirmarAplicarToma() {
+    const btn = document.getElementById('btn-confirmar-aplicar-toma');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aplicando...';
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_aplicar', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: tomaSesionActual.id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar y aplicar';
+        closeModal('modal-confirmar-aplicar-toma');
+        if (data.error) { showToast(data.message, 'error'); return; }
+        showToast(`Sesión aplicada: ${data.productos_ajustados} producto(s) ajustado(s), ${data.sin_contar} sin contar`, 'success');
+        abrirTomaDetalle(tomaSesionActual.id);
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar y aplicar';
+        closeModal('modal-confirmar-aplicar-toma');
+        showToast('Error al aplicar la sesión', 'error');
+    });
+}
+
+function iniciarRefrescoBadgesToma() {
+    detenerRefrescoBadgesToma();
+    tomaRefreshInterval = setInterval(() => {
+        document.querySelectorAll('.toma-badge-relativo').forEach(el => {
+            el.textContent = formatearTiempoRelativo(el.getAttribute('data-contado-en'));
+        });
+    }, 30000);
+}
+
+function detenerRefrescoBadgesToma() {
+    if (tomaRefreshInterval) { clearInterval(tomaRefreshInterval); tomaRefreshInterval = null; }
+}
+
+function setupTomaDetalleFiltros() {
+    let timer;
+    document.getElementById('toma-detalle-q').addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(renderTomaDetalleTabla, 150);
+    });
+    document.getElementById('toma-detalle-solo-pendientes').addEventListener('change', renderTomaDetalleTabla);
 }
 
 // ---- Categorías (tab) ----
