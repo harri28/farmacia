@@ -628,7 +628,7 @@ switch ($action) {
         $detStmt = $db->prepare("
             SELECT d.id, d.producto_id, d.producto_codigo, d.producto_nombre, d.categoria_id, d.categoria_nombre,
                    d.unidad, d.stock_sistema, d.cantidad_contada, d.diferencia, d.contado_en, d.aplicado,
-                   p.stock_minimo
+                   p.stock_minimo, p.codigo_barras
             FROM toma_inventario_detalles d
             LEFT JOIN productos p ON p.id = d.producto_id
             WHERE d.sesion_id = :id

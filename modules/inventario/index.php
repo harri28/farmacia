@@ -2322,11 +2322,14 @@ function quitarImagen() {
 // ---- Lector de código de barras ----
 function setupBarcodeScanner() {
     document.addEventListener('barcodescan', function (e) {
-        const code         = e.detail.code.trim();
-        const esTabProducto = document.getElementById('tab-producto').style.display !== 'none';
-        const modalAjuste   = document.getElementById('modal-ajuste').classList.contains('open');
+        const code           = e.detail.code.trim();
+        const esTabProducto  = document.getElementById('tab-producto').style.display !== 'none';
+        const modalAjuste    = document.getElementById('modal-ajuste').classList.contains('open');
+        const esTomaDetalle  = document.getElementById('tab-toma-detalle').style.display !== 'none';
 
-        if (esTabProducto) {
+        if (esTomaDetalle) {
+            buscarProductoEnTomaDetalle(code);
+        } else if (esTabProducto) {
             const campo = document.getElementById('p-codigo');
             campo.value = code;
             campo.style.transition = 'background .2s';
@@ -2340,6 +2343,37 @@ function setupBarcodeScanner() {
             showToast('<i class="fas fa-barcode"></i> Buscando: ' + code, 'info');
         }
     });
+}
+
+function buscarProductoEnTomaDetalle(code) {
+    const upper = code.toUpperCase();
+    const detalle = tomaDetallesActuales.find(d =>
+        (d.codigo_barras && d.codigo_barras.toUpperCase() === upper) ||
+        (d.producto_codigo && d.producto_codigo.toUpperCase() === upper)
+    );
+
+    if (!detalle) {
+        showToast('Código <strong>' + code + '</strong> no encontrado en esta sesión', 'error');
+        return;
+    }
+
+    document.getElementById('toma-detalle-q').value = '';
+    document.getElementById('toma-detalle-solo-pendientes').checked = false;
+    renderTomaDetalleTabla();
+
+    const aplicado = detalle.aplicado === true || detalle.aplicado === 't';
+    if (aplicado) {
+        showToast(detalle.producto_nombre + ' — ya fue aplicado, no se puede editar', 'info');
+        return;
+    }
+
+    const input = document.querySelector(`input[data-detalle-id="${detalle.id}"]`);
+    if (input) {
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        input.focus();
+        input.select();
+    }
+    showToast('<i class="fas fa-barcode"></i> ' + detalle.producto_nombre, 'success');
 }
 
 // ---- Helpers ----
