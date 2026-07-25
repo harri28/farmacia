@@ -626,11 +626,13 @@ switch ($action) {
         if (!$sesion) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
 
         $detStmt = $db->prepare("
-            SELECT id, producto_id, producto_codigo, producto_nombre, categoria_id, categoria_nombre,
-                   unidad, stock_sistema, cantidad_contada, diferencia, contado_en
-            FROM toma_inventario_detalles
-            WHERE sesion_id = :id
-            ORDER BY producto_nombre ASC
+            SELECT d.id, d.producto_id, d.producto_codigo, d.producto_nombre, d.categoria_id, d.categoria_nombre,
+                   d.unidad, d.stock_sistema, d.cantidad_contada, d.diferencia, d.contado_en, d.aplicado,
+                   p.stock_minimo
+            FROM toma_inventario_detalles d
+            LEFT JOIN productos p ON p.id = d.producto_id
+            WHERE d.sesion_id = :id
+            ORDER BY d.producto_nombre ASC
         ");
         $detStmt->execute([':id' => $id]);
         $sesion['detalles'] = $detStmt->fetchAll();
@@ -653,7 +655,7 @@ switch ($action) {
         }
 
         $check = $db->prepare("
-            SELECT d.id, d.stock_sistema, s.estado
+            SELECT d.id, d.stock_sistema, d.aplicado, s.estado
             FROM toma_inventario_detalles d
             JOIN toma_inventario_sesiones s ON s.id = d.sesion_id
             WHERE d.id = :id
@@ -665,6 +667,9 @@ switch ($action) {
         }
         if ($row['estado'] !== 'activa') {
             jsonResponse(['error' => true, 'message' => 'No se puede modificar una sesión que no está activa'], 422);
+        }
+        if ($row['aplicado']) {
+            jsonResponse(['error' => true, 'message' => 'Este producto ya fue aplicado al stock, no se puede modificar'], 422);
         }
 
         $diferencia = $cantidad === null ? null : round($cantidad - (float) $row['stock_sistema'], 2);
@@ -700,6 +705,58 @@ switch ($action) {
             'diferencia'       => $result['diferencia'],
             'contado_en'       => $result['contado_en'],
         ]);
+
+    case 'toma_aplicar_producto':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden aplicar un producto al stock'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $detalleId = intval($data['detalle_id'] ?? 0);
+        if (!$detalleId) jsonResponse(['error' => true, 'message' => 'Detalle inválido'], 400);
+
+        $check = $db->prepare("
+            SELECT d.id, d.producto_id, d.cantidad_contada, d.diferencia, d.aplicado, d.sesion_id, s.estado
+            FROM toma_inventario_detalles d
+            JOIN toma_inventario_sesiones s ON s.id = d.sesion_id
+            WHERE d.id = :id
+        ");
+        $check->execute([':id' => $detalleId]);
+        $row = $check->fetch();
+        if (!$row) jsonResponse(['error' => true, 'message' => 'Renglón no encontrado'], 404);
+        if ($row['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'No se puede modificar una sesión que no está activa'], 422);
+        }
+        if ($row['aplicado']) {
+            jsonResponse(['error' => true, 'message' => 'Este producto ya fue aplicado al stock'], 422);
+        }
+        if ($row['cantidad_contada'] === null) {
+            jsonResponse(['error' => true, 'message' => 'Primero ingresa el conteo físico de este producto'], 422);
+        }
+        if (!$row['producto_id']) {
+            jsonResponse(['error' => true, 'message' => 'El producto de esta fila ya no existe'], 422);
+        }
+
+        $db->beginTransaction();
+        try {
+            if ((float) $row['diferencia'] !== 0.0) {
+                $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :pid")
+                   ->execute([':delta' => $row['diferencia'], ':pid' => $row['producto_id']]);
+            }
+
+            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = TRUE WHERE id = :id")
+               ->execute([':id' => $detalleId]);
+
+            $db->commit();
+
+            registrarAuditoria(
+                'Aplicación individual de conteo (toma de inventario)',
+                'inventario',
+                "Producto ID: {$row['producto_id']} | Diferencia aplicada: {$row['diferencia']} | Sesión ID: {$row['sesion_id']}"
+            );
+
+            jsonResponse(['error' => false, 'message' => 'Producto aplicado al stock']);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
 
     case 'toma_extender':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden extender el plazo'], 403);
@@ -775,22 +832,16 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            $pendientes = $db->prepare("
-                SELECT id, producto_id, diferencia
-                FROM toma_inventario_detalles
-                WHERE sesion_id = :id AND cantidad_contada IS NOT NULL AND producto_id IS NOT NULL AND diferencia <> 0
+            $statsStmt = $db->prepare("
+                SELECT
+                    COUNT(*) FILTER (WHERE cantidad_contada IS NOT NULL)         AS contados,
+                    COUNT(*) FILTER (WHERE aplicado)                            AS aplicados
+                FROM toma_inventario_detalles WHERE sesion_id = :id
             ");
-            $pendientes->execute([':id' => $id]);
-            $filas = $pendientes->fetchAll();
-
-            $updStock = $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :pid");
-            foreach ($filas as $f) {
-                $updStock->execute([':delta' => $f['diferencia'], ':pid' => $f['producto_id']]);
-            }
-
-            $totalContadosStmt = $db->prepare("SELECT COUNT(*) AS n FROM toma_inventario_detalles WHERE sesion_id = :id AND cantidad_contada IS NOT NULL");
-            $totalContadosStmt->execute([':id' => $id]);
-            $contados = (int) $totalContadosStmt->fetch()['n'];
+            $statsStmt->execute([':id' => $id]);
+            $stats = $statsStmt->fetch();
+            $contados  = (int) $stats['contados'];
+            $aplicados = (int) $stats['aplicados'];
             $sinContar = (int) $sesionRow['total_productos'] - $contados;
 
             $db->prepare("
@@ -804,10 +855,10 @@ switch ($action) {
             registrarAuditoria(
                 'Cierre de toma de inventario',
                 'inventario',
-                "Sesión: {$sesionRow['codigo']} | Productos ajustados: " . count($filas) . " | Sin contar: {$sinContar}"
+                "Sesión: {$sesionRow['codigo']} | Aplicados: {$aplicados} | Contados sin aplicar: " . ($contados - $aplicados) . " | Sin contar: {$sinContar}"
             );
 
-            jsonResponse(['error' => false, 'message' => 'Sesión aplicada correctamente', 'productos_ajustados' => count($filas), 'sin_contar' => $sinContar]);
+            jsonResponse(['error' => false, 'message' => 'Sesión cerrada correctamente', 'aplicados' => $aplicados, 'sin_contar' => $sinContar]);
         } catch (Throwable $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);

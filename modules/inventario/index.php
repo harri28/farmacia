@@ -293,10 +293,10 @@ include '../../includes/header.php';
                         <th>Nombre</th>
                         <th>Categoría</th>
                         <th style="width:80px">Unidad</th>
-                        <th class="text-right" style="width:100px">Stock sistema</th>
+                        <th class="text-right" style="width:100px">Stock Actual</th>
                         <th class="text-right" style="width:120px">Conteo físico</th>
-                        <th class="text-right" style="width:100px">Diferencia</th>
                         <th style="width:150px">Estado</th>
+                        <th style="width:90px"></th>
                     </tr>
                 </thead>
                 <tbody id="toma-detalle-body">
@@ -843,19 +843,19 @@ include '../../includes/header.php';
     <div class="modal" style="max-width:420px">
         <div class="modal-header">
             <h3 class="modal-title">
-                <i class="fas fa-triangle-exclamation" style="color:var(--danger);margin-right:8px"></i>Cerrar y aplicar sesión
+                <i class="fas fa-triangle-exclamation" style="color:var(--danger);margin-right:8px"></i>Cerrar sesión
             </h3>
             <button class="modal-close" onclick="closeModal('modal-confirmar-aplicar-toma')"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <p style="font-size:.93rem;color:var(--text)">
-                Esto aplicará las diferencias de los productos contados directamente al stock real. Los productos sin contar no se modifican. <strong>Esta acción no se puede deshacer.</strong>
+                Los productos que ya aplicaste (✓) quedan como están. Los que contaste pero no aplicaste, y los que no contaste, <strong>no modifican el stock</strong> — solo se marca la sesión como completada. <strong>Esta acción no se puede deshacer.</strong>
             </p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal('modal-confirmar-aplicar-toma')">Cancelar</button>
             <button class="btn btn-danger" id="btn-confirmar-aplicar-toma" onclick="confirmarAplicarToma()">
-                <i class="fas fa-check"></i> Cerrar y aplicar
+                <i class="fas fa-check"></i> Cerrar sesión
             </button>
         </div>
     </div>
@@ -1818,7 +1818,7 @@ function renderTomaDetalleHeader() {
         acciones.innerHTML = `
             <button class="btn btn-outline btn-sm" onclick="extenderPlazoToma()"><i class="fas fa-calendar-plus"></i> Extender plazo</button>
             <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="cancelarToma()"><i class="fas fa-ban"></i> Cancelar</button>
-            <button class="btn btn-primary btn-sm" onclick="openModal('modal-confirmar-aplicar-toma')"><i class="fas fa-check-double"></i> Cerrar y aplicar</button>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-confirmar-aplicar-toma')"><i class="fas fa-check-double"></i> Cerrar sesión</button>
         `;
     } else {
         acciones.innerHTML = '';
@@ -1847,17 +1847,38 @@ function renderTomaDetalleTabla() {
     }
 
     tbody.innerHTML = filas.map(d => {
-        const diferenciaTxt = d.cantidad_contada === null ? '—' :
-            (parseFloat(d.diferencia) === 0 ? '0.00' : (parseFloat(d.diferencia) > 0 ? '+' : '') + parseFloat(d.diferencia).toFixed(2));
-        const diferenciaColor = d.cantidad_contada === null ? 'var(--text-muted)' :
-            (parseFloat(d.diferencia) === 0 ? 'var(--success)' : 'var(--danger)');
-        const badge = !d.producto_id
-            ? '<span class="text-muted">Producto eliminado</span>'
-            : (d.cantidad_contada === null
-                ? '<span style="color:var(--text-muted)">Sin contar</span>'
-                : (sesionActiva
-                    ? `<span data-contado-en="${d.contado_en}" class="toma-badge-relativo">${formatearTiempoRelativo(d.contado_en)}</span>`
-                    : '<span>Actualizado</span>'));
+        const aplicado = d.aplicado === true || d.aplicado === 't';
+        const contado  = d.cantidad_contada !== null;
+
+        const stockVal = parseFloat(d.stock_sistema);
+        const stockMin = (d.stock_minimo === null || d.stock_minimo === undefined) ? null : parseFloat(d.stock_minimo);
+        const stockColor = stockVal <= 0
+            ? 'var(--danger)'
+            : (stockMin !== null && stockVal <= stockMin ? '#f59e0b' : 'var(--success)');
+
+        let estado;
+        if (!d.producto_id) {
+            estado = '<span class="text-muted">Producto eliminado</span>';
+        } else if (aplicado) {
+            estado = '<span style="color:var(--success);font-weight:600"><i class="fas fa-check-circle"></i> Aplicado</span>';
+        } else if (!contado) {
+            estado = '<span style="color:var(--text-muted)">Sin contar</span>';
+        } else if (sesionActiva) {
+            estado = `<span data-contado-en="${d.contado_en}" class="toma-badge-relativo">${formatearTiempoRelativo(d.contado_en)}</span>`;
+        } else {
+            estado = '<span>Actualizado</span>';
+        }
+
+        const puedeAccionar = editable && d.producto_id && contado && !aplicado;
+        const acciones = aplicado ? '' : `
+            <button type="button" title="Aplicar al stock" ${puedeAccionar ? '' : 'disabled'} onclick="aplicarProductoToma(${d.id})"
+                style="background:none;border:none;color:${puedeAccionar ? 'var(--success)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 6px;font-size:1rem">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" title="Descartar conteo" ${puedeAccionar ? '' : 'disabled'} onclick="descartarConteoProducto(${d.id})"
+                style="background:none;border:none;color:${puedeAccionar ? 'var(--danger)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 6px;font-size:1rem">
+                <i class="fas fa-times"></i>
+            </button>`;
 
         return `
         <tr>
@@ -1865,20 +1886,41 @@ function renderTomaDetalleTabla() {
             <td>${d.producto_nombre}</td>
             <td>${d.categoria_nombre || '—'}</td>
             <td>${d.unidad || 'unidad'}</td>
-            <td class="text-right">${parseFloat(d.stock_sistema).toFixed(2)}</td>
+            <td class="text-right" style="font-weight:600;color:${stockColor}">${stockVal.toFixed(2)}</td>
             <td class="text-right">
                 <input type="number" step="0.01" min="0"
                     value="${d.cantidad_contada === null ? '' : parseFloat(d.cantidad_contada)}"
-                    ${(editable && d.producto_id) ? '' : 'disabled'}
+                    ${(editable && d.producto_id && !aplicado) ? '' : 'disabled'}
                     data-detalle-id="${d.id}"
                     style="width:100px;text-align:right;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem"
                     onblur="guardarConteoProducto(${d.id}, this.value, this)"
                     onkeydown="if(event.key==='Enter'){this.blur();}">
             </td>
-            <td class="text-right" style="font-weight:600;color:${diferenciaColor}">${diferenciaTxt}</td>
-            <td>${badge}</td>
+            <td>${estado}</td>
+            <td style="white-space:nowrap">${acciones}</td>
         </tr>`;
     }).join('');
+}
+
+function aplicarProductoToma(detalleId) {
+    fetch(BASE + 'modules/inventario/api.php?action=toma_aplicar_producto', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ detalle_id: detalleId }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
+        if (detalle) detalle.aplicado = true;
+        showToast('Producto aplicado al stock', 'success');
+        renderTomaDetalleTabla();
+    })
+    .catch(() => showToast('Error al aplicar el producto', 'error'));
+}
+
+function descartarConteoProducto(detalleId) {
+    guardarConteoProducto(detalleId, '', null);
 }
 
 function guardarConteoProducto(detalleId, valor, inputEl) {
@@ -1957,17 +1999,17 @@ function confirmarAplicarToma() {
     .then(r => r.json())
     .then(data => {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar y aplicar';
+        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar sesión';
         closeModal('modal-confirmar-aplicar-toma');
         if (data.error) { showToast(data.message, 'error'); return; }
-        showToast(`Sesión aplicada: ${data.productos_ajustados} producto(s) ajustado(s), ${data.sin_contar} sin contar`, 'success');
+        showToast(`Sesión cerrada: ${data.aplicados} producto(s) aplicado(s), ${data.sin_contar} sin contar`, 'success');
         abrirTomaDetalle(tomaSesionActual.id);
     })
     .catch(() => {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar y aplicar';
+        btn.innerHTML = '<i class="fas fa-check"></i> Cerrar sesión';
         closeModal('modal-confirmar-aplicar-toma');
-        showToast('Error al aplicar la sesión', 'error');
+        showToast('Error al cerrar la sesión', 'error');
     });
 }
 

@@ -326,6 +326,7 @@ CREATE TABLE IF NOT EXISTS toma_inventario_detalles (
     diferencia        DECIMAL(10,2),
     usuario_conteo_id INTEGER,
     contado_en        TIMESTAMP,
+    aplicado          BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_toma_inv_detalles_cantidad CHECK (cantidad_contada IS NULL OR cantidad_contada >= 0)
 );
