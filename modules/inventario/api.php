@@ -609,7 +609,18 @@ switch ($action) {
                        SELECT string_agg(c.nombre, ', ' ORDER BY c.nombre)
                        FROM categorias c
                        WHERE c.id = ANY(s.categorias_ids)
-                   ) AS categorias_nombres
+                   ) AS categorias_nombres,
+                   (
+                       SELECT COALESCE(SUM(d.stock_sistema), 0)
+                       FROM toma_inventario_detalles d
+                       WHERE d.sesion_id = s.id
+                   ) AS stock_inicial,
+                   (
+                       SELECT COALESCE(SUM(p.stock), 0)
+                       FROM toma_inventario_detalles d
+                       JOIN productos p ON p.id = d.producto_id
+                       WHERE d.sesion_id = s.id
+                   ) AS stock_actual
             FROM toma_inventario_sesiones s
             ORDER BY s.created_at DESC
         ")->fetchAll();

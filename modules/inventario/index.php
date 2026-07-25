@@ -245,12 +245,13 @@ include '../../includes/header.php';
                         <th style="text-align:center;width:90px">Plazo</th>
                         <th style="width:150px">Fecha límite</th>
                         <th style="text-align:center;width:120px">Progreso</th>
+                        <th style="text-align:center;width:140px">Vs</th>
                         <th style="width:110px">Estado</th>
                         <th style="width:100px"></th>
                     </tr>
                 </thead>
                 <tbody id="toma-tabla-body">
-                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -1707,7 +1708,7 @@ function badgeEstadoToma(sesion) {
 
 function cargarTomaSesiones() {
     document.getElementById('toma-tabla-body').innerHTML =
-        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     fetch(BASE + 'modules/inventario/api.php?action=toma_listar')
         .then(r => r.json())
         .then(data => {
@@ -1721,10 +1722,14 @@ function cargarTomaSesiones() {
 function renderTomaSesiones() {
     const tbody = document.getElementById('toma-tabla-body');
     if (!tomaSesiones.length) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
         return;
     }
-    tbody.innerHTML = tomaSesiones.map(s => `
+    tbody.innerHTML = tomaSesiones.map(s => {
+        const stockInicial = parseFloat(s.stock_inicial) || 0;
+        const stockActual  = parseFloat(s.stock_actual) || 0;
+        const vsColor = stockActual === stockInicial ? 'var(--text-muted)' : (stockActual < stockInicial ? 'var(--danger)' : 'var(--success)');
+        return `
         <tr>
             <td style="font-family:monospace">${s.codigo}</td>
             <td>${s.nombre || '<span style="color:var(--text-light)">—</span>'}</td>
@@ -1732,14 +1737,17 @@ function renderTomaSesiones() {
             <td style="text-align:center">${s.plazo_dias} día(s)</td>
             <td>${new Date(s.fecha_limite).toLocaleString('es-PE')}</td>
             <td style="text-align:center">${s.total_contados}/${s.total_productos}</td>
+            <td style="text-align:center;font-size:.85rem">
+                ${stockInicial.toFixed(2)} <i class="fas fa-arrow-right" style="color:var(--text-light);font-size:.75rem"></i> <span style="font-weight:600;color:${vsColor}">${stockActual.toFixed(2)}</span>
+            </td>
             <td>${badgeEstadoToma(s)}</td>
             <td>
                 <button class="btn btn-outline btn-sm" onclick="abrirTomaDetalle(${s.id})">
                     <i class="fas fa-eye"></i> Ver
                 </button>
             </td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
 }
 
 function parsePgIntArray(raw) {
