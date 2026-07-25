@@ -140,6 +140,18 @@ document.addEventListener('click', function(e) {
     if (chevron) chevron.style.transform = '';
 });
 
+// ── ESC cierra cualquier modal abierto en cualquier pantalla ──
+// Simula un clic en el botón "X" del modal (en vez de solo quitar la
+// clase) para respetar cualquier lógica extra que tenga ese cierre
+// (ej. el ticket de venta reinicia el POS al cerrarse).
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    const modalAbierto = document.querySelector('.modal-overlay.open');
+    if (!modalAbierto) return;
+    const btnCerrar = modalAbierto.querySelector('.modal-close');
+    if (btnCerrar) { btnCerrar.click(); } else { modalAbierto.classList.remove('open'); }
+});
+
 // Fecha actual
 (function() {
     const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
