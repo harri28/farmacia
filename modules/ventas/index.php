@@ -821,7 +821,7 @@ include '../../includes/header.php';
                 <i class="fab fa-whatsapp"></i> WhatsApp
             </button>
             <button class="btn btn-outline btn-sm" onclick="copiarEnlaceComprobante()">
-                <i class="fas fa-link"></i> Copiar enlace de comprobante
+                <i class="fas fa-link"></i> Copiar enlace
             </button>
             <button class="btn btn-primary" onclick="closeModal('modal-ticket-historial')">
                 Cerrar
