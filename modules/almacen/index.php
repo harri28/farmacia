@@ -991,7 +991,7 @@ function addSalidaLinea(p) {
     if (existing >= 0) {
         salidaLines[existing].cantidad++;
     } else {
-        salidaLines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, stock_disponible: parseFloat(p.stock), cantidad: 1, costo_unitario: parseFloat(p.precio_compra) || 0 });
+        salidaLines.unshift({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, stock_disponible: parseFloat(p.stock), cantidad: 1, costo_unitario: parseFloat(p.precio_compra) || 0 });
     }
     renderSalidaLineas();
     calcularTotalSalida();
@@ -1025,10 +1025,11 @@ function renderSalidaLineas() {
             <td style="font-size:.8rem;color:var(--text-muted);font-family:monospace">${l.codigo}</td>
             <td style="font-weight:500;font-size:.88rem">${l.nombre}${excedeStock ? `<div style="color:var(--danger);font-size:.75rem">Stock disponible: ${l.stock_disponible}</div>` : ''}</td>
             <td class="text-right">
-                <input type="number" value="${l.cantidad}" min="0.01" step="0.01"
+                <input type="text" inputmode="decimal" value="${l.cantidad}"
                     style="width:72px;text-align:right;padding:5px 7px;border:1px solid ${excedeStock ? 'var(--danger)' : 'var(--border)'};
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
-                    oninput="updateSalidaLinea(${idx},'cantidad',this.value)">
+                    oninput="updateSalidaLinea(${idx},'cantidad',sanitizarCantidadInput(this))"
+                    onfocus="cursorAlFinal(this)">
             </td>
             <td class="text-right">
                 <input type="number" value="${l.costo_unitario.toFixed(2)}" min="0" step="0.01"
@@ -1346,13 +1347,30 @@ function seleccionarProducto(p) {
     document.getElementById('n-producto-search').focus();
 }
 
+// Deja solo digitos y un punto decimal, y refleja el valor limpio en el
+// input -- se usa en los inputs de Cantidad (type="text" en vez de
+// "number" porque Chrome no permite mover el cursor programaticamente
+// en inputs type="number").
+function sanitizarCantidadInput(el) {
+    let v = el.value.replace(/[^0-9.]/g, '');
+    const partes = v.split('.');
+    if (partes.length > 2) v = partes[0] + '.' + partes.slice(1).join('');
+    el.value = v;
+    return v;
+}
+
+function cursorAlFinal(el) {
+    const pos = el.value.length;
+    el.setSelectionRange(pos, pos);
+}
+
 function addLinea(p) {
     const pid = parseInt(p.id);
     const existing = lines.findIndex(l => l.producto_id === pid);
     if (existing >= 0) {
         lines[existing].cantidad++;
     } else {
-        lines.push({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_compra) || 0, precio_venta: parseFloat(p.precio_venta) || 0 });
+        lines.unshift({ producto_id: pid, codigo: p.codigo, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_compra) || 0, precio_venta: parseFloat(p.precio_venta) || 0 });
     }
     renderLineas();
     calcularTotales();
@@ -1384,10 +1402,11 @@ function renderLineas() {
             <td style="font-size:.8rem;color:var(--text-muted);font-family:monospace">${l.codigo}</td>
             <td style="font-weight:500;font-size:.88rem">${l.nombre}</td>
             <td class="text-right">
-                <input type="number" value="${l.cantidad}" min="0.01" step="0.01"
+                <input type="text" inputmode="decimal" value="${l.cantidad}"
                     style="width:72px;text-align:right;padding:5px 7px;border:1px solid var(--border);
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
-                    oninput="updateLinea(${idx},'cantidad',this.value)">
+                    oninput="updateLinea(${idx},'cantidad',sanitizarCantidadInput(this))"
+                    onfocus="cursorAlFinal(this)">
             </td>
             <td class="text-right" style="font-size:.88rem;color:var(--text-muted)">
                 S/ ${l.precio_unitario.toFixed(2)}
