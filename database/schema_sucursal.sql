@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS comprobantes_electronicos (
     numero                INTEGER     NOT NULL,
     numero_completo       VARCHAR(20) NOT NULL,
     estado_sunat          VARCHAR(100),
+    ambiente_sunat        VARCHAR(20),  -- 'produccion' | 'beta' -- ambiente real usado al enviar (sunat_server del tenant en ese momento)
     enlace_del_pdf        TEXT,
     enlace_del_xml        TEXT,
     enlace_del_cdr        TEXT,

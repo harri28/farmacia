@@ -328,7 +328,7 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            $ing = $db->prepare("SELECT estado FROM ingresos WHERE id = :id");
+            $ing = $db->prepare("SELECT numero_ingreso, estado FROM ingresos WHERE id = :id");
             $ing->execute([':id' => $id]);
             $row = $ing->fetch();
             if (!$row)                         throw new Exception('Ingreso no encontrado');
@@ -351,6 +351,9 @@ switch ($action) {
 
             $db->prepare("UPDATE ingresos SET estado = 'anulado' WHERE id = :id")->execute([':id' => $id]);
             $db->commit();
+
+            registrarAuditoria('Anulación de ingreso', 'almacen', "Ingreso: {$row['numero_ingreso']}");
+
             jsonResponse(['error' => false, 'message' => 'Ingreso anulado correctamente']);
 
         } catch (Exception $e) {
@@ -473,7 +476,7 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            $sal = $db->prepare("SELECT estado FROM salidas WHERE id = :id");
+            $sal = $db->prepare("SELECT numero_salida, estado FROM salidas WHERE id = :id");
             $sal->execute([':id' => $id]);
             $row = $sal->fetch();
             if (!$row)                         throw new Exception('Salida no encontrada');
@@ -489,6 +492,9 @@ switch ($action) {
 
             $db->prepare("UPDATE salidas SET estado = 'anulado' WHERE id = :id")->execute([':id' => $id]);
             $db->commit();
+
+            registrarAuditoria('Anulación de salida', 'almacen', "Salida: {$row['numero_salida']}");
+
             jsonResponse(['error' => false, 'message' => 'Salida anulada correctamente']);
 
         } catch (Exception $e) {

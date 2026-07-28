@@ -124,6 +124,9 @@ switch ($action) {
                 ON CONFLICT (usuario_id, sucursal_id) DO UPDATE SET rol = EXCLUDED.rol, activo = TRUE
             ")->execute([':uid' => $nuevo_id, ':sid' => intval($d['sucursal_id']), ':rol' => $d['rol']]);
         }
+
+        registrarAuditoria('Creación de usuario', 'admin', "Usuario: {$d['username']} | Nombre: {$d['nombre']}");
+
         jsonResponse(['error' => false, 'message' => 'Usuario creado correctamente', 'id' => $nuevo_id]);
 
     case 'usuario_actualizar':
@@ -142,6 +145,9 @@ switch ($action) {
             UPDATE public.usuarios SET nombre = :n, apellido = :a, username = :u
             WHERE id = :id AND tenant_id = :tid
         ")->execute([':n' => trim($d['nombre']), ':a' => trim($d['apellido'] ?? ''), ':u' => trim($d['username']), ':id' => $id, ':tid' => sesionTenantId()]);
+
+        registrarAuditoria('Edición de usuario', 'admin', "Usuario ID: {$id} | Nuevo username: {$d['username']}");
+
         jsonResponse(['error' => false, 'message' => 'Usuario actualizado']);
 
     case 'usuario_cambiar_password':
@@ -152,6 +158,9 @@ switch ($action) {
         }
         $db->prepare("UPDATE public.usuarios SET password_hash = :h WHERE id = :id")
            ->execute([':h' => password_hash($d['password'], PASSWORD_BCRYPT), ':id' => $id]);
+
+        registrarAuditoria('Cambio de contraseña de usuario', 'admin', "Usuario ID: {$id}");
+
         jsonResponse(['error' => false, 'message' => 'Contraseña actualizada']);
 
     case 'usuario_toggle_activo':
@@ -164,6 +173,9 @@ switch ($action) {
         $stmt = $db->prepare("UPDATE public.usuarios SET activo = NOT activo WHERE id = :id AND tenant_id = :tid RETURNING activo");
         $stmt->execute([':id' => $id, ':tid' => sesionTenantId()]);
         $row = $stmt->fetch();
+
+        registrarAuditoria('Cambio de estado de usuario', 'admin', "Usuario ID: {$id} | Activo: " . ($row['activo'] ? 'si' : 'no'));
+
         jsonResponse(['error' => false, 'activo' => $row['activo']]);
 
     case 'asignar_acceso':
@@ -273,6 +285,8 @@ switch ($action) {
             $nueva_id = $ins->fetch()['id'];
             $db->commit();
 
+            registrarAuditoria('Creación de sucursal', 'admin', "Sucursal: {$d['nombre']} | Schema: {$schema}");
+
             jsonResponse(['error' => false, 'message' => 'Sucursal creada correctamente', 'id' => $nueva_id, 'schema_name' => $schema]);
 
         } catch (Exception $e) {
@@ -291,6 +305,9 @@ switch ($action) {
             UPDATE public.sucursales SET nombre = :n, direccion = :d, telefono = :t
             WHERE id = :id AND tenant_id = :tid
         ")->execute([':n' => trim($d['nombre']), ':d' => trim($d['direccion'] ?? ''), ':t' => trim($d['telefono'] ?? ''), ':id' => $id, ':tid' => sesionTenantId()]);
+
+        registrarAuditoria('Edición de sucursal', 'admin', "Sucursal ID: {$id} | Nuevo nombre: {$d['nombre']}");
+
         jsonResponse(['error' => false, 'message' => 'Sucursal actualizada']);
 
     case 'sucursal_toggle_activo':
@@ -302,7 +319,11 @@ switch ($action) {
         }
         $stmt = $db->prepare("UPDATE public.sucursales SET activo = NOT activo WHERE id = :id AND tenant_id = :tid RETURNING activo");
         $stmt->execute([':id' => $id, ':tid' => sesionTenantId()]);
-        jsonResponse(['error' => false, 'activo' => $stmt->fetch()['activo']]);
+        $suc_row = $stmt->fetch();
+
+        registrarAuditoria('Cambio de estado de sucursal', 'admin', "Sucursal ID: {$id} | Activo: " . ($suc_row['activo'] ? 'si' : 'no'));
+
+        jsonResponse(['error' => false, 'activo' => $suc_row['activo']]);
 
     // ================================================================
     // CONFIGURACIÓN DE MARCA
@@ -461,6 +482,10 @@ switch ($action) {
             }
         }
 
+        $sunatServerAnterior = $db->prepare("SELECT sunat_server FROM public.tenants WHERE id = :tid");
+        $sunatServerAnterior->execute([':tid' => sesionTenantId()]);
+        $sunatServerAnterior = trim((string) ($sunatServerAnterior->fetch()['sunat_server'] ?? ''));
+
         try {
             $db->beginTransaction();
 
@@ -533,6 +558,13 @@ switch ($action) {
             }
             jsonResponse(['error' => true, 'message' => 'No se pudo guardar la configuracion: ' . $e->getMessage()], 500);
         }
+
+        $detalleConfig = "Razon social: {$businessName}";
+        if ($sunatServerAnterior !== $sunatServer) {
+            $etiquetaAmbiente = ['1' => 'producción', '3' => 'beta'];
+            $detalleConfig .= " | Entorno SUNAT cambiado: " . ($etiquetaAmbiente[$sunatServerAnterior] ?? $sunatServerAnterior) . " -> " . ($etiquetaAmbiente[$sunatServer] ?? $sunatServer);
+        }
+        registrarAuditoria('Actualización de configuración de empresa', 'admin', $detalleConfig);
 
         jsonResponse(['error' => false, 'message' => 'Configuracion guardada correctamente']);
 

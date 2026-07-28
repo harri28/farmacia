@@ -149,6 +149,8 @@ function sunat_profile_for_current_tenant(PDO $db): array
             'clave' => trim((string) ($tenant['certificate_password'] ?? '')),
         ],
         'endpoint' => sunat_endpoint_for_server($serverCode),
+        'server_code' => $serverCode,
+        'ambiente' => $serverCode === '1' ? 'produccion' : 'beta',
     ];
 }
 
@@ -240,11 +242,13 @@ function enviar_sunat(PDO $db, array $comp, ?array $cliente, array $items, array
             $db->prepare("
                 UPDATE comprobantes_electronicos
                 SET estado_sunat = :estado,
+                    ambiente_sunat = :ambiente,
                     enlace_del_xml = :xml,
                     nubefact_response = :resp
                 WHERE id = :id
             ")->execute([
                 ':estado' => $estadoDb,
+                ':ambiente' => $profile['ambiente'],
                 ':xml' => $xmlUrl,
                 ':resp' => json_encode($responsePayload, JSON_UNESCAPED_UNICODE),
                 ':id' => $comp['id'],
@@ -285,6 +289,7 @@ function enviar_sunat(PDO $db, array $comp, ?array $cliente, array $items, array
         $db->prepare("
             UPDATE comprobantes_electronicos
             SET estado_sunat = :estado,
+                ambiente_sunat = :ambiente,
                 enlace_del_xml = :xml,
                 enlace_del_cdr = :cdr,
                 cadena_para_codigo_qr = :qr,
@@ -292,6 +297,7 @@ function enviar_sunat(PDO $db, array $comp, ?array $cliente, array $items, array
             WHERE id = :id
         ")->execute([
             ':estado' => $estadoDb,
+            ':ambiente' => $profile['ambiente'],
             ':xml' => $xmlUrl,
             ':cdr' => $cdrUrl,
             ':qr' => $signResult['hash_cpe'] ?? '',

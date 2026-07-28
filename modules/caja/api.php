@@ -227,6 +227,9 @@ switch ($action) {
         ");
         $stmt->execute([':monto' => $monto, ':usuario' => $usuario, ':uid' => $uid_sesion ?: null]);
         $id = $stmt->fetch()['id'];
+
+        registrarAuditoria('Apertura de caja', 'caja', "Usuario: {$usuario} | Monto inicial: {$monto}");
+
         jsonResponse(['error' => false, 'message' => 'Caja aperturada correctamente', 'id' => $id]);
 
     // ---- POST: Cerrar caja ----
@@ -265,6 +268,9 @@ switch ($action) {
             WHERE id = :id
         ");
         $stmt->execute([':monto' => $saldoEsperado, ':id' => $caja_id]);
+
+        registrarAuditoria('Cierre de caja', 'caja', "Caja ID: {$caja_id} | Saldo final: {$saldoEsperado}");
+
         jsonResponse(['error' => false, 'message' => 'Caja cerrada correctamente']);
 
     // ---- POST: Registrar movimiento (ingreso/egreso) ----

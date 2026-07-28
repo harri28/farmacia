@@ -793,7 +793,10 @@ function rptLoadReporte() {
                     <td>${compHtml}</td>
                     <td data-order="${total}" class="text-center"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
                     <td>${xmlBtn}</td><td>${cdrBtn}</td>
-                    <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
+                    <td class="sunat-cell">
+                        <span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>
+                        ${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}
+                    </td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
                     <td>${acciones}</td>
                 </tr>`;

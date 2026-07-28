@@ -880,6 +880,43 @@ switch ($action) {
         echo json_encode($stmt->fetchAll());
         break;
 
+    case 'detalle_venta_ticket':
+        $id = intval($_GET['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+
+        $ventaStmt = $db->prepare("
+            SELECT v.id, v.numero_venta, v.total, v.subtotal, v.descuento, v.igv,
+                   v.gravada, v.exonerada, v.inafecta, v.vuelto, v.cuotas, v.payment_breakdown,
+                   v.tipo_pago, v.tipo_comprobante, v.estado, v.serie, v.correlativo, v.created_at,
+                   c.nombres, c.apellidos, c.razon_social, c.numero_documento, c.tipo_documento_codigo,
+                   c.direccion, c.telefono
+            FROM ventas v
+            LEFT JOIN clientes c ON c.id = v.cliente_id
+            WHERE v.id = :id
+        ");
+        $ventaStmt->execute([':id' => $id]);
+        $venta = $ventaStmt->fetch();
+        if (!$venta) jsonResponse(['error' => true, 'message' => 'Venta no encontrada'], 404);
+
+        $itemsStmt = $db->prepare("
+            SELECT vd.cantidad, vd.precio_unitario, vd.precio_total, vd.unidad_medida_vendida,
+                   p.nombre AS producto_nombre, p.codigo
+            FROM venta_detalles vd
+            JOIN productos p ON p.id = vd.producto_id
+            WHERE vd.venta_id = :id
+            ORDER BY vd.id
+        ");
+        $itemsStmt->execute([':id' => $id]);
+        $venta['items'] = $itemsStmt->fetchAll();
+
+        $tokenStmt = $db->prepare("SELECT token FROM public.comprobante_tokens WHERE venta_id = :id AND schema_name = :schema LIMIT 1");
+        $tokenStmt->execute([':id' => $id, ':schema' => sesionSchema()]);
+        $tokenRow = $tokenStmt->fetch();
+        $venta['comprobante_token'] = $tokenRow['token'] ?? null;
+
+        echo json_encode($venta);
+        break;
+
     case 'anular_venta':
         $raw  = file_get_contents('php://input');
         $data = json_decode($raw, true);
@@ -887,7 +924,7 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            $check = $db->prepare("SELECT estado, total, caja_id FROM ventas WHERE id = :id");
+            $check = $db->prepare("SELECT numero_venta, estado, total, caja_id FROM ventas WHERE id = :id");
             $check->execute([':id' => $id]);
             $venta = $check->fetch();
 
@@ -915,6 +952,9 @@ switch ($action) {
             }
 
             $db->commit();
+
+            registrarAuditoria('Anulación de venta', 'ventas', "Venta: {$venta['numero_venta']} | Total: {$venta['total']}");
+
             echo json_encode(['error' => false, 'message' => 'Venta anulada correctamente']);
         } catch (Exception $e) {
             $db->rollBack();

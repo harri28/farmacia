@@ -538,23 +538,6 @@ include '../../includes/header.php';
 
 </div><!-- /.pos-page-wrap -->
 
-<!-- MODAL: Detalle de venta (historial) -->
-<div class="modal-overlay" id="modal-detalle-h">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3 class="modal-title" id="h-detalle-titulo">Detalle de Venta</h3>
-            <button class="modal-close" onclick="closeModal('modal-detalle-h')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" id="h-detalle-body"></div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="closeModal('modal-detalle-h')">Cerrar</button>
-            <button class="btn btn-danger" id="h-btn-anular" style="display:none" onclick="anularVenta()">
-                <i class="fas fa-ban"></i> Anular Venta
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- MODAL: Cobro / Pago -->
 <div class="modal-overlay" id="modal-cobro">
     <div class="modal" style="max-width:500px">
@@ -813,6 +796,35 @@ include '../../includes/header.php';
             </button>
             <button class="btn btn-primary" onclick="closeModal('modal-ticket');resetPOS()">
                 <i class="fas fa-plus"></i> Nueva Venta
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Ver ticket de venta (desde Historial) -->
+<div class="modal-overlay" id="modal-ticket-historial">
+    <div class="modal" style="max-width:380px">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-receipt" style="color:var(--primary);margin-right:8px"></i>Comprobante de Venta</h3>
+            <button class="modal-close" onclick="closeModal('modal-ticket-historial')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:16px;background:#e5e7eb;max-height:70vh;overflow-y:auto">
+            <div style="background:#fff;border-radius:4px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+                <div id="ticket-body-historial"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline btn-sm" onclick="printReceipt(document.getElementById('ticket-body-historial').innerHTML)">
+                <i class="fas fa-print"></i> Reimprimir
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="enviarWhatsApp()" style="border-color:#25d366;color:#25d366">
+                <i class="fab fa-whatsapp"></i> WhatsApp
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="copiarEnlaceComprobante()">
+                <i class="fas fa-link"></i> Copiar enlace de comprobante
+            </button>
+            <button class="btn btn-primary" onclick="closeModal('modal-ticket-historial')">
+                Cerrar
             </button>
         </div>
     </div>
@@ -3148,10 +3160,14 @@ function loadHistorial() {
                     <td><span class="badge badge-primary" style="text-transform:capitalize">${v.tipo_comprobante}</span></td>
                     <td class="text-right"><strong>S/ ${parseFloat(v.total).toFixed(2)}</strong></td>
                     <td><span class="badge ${esCls}">${v.estado}</span></td>
-                    <td>
-                        <button class="btn btn-ghost btn-sm" onclick="verDetalleVenta(${v.id},'${v.numero_venta}','${v.estado}')">
-                            <i class="fas fa-eye"></i>
+                    <td style="white-space:nowrap">
+                        <button class="btn btn-ghost btn-sm" title="Ver comprobante" onclick="verTicketVenta(${v.id})">
+                            <i class="fas fa-receipt"></i>
                         </button>
+                        ${v.estado === 'completada' ? `
+                        <button class="btn btn-ghost btn-sm" title="Anular venta" style="color:var(--danger)" onclick="anularVentaDesdeHistorial(${v.id},'${v.numero_venta}')">
+                            <i class="fas fa-ban"></i>
+                        </button>` : ''}
                     </td>
                 </tr>`;
             }).join('');
@@ -3159,64 +3175,85 @@ function loadHistorial() {
         .catch(() => showToast('Error al cargar historial','error'));
 }
 
-let currentVentaId = null;
-
-function verDetalleVenta(id, numero, estado) {
-    currentVentaId = id;
-    document.getElementById('h-detalle-titulo').textContent = 'Detalle: ' + numero;
-    document.getElementById('h-btn-anular').style.display = estado === 'completada' ? 'inline-flex' : 'none';
-    document.getElementById('h-detalle-body').innerHTML =
+function verTicketVenta(id) {
+    document.getElementById('ticket-body-historial').innerHTML =
         '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--text-light)"></i></div>';
-    openModal('modal-detalle-h');
+    openModal('modal-ticket-historial');
 
-    fetch(BASE + `modules/ventas/api.php?action=detalle_venta&id=${id}`)
+    fetch(BASE + `modules/ventas/api.php?action=detalle_venta_ticket&id=${id}`)
         .then(r => r.json())
-        .then(items => {
-            if (!items.length) {
-                document.getElementById('h-detalle-body').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Sin detalles disponibles</p>';
-                return;
-            }
-            const total = items.reduce((s,i) => s + parseFloat(i.subtotal), 0);
-            document.getElementById('h-detalle-body').innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Código</th><th>Producto</th><th class="text-right">Cant.</th><th class="text-right">P. Unit.</th><th class="text-right">Subtotal</th></tr>
-                        </thead>
-                        <tbody>
-                            ${items.map(i => `
-                            <tr>
-                                <td style="font-size:.8rem;color:var(--text-muted)">${i.codigo}</td>
-                                <td style="font-size:.85rem;font-weight:500">${i.producto_nombre}</td>
-                                <td class="text-right">${i.cantidad}</td>
-                                <td class="text-right">S/ ${parseFloat(i.precio_unitario).toFixed(2)}</td>
-                                <td class="text-right"><strong>S/ ${parseFloat(i.subtotal).toFixed(2)}</strong></td>
-                            </tr>`).join('')}
-                        </tbody>
-                        <tfoot>
-                            <tr style="background:var(--surface-2)">
-                                <td colspan="4" style="padding:10px 14px;font-weight:700;text-align:right">TOTAL</td>
-                                <td style="padding:10px 14px;font-weight:700;text-align:right;color:var(--success);font-size:1rem">S/ ${total.toFixed(2)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>`;
-        });
+        .then(data => {
+            if (data.error) { showToast(data.message, 'error'); closeModal('modal-ticket-historial'); return; }
+
+            const dt    = new Date(data.created_at);
+            const fecha = dt.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'});
+            const hora  = dt.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+            const cliente = (data.nombres || data.apellidos || data.razon_social || data.numero_documento) ? {
+                nombres: data.razon_social || data.nombres,
+                apellidos: data.razon_social ? '' : data.apellidos,
+                direccion: data.direccion,
+                telefono: data.telefono,
+                numero_documento: data.numero_documento,
+                tipo_documento_codigo: data.tipo_documento_codigo,
+                dni: data.tipo_documento_codigo === '1' ? data.numero_documento : null,
+                ruc: data.tipo_documento_codigo === '6' ? data.numero_documento : null,
+            } : null;
+
+            const items = data.items.map(i => ({
+                nombre: i.producto_nombre,
+                qty: parseFloat(i.cantidad),
+                precio: parseFloat(i.precio_unitario),
+                precio_total: parseFloat(i.precio_total),
+                unidad_medida_vendida: i.unidad_medida_vendida,
+            }));
+
+            const comprobanteUrl = buildComprobanteUrl(data.comprobante_token);
+
+            let paymentBreakdown = [];
+            try { paymentBreakdown = data.payment_breakdown ? JSON.parse(data.payment_breakdown) : []; } catch (e) {}
+            let cuotasData = [];
+            try { cuotasData = data.cuotas ? JSON.parse(data.cuotas) : []; } catch (e) {}
+
+            const ticketHTML = buildComprobanteHTML({
+                items,
+                total: parseFloat(data.total),
+                igv: parseFloat(data.igv) || 0,
+                gravada: parseFloat(data.gravada) || 0,
+                exonerada: parseFloat(data.exonerada) || 0,
+                inafecta: parseFloat(data.inafecta) || 0,
+                descuento: parseFloat(data.descuento) || 0,
+                monto_recibido: parseFloat(data.total) + (parseFloat(data.vuelto) || 0),
+                tipo_pago: data.tipo_pago || 'efectivo',
+                tipo_comprobante: data.tipo_comprobante || 'ticket',
+                numero_venta: data.numero_venta,
+                numero_comprobante: (data.serie && data.correlativo) ? `${data.serie}-${data.correlativo}` : null,
+                cliente,
+                payment_breakdown: paymentBreakdown,
+                cuotas: cuotasData,
+                fecha, hora,
+                preview: false,
+                comprobante_url: comprobanteUrl,
+            });
+
+            document.getElementById('ticket-body-historial').innerHTML = ticketHTML;
+            _lastSale = { numero_venta: data.numero_venta, total: data.total, items, cliente, token: data.comprobante_token };
+        })
+        .catch(() => { showToast('Error al cargar el comprobante', 'error'); closeModal('modal-ticket-historial'); });
 }
 
-function anularVenta() {
-    if (!currentVentaId || !confirm('¿Anular esta venta? El stock será repuesto.')) return;
+function anularVentaDesdeHistorial(id, numero) {
+    if (!confirm(`¿Anular la venta ${numero}? El stock será repuesto.`)) return;
 
     fetch(BASE + 'modules/ventas/api.php?action=anular_venta', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ id: currentVentaId })
+        body: JSON.stringify({ id })
     })
     .then(r => r.json())
     .then(d => {
         if (d.error) { showToast(d.message,'error'); return; }
         showToast('Venta anulada correctamente','success');
-        closeModal('modal-detalle-h');
         loadHistorial();
         loadVentasStats();
     })

@@ -632,6 +632,8 @@ switch ($action) {
 
             $db->commit();
 
+            registrarAuditoria('Creación de nota de crédito', 'facturacion', "Nota: {$numeroCompleto} | Origen: {$origen['numero_completo']} | Motivo: {$tipoNota['descripcion']}");
+
             require_once '../../config/sunat.php';
             $compData = [
                 'id' => $compId,
@@ -704,12 +706,13 @@ switch ($action) {
             ? "COALESCE(ce.id, 0)               AS comprobante_id,
                COALESCE(ce.numero_completo, '') AS comprobante_numero,
                COALESCE(ce.estado_sunat, '')    AS estado_sunat,
+               COALESCE(ce.ambiente_sunat, '')  AS ambiente_sunat,
                COALESCE(ce.nubefact_response, '') AS nubefact_response,
                COALESCE(ce.enlace_del_pdf, '')  AS enlace_pdf,
                COALESCE(ce.enlace_del_xml, '')  AS enlace_xml,
                COALESCE(ce.enlace_del_cdr, '')  AS enlace_cdr"
-            : "0 AS comprobante_id, '' AS comprobante_numero, '' AS estado_sunat, '' AS nubefact_response, '' AS enlace_pdf, '' AS enlace_xml, '' AS enlace_cdr";
-        $group_ce = $tiene_ce ? ", ce.id, ce.numero_completo, ce.estado_sunat, ce.nubefact_response, ce.enlace_del_pdf, ce.enlace_del_xml, ce.enlace_del_cdr" : "";
+            : "0 AS comprobante_id, '' AS comprobante_numero, '' AS estado_sunat, '' AS ambiente_sunat, '' AS nubefact_response, '' AS enlace_pdf, '' AS enlace_xml, '' AS enlace_cdr";
+        $group_ce = $tiene_ce ? ", ce.id, ce.numero_completo, ce.estado_sunat, ce.ambiente_sunat, ce.nubefact_response, ce.enlace_del_pdf, ce.enlace_del_xml, ce.enlace_del_cdr" : "";
 
         try {
             $stmt = $db->prepare("
@@ -902,6 +905,8 @@ switch ($action) {
                     'comprobante' => $result,
                 ], 422);
             }
+
+            registrarAuditoria('Reenvío de comprobante a SUNAT', 'facturacion', "Comprobante: {$comp['numero_completo']}");
 
             jsonResponse([
                 'error' => false,
