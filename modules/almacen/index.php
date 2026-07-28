@@ -1360,8 +1360,13 @@ function sanitizarCantidadInput(el) {
 }
 
 function cursorAlFinal(el) {
-    const pos = el.value.length;
-    el.setSelectionRange(pos, pos);
+    // El navegador posiciona el cursor segun el clic DESPUES de disparar
+    // "focus" -- si no se difiere, esa posicion pisa la nuestra. setTimeout(0)
+    // la corre despues de que el navegador termine su propio posicionamiento.
+    setTimeout(() => {
+        const pos = el.value.length;
+        el.setSelectionRange(pos, pos);
+    }, 0);
 }
 
 function addLinea(p) {
