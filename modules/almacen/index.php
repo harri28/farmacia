@@ -1026,7 +1026,7 @@ function renderSalidaLineas() {
             <td style="font-weight:500;font-size:.88rem">${l.nombre}${excedeStock ? `<div style="color:var(--danger);font-size:.75rem">Stock disponible: ${l.stock_disponible}</div>` : ''}</td>
             <td class="text-right">
                 <input type="text" inputmode="decimal" value="${l.cantidad}"
-                    style="width:72px;text-align:right;padding:5px 7px;border:1px solid ${excedeStock ? 'var(--danger)' : 'var(--border)'};
+                    style="width:80px;text-align:center;padding:5px 10px;border:1px solid ${excedeStock ? 'var(--danger)' : 'var(--border)'};
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateSalidaLinea(${idx},'cantidad',sanitizarCantidadInput(this))"
                     onfocus="cursorAlFinal(this)">
@@ -1408,7 +1408,7 @@ function renderLineas() {
             <td style="font-weight:500;font-size:.88rem">${l.nombre}</td>
             <td class="text-right">
                 <input type="text" inputmode="decimal" value="${l.cantidad}"
-                    style="width:72px;text-align:right;padding:5px 7px;border:1px solid var(--border);
+                    style="width:80px;text-align:center;padding:5px 10px;border:1px solid var(--border);
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateLinea(${idx},'cantidad',sanitizarCantidadInput(this))"
                     onfocus="cursorAlFinal(this)">
