@@ -11,6 +11,22 @@ requireApiAuth(['admin', 'gerente', 'cajero']);
 $action = $_GET['action'] ?? '';
 $db     = getDB();
 
+function inventarioColumnaExiste(PDO $db, string $tabla, string $columna): bool
+{
+    static $cache = [];
+    $key = $tabla . '.' . $columna;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    $stmt = $db->prepare("
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA() AND table_name = :t AND column_name = :c
+        LIMIT 1
+    ");
+    $stmt->execute([':t' => $tabla, ':c' => $columna]);
+    return $cache[$key] = (bool) $stmt->fetch();
+}
+
 function resolverCatalogosProducto(PDO $db, string $unidadCodigo, string $afectacionCodigo): array
 {
     $stmtUnidad = $db->prepare("
@@ -470,35 +486,101 @@ switch ($action) {
         $data     = json_decode(file_get_contents('php://input'), true);
         $id       = intval($data['id'] ?? 0);
         $tipo     = $data['tipo'] ?? '';
-        $cantidad = intval($data['cantidad'] ?? 0);
+        $cantidad = floatval($data['cantidad'] ?? 0);
         $motivo   = trim($data['motivo'] ?? '');
 
         if (!$id || !in_array($tipo, ['entrada', 'salida'], true) || $cantidad <= 0) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
         }
 
-        if ($tipo === 'salida') {
-            $prod = $db->prepare("SELECT stock, nombre FROM productos WHERE id = :id");
-            $prod->execute([':id' => $id]);
-            $row = $prod->fetch();
-            if (!$row) {
-                jsonResponse(['error' => true, 'message' => 'Producto no encontrado'], 404);
-            }
-            if ($row['stock'] < $cantidad) {
-                jsonResponse(['error' => true, 'message' => "Stock insuficiente. Disponible: {$row['stock']}"], 422);
-            }
+        $prod = $db->prepare("SELECT stock, nombre, COALESCE(precio_compra, 0) AS precio_compra FROM productos WHERE id = :id");
+        $prod->execute([':id' => $id]);
+        $producto = $prod->fetch();
+        if (!$producto) {
+            jsonResponse(['error' => true, 'message' => 'Producto no encontrado'], 404);
+        }
+        if ($tipo === 'salida' && $producto['stock'] < $cantidad) {
+            jsonResponse(['error' => true, 'message' => "Stock insuficiente. Disponible: {$producto['stock']}"], 422);
         }
 
-        $delta = $tipo === 'entrada' ? $cantidad : -$cantidad;
-        $stmt  = $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :id RETURNING stock, nombre");
-        $stmt->execute([':delta' => $delta, ':id' => $id]);
-        $row = $stmt->fetch();
-        $nuevo_stock = $row['stock'];
+        $costo = (float) $producto['precio_compra'];
+        $total = round($cantidad * $costo, 2);
+        $observacion = 'Ajuste manual desde Inventario' . ($motivo !== '' ? ": {$motivo}" : '');
+
+        // Este "ajuste rapido" desde Inventario registra un ingreso/salida real
+        // (no solo un UPDATE a productos.stock), para que quede visible en el
+        // historial de Almacen -> Ingresos/Salidas, igual que cualquier otro
+        // movimiento de stock.
+        $db->beginTransaction();
+        try {
+            if ($tipo === 'entrada') {
+                $numero = generarNumeroIngreso($db);
+                $columnas = ['numero_ingreso', 'proveedor_id', 'total', 'observaciones', 'estado'];
+                $values   = [':num', 'NULL', ':total', ':obs', "'completado'"];
+                $params   = [':num' => $numero, ':total' => $total, ':obs' => $observacion];
+
+                if (inventarioColumnaExiste($db, 'ingresos', 'subtotal')) {
+                    $columnas[] = 'subtotal'; $values[] = ':sub'; $params[':sub'] = $total;
+                }
+                if (inventarioColumnaExiste($db, 'ingresos', 'usuario')) {
+                    $columnas[] = 'usuario'; $values[] = ':usuario'; $params[':usuario'] = sesionNombre();
+                }
+                if (inventarioColumnaExiste($db, 'ingresos', 'usuario_id') && !empty($_SESSION['usuario_id'])) {
+                    $columnas[] = 'usuario_id'; $values[] = ':usuario_id'; $params[':usuario_id'] = (int) $_SESSION['usuario_id'];
+                }
+
+                $stmt = $db->prepare("
+                    INSERT INTO ingresos (" . implode(', ', $columnas) . ")
+                    VALUES (" . implode(', ', $values) . ")
+                    RETURNING id
+                ");
+                $stmt->execute($params);
+                $movimientoId = $stmt->fetch()['id'];
+
+                $db->prepare("
+                    INSERT INTO ingreso_detalles (ingreso_id, producto_id, cantidad, precio_unitario, subtotal)
+                    VALUES (:mid, :pid, :qty, :precio, :sub)
+                ")->execute([':mid' => $movimientoId, ':pid' => $id, ':qty' => $cantidad, ':precio' => $costo, ':sub' => $total]);
+
+                $stmtStock = $db->prepare("UPDATE productos SET stock = stock + :qty, updated_at = NOW() WHERE id = :id RETURNING stock");
+                $stmtStock->execute([':qty' => $cantidad, ':id' => $id]);
+            } else {
+                $numero = generarNumeroSalida($db);
+                $stmt = $db->prepare("
+                    INSERT INTO salidas (numero_salida, motivo, observaciones, estado, total, usuario, usuario_id)
+                    VALUES (:num, 'otro', :obs, 'completado', :total, :usuario, :usuario_id)
+                    RETURNING id
+                ");
+                $stmt->execute([
+                    ':num' => $numero,
+                    ':obs' => $observacion,
+                    ':total' => $total,
+                    ':usuario' => sesionNombre(),
+                    ':usuario_id' => $_SESSION['usuario_id'] ?? null,
+                ]);
+                $movimientoId = $stmt->fetch()['id'];
+
+                $db->prepare("
+                    INSERT INTO salida_detalles (salida_id, producto_id, cantidad, costo_unitario, subtotal)
+                    VALUES (:mid, :pid, :qty, :costo, :sub)
+                ")->execute([':mid' => $movimientoId, ':pid' => $id, ':qty' => $cantidad, ':costo' => $costo, ':sub' => $total]);
+
+                $stmtStock = $db->prepare("UPDATE productos SET stock = stock - :qty, updated_at = NOW() WHERE id = :id RETURNING stock");
+                $stmtStock->execute([':qty' => $cantidad, ':id' => $id]);
+            }
+
+            $nuevo_stock = $stmtStock->fetch()['stock'];
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'No se pudo registrar el ajuste: ' . $e->getMessage()], 422);
+        }
 
         registrarAuditoria(
             'Ajuste de stock (' . $tipo . ')',
             'inventario',
-            "Producto: {$row['nombre']} | Cantidad: {$cantidad} | Motivo: {$motivo} | Nuevo stock: {$nuevo_stock}"
+            "Producto: {$producto['nombre']} | Cantidad: {$cantidad} | Motivo: {$motivo} | Nuevo stock: {$nuevo_stock} | " .
+            ($tipo === 'entrada' ? "Ingreso: {$numero}" : "Salida: {$numero}")
         );
 
         jsonResponse(['error' => false, 'message' => 'Stock ajustado correctamente', 'nuevo_stock' => $nuevo_stock]);

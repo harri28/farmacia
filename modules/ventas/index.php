@@ -894,6 +894,30 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- MODAL: Anular Venta -->
+<div class="modal-overlay" id="modal-anular-venta">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-ban" style="color:var(--danger);margin-right:8px"></i>Anular venta</h3>
+            <button class="modal-close" onclick="closeModal('modal-anular-venta')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p id="anular-venta-texto" style="margin:0 0 12px;color:var(--text-muted);font-size:.9rem"></p>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Motivo de la anulación <span style="color:var(--danger)">*</span></label>
+                <textarea id="anular-venta-motivo" class="form-control" rows="3" maxlength="255"
+                          placeholder="Ej: cliente devolvió el producto, error en el cobro, etc." autocomplete="off"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-anular-venta')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-anular-venta" onclick="confirmarAnularVenta()">
+                <i class="fas fa-ban"></i> Anular venta
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container -->
 <div class="app-toast-container" id="toast-container"></div>
 
@@ -3242,24 +3266,50 @@ function verTicketVenta(id) {
         .catch(() => { showToast('Error al cargar el comprobante', 'error'); closeModal('modal-ticket-historial'); });
 }
 
+let ventaAnularPendiente = null;
+
 function anularVentaDesdeHistorial(id, numero) {
-    const motivo = prompt(`¿Anular la venta ${numero}? El stock será repuesto.\n\nIndica el motivo de la anulación:`);
-    if (motivo === null) return; // canceló el prompt
-    if (!motivo.trim()) { showToast('Debes indicar el motivo de la anulación', 'error'); return; }
+    ventaAnularPendiente = { id, numero };
+    document.getElementById('anular-venta-texto').textContent =
+        `¿Anular la venta ${numero}? El stock será repuesto.`;
+    document.getElementById('anular-venta-motivo').value = '';
+    openModal('modal-anular-venta');
+    setTimeout(() => document.getElementById('anular-venta-motivo').focus(), 50);
+}
+
+function confirmarAnularVenta() {
+    if (!ventaAnularPendiente) return;
+
+    const motivo = document.getElementById('anular-venta-motivo').value.trim();
+    if (!motivo) { showToast('Debes indicar el motivo de la anulación', 'error'); return; }
+
+    const { id } = ventaAnularPendiente;
+    const btn = document.getElementById('btn-confirmar-anular-venta');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Anulando...';
 
     fetch(BASE + 'modules/ventas/api.php?action=anular_venta', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ id, motivo: motivo.trim() })
+        body: JSON.stringify({ id, motivo })
     })
     .then(r => r.json())
     .then(d => {
         if (d.error) { showToast(d.message,'error'); return; }
         showToast('Venta anulada correctamente','success');
+        closeModal('modal-anular-venta');
+    })
+    .catch(() => showToast('Error al anular la venta','error'))
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        ventaAnularPendiente = null;
+        // Se refresca siempre (incluso si hubo error) para que el estado
+        // mostrado en la tabla nunca quede desincronizado del real.
         loadHistorial();
         loadVentasStats();
-    })
-    .catch(() => showToast('Error al anular la venta','error'));
+    });
 }
 
 // ---- Si se llega desde historial.php con ?tab=ventas ----

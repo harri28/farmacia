@@ -914,6 +914,7 @@ let editingId   = null;
 let ajusteProducto = null;
 let facturacionCatalogos = { unidades: [], afectaciones_igv: [] };
 let empresaFacturaConIgv = true;
+let empresaIgvExonerado = false;
 let tabAnterior = 'inventario';
 let productoEnVista = null;
 let unidadesMedidaCatalogo = [];
@@ -1050,6 +1051,7 @@ async function loadFacturacionCatalogos() {
 async function loadEmpresaConfig() {
     const data = await fetch(BASE + 'modules/admin/api.php?action=config_get').then(r => r.json());
     empresaFacturaConIgv = data.tax_enabled === true || data.tax_enabled === 't' || data.tax_enabled === 1 || data.tax_enabled === '1';
+    empresaIgvExonerado = data.igv_exonerado === true || data.igv_exonerado === 't' || data.igv_exonerado === 1 || data.igv_exonerado === '1';
 }
 
 function initUnidadComercialSelect() {
@@ -1521,7 +1523,7 @@ function openProductoModal(producto = null) {
     } else {
         document.getElementById('p-unidad').value = unidadVal;
     }
-    document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? '20';
+    document.getElementById('p-afectacion-igv-codigo').value = producto?.afectacion_igv_codigo ?? (empresaIgvExonerado ? '20' : '10');
     document.getElementById('p-porcentaje-igv').value = producto ? parseFloat(producto.porcentaje_igv || 18).toFixed(2) : '18.00';
     document.getElementById('p-incluye-igv').checked = !producto
         ? empresaFacturaConIgv

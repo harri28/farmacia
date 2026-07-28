@@ -427,6 +427,18 @@ include '../../includes/header.php';
                 </small>
             </div>
 
+            <div class="form-group" style="margin-top:4px">
+                <label style="display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer">
+                    <input type="checkbox" id="cfg-igv-exonerado">
+                    Empresa exonerada de IGV (Ley de Amazonía - Región Selva)
+                </label>
+                <small style="color:var(--text-muted);font-size:.76rem">
+                    Actívalo solo si el local está en la Región Selva (Ley 27037). Al activarlo, TODOS los
+                    productos existentes en TODAS las sucursales de esta empresa se marcan de inmediato como
+                    Exonerado de IGV. Desactivarlo no revierte los productos ya marcados.
+                </small>
+            </div>
+
             <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin:22px 0 14px">
                 Sistema e identidad visual
             </div>
@@ -1009,6 +1021,7 @@ function loadConfig() {
             document.getElementById('cfg-provincia').value = data.provincia || '';
             document.getElementById('cfg-distrito').value = data.distrito || '';
             document.getElementById('cfg-tax-enabled').checked = data.tax_enabled === true || data.tax_enabled === 't' || data.tax_enabled === 1 || data.tax_enabled === '1';
+            document.getElementById('cfg-igv-exonerado').checked = data.igv_exonerado === true || data.igv_exonerado === 't' || data.igv_exonerado === 1 || data.igv_exonerado === '1';
             document.getElementById('cfg-sunat-trade-name').value = data.trade_name || '';
             document.getElementById('cfg-sunat-username').value = data.sunat_username || '';
             document.getElementById('cfg-sunat-password').value = data.sunat_password || '';
@@ -1175,6 +1188,7 @@ async function guardarConfig() {
     const provincia = document.getElementById('cfg-provincia').value.trim();
     const distrito = document.getElementById('cfg-distrito').value.trim();
     const taxEnabled = document.getElementById('cfg-tax-enabled').checked;
+    const igvExonerado = document.getElementById('cfg-igv-exonerado').checked;
     const sunatTradeName = document.getElementById('cfg-sunat-trade-name').value.trim();
     const sunatUsername = document.getElementById('cfg-sunat-username').value.trim();
     const sunatPassword = document.getElementById('cfg-sunat-password').value.trim();
@@ -1210,6 +1224,7 @@ async function guardarConfig() {
             provincia,
             distrito,
             tax_enabled: taxEnabled,
+            igv_exonerado: igvExonerado,
             trade_name: sunatTradeName || tradeName,
             sunat_username: sunatUsername,
             sunat_password: sunatPassword,
@@ -1252,7 +1267,12 @@ async function guardarConfig() {
             document.getElementById('logo-file-name').textContent = 'Ningún archivo seleccionado';
         }
 
-        showToast('Configuración guardada', 'success');
+        showToast(
+            r1.productos_exonerados > 0
+                ? `Configuración guardada. ${r1.productos_exonerados} producto(s) marcados como Exonerado de IGV.`
+                : 'Configuración guardada',
+            'success'
+        );
         syncConfigHeader();
     } catch (e) {
         showToast('Error al guardar la configuración', 'error');

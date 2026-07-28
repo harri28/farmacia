@@ -347,6 +347,7 @@ switch ($action) {
                 t.api_url,
                 t.whatsapp_instance,
                 COALESCE(t.tax_enabled, TRUE) AS tax_enabled,
+                COALESCE(t.igv_exonerado, FALSE) AS igv_exonerado,
                 t.sunat_username,
                 t.sunat_password,
                 t.gre_client_id,
@@ -378,6 +379,7 @@ switch ($action) {
             'api_url' => '',
             'whatsapp_instance' => '',
             'tax_enabled' => true,
+            'igv_exonerado' => false,
             'sunat_username' => '',
             'sunat_password' => '',
             'gre_client_id' => '',
@@ -410,6 +412,7 @@ switch ($action) {
         $apiUrl        = trim($d['api_url'] ?? '');
         $whatsapp      = trim($d['whatsapp_instance'] ?? '');
         $taxEnabled    = !array_key_exists('tax_enabled', $d) || (bool) $d['tax_enabled'];
+        $igvExonerado  = array_key_exists('igv_exonerado', $d) && (bool) $d['igv_exonerado'];
         $sunatUsername = trim($d['sunat_username'] ?? '');
         $sunatPassword = trim($d['sunat_password'] ?? '');
         $greClientId   = trim($d['gre_client_id'] ?? '');
@@ -486,6 +489,10 @@ switch ($action) {
         $sunatServerAnterior->execute([':tid' => sesionTenantId()]);
         $sunatServerAnterior = trim((string) ($sunatServerAnterior->fetch()['sunat_server'] ?? ''));
 
+        $igvExoneradoAnteriorStmt = $db->prepare("SELECT COALESCE(igv_exonerado, FALSE) AS v FROM public.tenants WHERE id = :tid");
+        $igvExoneradoAnteriorStmt->execute([':tid' => sesionTenantId()]);
+        $igvExoneradoAnterior = (bool) ($igvExoneradoAnteriorStmt->fetch()['v'] ?? false);
+
         try {
             $db->beginTransaction();
 
@@ -505,6 +512,7 @@ switch ($action) {
                     api_url = :api_url,
                     whatsapp_instance = :whatsapp_instance,
                     tax_enabled = :tax_enabled,
+                    igv_exonerado = :igv_exonerado,
                     sunat_username = :sunat_username,
                     sunat_password = :sunat_password,
                     gre_client_id = :gre_client_id,
@@ -530,6 +538,7 @@ switch ($action) {
                 ':api_url' => $apiUrl ?: null,
                 ':whatsapp_instance' => $whatsapp ?: null,
                 ':tax_enabled' => $taxEnabled,
+                ':igv_exonerado' => $igvExonerado,
                 ':sunat_username' => $sunatUsername ?: null,
                 ':sunat_password' => $sunatPassword ?: null,
                 ':gre_client_id' => $greClientId ?: null,
@@ -559,14 +568,55 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'No se pudo guardar la configuracion: ' . $e->getMessage()], 500);
         }
 
+        $productosExonerados = 0;
+        $sucursalesAfectadas = 0;
+        if ($igvExonerado && !$igvExoneradoAnterior) {
+            $exoIdStmt = $db->query("SELECT id FROM public.fe_tipos_afectacion_igv WHERE codigo = '20' LIMIT 1");
+            $exoId = $exoIdStmt->fetch()['id'] ?? null;
+
+            if ($exoId) {
+                $sucursalesStmt = $db->prepare("SELECT schema_name FROM public.sucursales WHERE tenant_id = :tid");
+                $sucursalesStmt->execute([':tid' => sesionTenantId()]);
+                foreach ($sucursalesStmt->fetchAll(PDO::FETCH_COLUMN) as $schemaSucursal) {
+                    $schemaSucursal = preg_replace('/[^a-z0-9_]/', '', strtolower($schemaSucursal));
+                    if ($schemaSucursal === '') {
+                        continue;
+                    }
+                    try {
+                        $updStmt = $db->prepare("
+                            UPDATE {$schemaSucursal}.productos
+                            SET afectacion_igv_id = :exo_id,
+                                afectacion_igv_codigo = '20',
+                                updated_at = NOW()
+                            WHERE afectacion_igv_codigo IS DISTINCT FROM '20'
+                        ");
+                        $updStmt->execute([':exo_id' => $exoId]);
+                        $productosExonerados += $updStmt->rowCount();
+                        $sucursalesAfectadas++;
+                    } catch (Exception $e) {
+                        // Sucursal sin tabla productos o schema inconsistente: no bloquear el guardado.
+                    }
+                }
+            }
+        }
+
         $detalleConfig = "Razon social: {$businessName}";
         if ($sunatServerAnterior !== $sunatServer) {
             $etiquetaAmbiente = ['1' => 'producción', '3' => 'beta'];
             $detalleConfig .= " | Entorno SUNAT cambiado: " . ($etiquetaAmbiente[$sunatServerAnterior] ?? $sunatServerAnterior) . " -> " . ($etiquetaAmbiente[$sunatServer] ?? $sunatServer);
         }
+        if ($igvExonerado !== $igvExoneradoAnterior) {
+            $detalleConfig .= $igvExonerado
+                ? " | Exoneracion de IGV activada: {$productosExonerados} producto(s) marcados como Exonerado en {$sucursalesAfectadas} sucursal(es)"
+                : " | Exoneracion de IGV desactivada (los productos existentes conservan su afectacion actual)";
+        }
         registrarAuditoria('Actualización de configuración de empresa', 'admin', $detalleConfig);
 
-        jsonResponse(['error' => false, 'message' => 'Configuracion guardada correctamente']);
+        jsonResponse([
+            'error' => false,
+            'message' => 'Configuracion guardada correctamente',
+            'productos_exonerados' => $productosExonerados,
+        ]);
 
     case 'logo_subir':
         if (empty($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
