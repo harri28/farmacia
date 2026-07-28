@@ -1359,9 +1359,7 @@ function addLinea(p) {
 }
 
 function updateLinea(idx, field, value) {
-    if (field === 'cantidad')        lines[idx].cantidad        = Math.max(0.01, parseFloat(value) || 1);
-    if (field === 'precio_unitario') lines[idx].precio_unitario = parseFloat(value) || 0;
-    if (field === 'precio_venta')    lines[idx].precio_venta    = parseFloat(value) || 0;
+    if (field === 'cantidad') lines[idx].cantidad = Math.max(0.01, parseFloat(value) || 1);
 
     const sub = lines[idx].cantidad * lines[idx].precio_unitario;
     const subtotalCell = document.querySelector(`.linea-subtotal[data-idx="${idx}"]`);
@@ -1391,17 +1389,11 @@ function renderLineas() {
                            border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
                     oninput="updateLinea(${idx},'cantidad',this.value)">
             </td>
-            <td class="text-right">
-                <input type="number" value="${l.precio_unitario.toFixed(2)}" min="0" step="0.01"
-                    style="width:90px;text-align:right;padding:5px 7px;border:1px solid var(--border);
-                           border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
-                    oninput="updateLinea(${idx},'precio_unitario',this.value)">
+            <td class="text-right" style="font-size:.88rem;color:var(--text-muted)">
+                S/ ${l.precio_unitario.toFixed(2)}
             </td>
-            <td class="text-right">
-                <input type="number" value="${l.precio_venta.toFixed(2)}" min="0" step="0.01"
-                    style="width:90px;text-align:right;padding:5px 7px;border:1px solid var(--border);
-                           border-radius:var(--radius-sm);font-size:.88rem;background:var(--surface)"
-                    oninput="updateLinea(${idx},'precio_venta',this.value)">
+            <td class="text-right" style="font-size:.88rem;color:var(--text-muted)">
+                S/ ${l.precio_venta.toFixed(2)}
             </td>
             <td class="text-right linea-subtotal" data-idx="${idx}" style="font-weight:600">S/ ${sub.toFixed(2)}</td>
             <td>
