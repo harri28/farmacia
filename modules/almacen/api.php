@@ -165,7 +165,9 @@ switch ($action) {
                     COALESCE(i.observaciones, '') AS observaciones,
                     i.total,
                     i.estado,
-                    (SELECT COUNT(*) FROM ingreso_detalles d WHERE d.ingreso_id = i.id) AS num_items
+                    (SELECT COUNT(*) FROM ingreso_detalles d WHERE d.ingreso_id = i.id) AS num_items,
+                    (SELECT p2.codigo FROM ingreso_detalles d2 JOIN productos p2 ON p2.id = d2.producto_id
+                     WHERE d2.ingreso_id = i.id LIMIT 1) AS producto_codigo
                 FROM ingresos i
                 LEFT JOIN proveedores p ON p.id = i.proveedor_id
                 WHERE i.created_at BETWEEN :desde1 AND :hasta1
@@ -186,7 +188,9 @@ switch ($action) {
                     COALESCE(s.observaciones, '') AS observaciones,
                     s.total,
                     s.estado,
-                    (SELECT COUNT(*) FROM salida_detalles d WHERE d.salida_id = s.id) AS num_items
+                    (SELECT COUNT(*) FROM salida_detalles d WHERE d.salida_id = s.id) AS num_items,
+                    (SELECT p2.codigo FROM salida_detalles d2 JOIN productos p2 ON p2.id = d2.producto_id
+                     WHERE d2.salida_id = s.id LIMIT 1) AS producto_codigo
                 FROM salidas s
                 WHERE s.created_at BETWEEN :desde2 AND :hasta2
             ) mov

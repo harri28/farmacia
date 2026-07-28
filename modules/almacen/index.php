@@ -168,17 +168,18 @@ include '../../includes/header.php';
             <table>
                 <thead>
                     <tr>
-                        <th>Tipo</th>
                         <th>N°</th>
                         <th>Fecha</th>
                         <th>Detalle</th>
+                        <th>Código</th>
                         <th>Items</th>
                         <th>Total</th>
-                        <th>Estado</th>
+                        <th>Tipo</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="mov-tabla-body">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -749,7 +750,7 @@ function loadMovimientos() {
             document.getElementById('mov-count').textContent = data.length + ' resultado(s)';
             if (!data.length) {
                 document.getElementById('mov-tabla-body').innerHTML =
-                    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron movimientos</td></tr>';
+                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron movimientos</td></tr>';
                 return;
             }
             document.getElementById('mov-tabla-body').innerHTML = data.map(m => {
@@ -758,15 +759,24 @@ function loadMovimientos() {
                 const tipoBadge = m.tipo === 'entrada'
                     ? '<span class="badge badge-success"><i class="fas fa-arrow-down"></i> Entrada</span>'
                     : '<span class="badge badge-danger"><i class="fas fa-arrow-up"></i> Salida</span>';
-                const estadoCls = m.estado === 'completado' ? 'badge-success' : 'badge-gray';
+                const codigoTxt = m.num_items == 1 && m.producto_codigo
+                    ? m.producto_codigo
+                    : `<span style="color:var(--text-muted)">Varios</span>`;
+                const verDetalleFn = m.tipo === 'entrada' ? 'verDetalle' : 'verDetalleSalida';
                 return `<tr>
-                    <td>${tipoBadge}</td>
                     <td><span style="font-weight:700;color:var(--primary)">${m.numero}</span></td>
                     <td style="font-size:.82rem;color:var(--text-muted)">${fechaStr}</td>
                     <td style="font-size:.85rem">${m.detalle}${m.observaciones ? ' <span style="color:var(--text-muted)">— ' + m.observaciones + '</span>' : ''}</td>
+                    <td style="font-size:.8rem">${codigoTxt}</td>
                     <td><span class="badge badge-gray">${m.num_items}</span></td>
                     <td class="text-right"><strong>S/ ${parseFloat(m.total).toFixed(2)}</strong></td>
-                    <td><span class="badge ${estadoCls}">${m.estado}</span></td>
+                    <td>${tipoBadge}</td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" title="Ver detalle"
+                                onclick="${verDetalleFn}(${m.id},'${m.numero}','${m.estado}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
                 </tr>`;
             }).join('');
         })
