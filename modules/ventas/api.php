@@ -918,9 +918,14 @@ switch ($action) {
         break;
 
     case 'anular_venta':
-        $raw  = file_get_contents('php://input');
-        $data = json_decode($raw, true);
-        $id   = intval($data['id'] ?? 0);
+        $raw    = file_get_contents('php://input');
+        $data   = json_decode($raw, true);
+        $id     = intval($data['id'] ?? 0);
+        $motivo = trim((string) ($data['motivo'] ?? ''));
+
+        if ($motivo === '') {
+            jsonResponse(['error' => true, 'message' => 'Debes indicar el motivo de la anulación'], 400);
+        }
 
         $db->beginTransaction();
         try {
@@ -943,8 +948,8 @@ switch ($action) {
                     ->execute([':qty' => $cantidadBase, ':pid' => $det['producto_id']]);
             }
 
-            $db->prepare("UPDATE ventas SET estado = 'anulada' WHERE id = :id")
-                ->execute([':id' => $id]);
+            $db->prepare("UPDATE ventas SET estado = 'anulada', motivo_anulacion = :motivo WHERE id = :id")
+                ->execute([':motivo' => $motivo, ':id' => $id]);
 
             if ($venta['caja_id']) {
                 $db->prepare("UPDATE cajas SET saldo_actual = saldo_actual - :total WHERE id = :cid")
@@ -953,7 +958,7 @@ switch ($action) {
 
             $db->commit();
 
-            registrarAuditoria('Anulación de venta', 'ventas', "Venta: {$venta['numero_venta']} | Total: {$venta['total']}");
+            registrarAuditoria('Anulación de venta', 'ventas', "Venta: {$venta['numero_venta']} | Total: {$venta['total']} | Motivo: {$motivo}");
 
             echo json_encode(['error' => false, 'message' => 'Venta anulada correctamente']);
         } catch (Exception $e) {

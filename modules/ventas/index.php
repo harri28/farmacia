@@ -3243,12 +3243,14 @@ function verTicketVenta(id) {
 }
 
 function anularVentaDesdeHistorial(id, numero) {
-    if (!confirm(`¿Anular la venta ${numero}? El stock será repuesto.`)) return;
+    const motivo = prompt(`¿Anular la venta ${numero}? El stock será repuesto.\n\nIndica el motivo de la anulación:`);
+    if (motivo === null) return; // canceló el prompt
+    if (!motivo.trim()) { showToast('Debes indicar el motivo de la anulación', 'error'); return; }
 
     fetch(BASE + 'modules/ventas/api.php?action=anular_venta', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id, motivo: motivo.trim() })
     })
     .then(r => r.json())
     .then(d => {

@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS ventas (
     tipo_comprobante VARCHAR(20)   DEFAULT 'boleta',
     estado           VARCHAR(20)   DEFAULT 'completada',
     observaciones    TEXT,
+    motivo_anulacion TEXT,
     vendedor         VARCHAR(100)  DEFAULT 'Administrador',
     created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
