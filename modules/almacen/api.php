@@ -148,6 +148,68 @@ switch ($action) {
         echo json_encode($row);
         break;
 
+    case 'movimientos_listar':
+        $desde  = $_GET['desde']  ?? date('Y-m-d', strtotime('-30 days'));
+        $hasta  = $_GET['hasta']  ?? date('Y-m-d');
+        $tipo   = $_GET['tipo']   ?? '';
+        $q      = '%' . ($_GET['q'] ?? '') . '%';
+
+        $sql = "
+            SELECT * FROM (
+                SELECT
+                    'entrada' AS tipo,
+                    i.id,
+                    i.numero_ingreso AS numero,
+                    i.created_at,
+                    COALESCE(p.nombre_comercial, p.razon_social, 'Ajuste / sin proveedor') AS detalle,
+                    COALESCE(i.observaciones, '') AS observaciones,
+                    i.total,
+                    i.estado,
+                    (SELECT COUNT(*) FROM ingreso_detalles d WHERE d.ingreso_id = i.id) AS num_items
+                FROM ingresos i
+                LEFT JOIN proveedores p ON p.id = i.proveedor_id
+                WHERE i.created_at BETWEEN :desde1 AND :hasta1
+
+                UNION ALL
+
+                SELECT
+                    'salida' AS tipo,
+                    s.id,
+                    s.numero_salida AS numero,
+                    s.created_at,
+                    CASE s.motivo
+                        WHEN 'merma'       THEN 'Merma'
+                        WHEN 'vencimiento' THEN 'Vencimiento'
+                        WHEN 'devolucion'  THEN 'Devolución'
+                        ELSE 'Otro'
+                    END AS detalle,
+                    COALESCE(s.observaciones, '') AS observaciones,
+                    s.total,
+                    s.estado,
+                    (SELECT COUNT(*) FROM salida_detalles d WHERE d.salida_id = s.id) AS num_items
+                FROM salidas s
+                WHERE s.created_at BETWEEN :desde2 AND :hasta2
+            ) mov
+            WHERE (numero ILIKE :q OR detalle ILIKE :q OR observaciones ILIKE :q)
+        ";
+        $params = [
+            ':desde1' => $desde, ':hasta1' => $hasta . ' 23:59:59',
+            ':desde2' => $desde, ':hasta2' => $hasta . ' 23:59:59',
+            ':q' => $q,
+        ];
+
+        if (in_array($tipo, ['entrada', 'salida'], true)) {
+            $sql .= ' AND tipo = :tipo';
+            $params[':tipo'] = $tipo;
+        }
+
+        $sql .= ' ORDER BY created_at DESC LIMIT 300';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        echo json_encode($stmt->fetchAll());
+        break;
+
     case 'ingresos_listar':
         $desde     = $_GET['desde']       ?? date('Y-m-d', strtotime('-30 days'));
         $hasta     = $_GET['hasta']        ?? date('Y-m-d');

@@ -106,7 +106,10 @@ include '../../includes/header.php';
 
 <!-- Tabs -->
 <div class="alm-tabs">
-    <button class="alm-tab active" id="tab-btn-ingresos"   onclick="switchTab('ingresos')">
+    <button class="alm-tab active" id="tab-btn-movimientos" onclick="switchTab('movimientos')">
+        <i class="fas fa-list"></i> Movimientos
+    </button>
+    <button class="alm-tab" id="tab-btn-ingresos"   onclick="switchTab('ingresos')">
         <i class="fas fa-truck-loading"></i> Ingresos de Stock
     </button>
     <button class="alm-tab" id="tab-btn-salidas"    onclick="switchTab('salidas')">
@@ -120,8 +123,72 @@ include '../../includes/header.php';
     </button>
 </div>
 
+<!-- ===================== TAB: MOVIMIENTOS ===================== -->
+<div id="tab-movimientos">
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-6 col-md-2">
+                <label class="form-label">Desde</label>
+                <input type="date" id="mov-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-30 days')) ?>">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="mov-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Tipo</label>
+                <select class="form-control" id="mov-tipo">
+                    <option value="">Todos</option>
+                    <option value="entrada">Entrada</option>
+                    <option value="salida">Salida</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="mov-q" class="form-control" placeholder="N° de movimiento, proveedor o motivo...">
+                </div>
+            </div>
+            <div class="col-6 col-md-auto">
+                <button class="btn btn-primary w-100" onclick="loadMovimientos()"><i class="fas fa-search"></i> Buscar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de movimientos -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Historial de movimientos de almacén</div>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="mov-count">Cargando...</span>
+        </div>
+        <div class="table-wrap table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>N°</th>
+                        <th>Fecha</th>
+                        <th>Detalle</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="mov-tabla-body">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-movimientos -->
+
 <!-- ===================== TAB: INGRESOS ===================== -->
-<div id="tab-ingresos">
+<div id="tab-ingresos" style="display:none">
 
 
     <!-- Filtros -->
@@ -638,8 +705,9 @@ let trasladoItems = [];
 let sucursalesTraslado = [];
 
 // ---- Tabs ----
-const TABS = ['ingresos', 'salidas', 'almacen', 'traslados'];
+const TABS = ['movimientos', 'ingresos', 'salidas', 'almacen', 'traslados'];
 const TAB_CFG = {
+    movimientos: { title: '<i class="fas fa-list" style="color:var(--primary);margin-right:8px"></i>Movimientos',                subtitle: 'Historial de todas las entradas y salidas de stock del almacén', actions: '' },
     ingresos:   { title: '<i class="fas fa-truck-loading" style="color:var(--primary);margin-right:8px"></i>Ingresos de Stock',  subtitle: 'Registra la recepción de mercadería de proveedores',       actions: '<button class="btn btn-primary" onclick="openNuevoIngreso()"><i class="fas fa-plus"></i> Nuevo Ingreso</button>' },
     salidas:    { title: '<i class="fas fa-sign-out-alt" style="color:var(--primary);margin-right:8px"></i>Registro de Salida', subtitle: 'Registra salidas de stock por merma, vencimiento o devolución', actions: '<button class="btn btn-primary" onclick="openNuevaSalida()"><i class="fas fa-plus"></i> Nueva Salida</button>' },
     almacen:    { title: '<i class="fas fa-boxes" style="color:var(--primary);margin-right:8px"></i>Almacén',                   subtitle: 'Resumen y estado actual del stock por producto',               actions: '' },
@@ -657,13 +725,57 @@ function switchTab(tab) {
     document.getElementById('alm-page-actions').innerHTML     = cfg.actions;
     location.hash = tab;
 
+    if (tab === 'movimientos') loadMovimientos();
+    if (tab === 'ingresos')    loadIngresos();
     if (tab === 'almacen')    loadAlmacenStock();
     if (tab === 'salidas')    loadSalidas();
     if (tab === 'traslados')  loadSucursalesTraslado().then(loadTraslados);
 }
 
+function loadMovimientos() {
+    const params = new URLSearchParams({
+        action: 'movimientos_listar',
+        desde:  document.getElementById('mov-desde').value,
+        hasta:  document.getElementById('mov-hasta').value,
+        tipo:   document.getElementById('mov-tipo').value,
+        q:      document.getElementById('mov-q').value,
+    });
+    document.getElementById('mov-tabla-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>';
+
+    fetch(BASE + 'modules/almacen/api.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('mov-count').textContent = data.length + ' resultado(s)';
+            if (!data.length) {
+                document.getElementById('mov-tabla-body').innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>No se encontraron movimientos</td></tr>';
+                return;
+            }
+            document.getElementById('mov-tabla-body').innerHTML = data.map(m => {
+                const dt = new Date(m.created_at);
+                const fechaStr = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+                const tipoBadge = m.tipo === 'entrada'
+                    ? '<span class="badge badge-success"><i class="fas fa-arrow-down"></i> Entrada</span>'
+                    : '<span class="badge badge-danger"><i class="fas fa-arrow-up"></i> Salida</span>';
+                const estadoCls = m.estado === 'completado' ? 'badge-success' : 'badge-gray';
+                return `<tr>
+                    <td>${tipoBadge}</td>
+                    <td><span style="font-weight:700;color:var(--primary)">${m.numero}</span></td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${fechaStr}</td>
+                    <td style="font-size:.85rem">${m.detalle}${m.observaciones ? ' <span style="color:var(--text-muted)">— ' + m.observaciones + '</span>' : ''}</td>
+                    <td><span class="badge badge-gray">${m.num_items}</span></td>
+                    <td class="text-right"><strong>S/ ${parseFloat(m.total).toFixed(2)}</strong></td>
+                    <td><span class="badge ${estadoCls}">${m.estado}</span></td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar movimientos', 'error'));
+}
+
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
+    loadMovimientos();
     loadIngresos();
     loadProveedoresSelect();
     setupProductoSearch();
