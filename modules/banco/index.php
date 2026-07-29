@@ -6,6 +6,7 @@ $current_module = 'banco';
 $current_page   = 'banco';
 $page_title     = 'Banco — FarmaSystem';
 $breadcrumb     = '<strong>Banco</strong>';
+$required_roles = ['admin', 'gerente'];
 
 include '../../includes/header.php';
 ?>

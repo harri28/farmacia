@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../../config/database.php';
-requireApiAuth(['admin', 'gerente', 'cajero']);
+requireApiAuth(['admin', 'gerente']);
 
 $db     = getDB();
 $action = $_GET['action'] ?? '';
