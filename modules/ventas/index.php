@@ -2361,6 +2361,7 @@ function procesarVenta() {
     renderSplitPaymentPanel();
 
     onComprobanteChange();
+    loadSeriesDisponibles();
     calcularVuelto();
     openModal('modal-cobro');
 }
@@ -2398,7 +2399,11 @@ function onComprobanteChange() {
     } else if (tipo === 'factura') {
         serieEl.innerHTML = '<option value="F001">F001</option>';
     } else {
-        serieEl.innerHTML = '<option value="TK">TK</option>';
+        const ticketSerie = (seriesByType.ticket || [])[0];
+        const label = ticketSerie
+            ? ticketSerie.serie + String(parseInt(ticketSerie.ultimo_numero || 0, 10) + 1).padStart(4, '0')
+            : 'TK';
+        serieEl.innerHTML = `<option value="TK">${label}</option>`;
     }
 }
 

@@ -267,6 +267,7 @@ switch ($action) {
             SELECT
                 tipo,
                 serie,
+                COALESCE(ultimo_numero, 0) AS ultimo_numero,
                 COALESCE(codigo_tipo_documento, CASE tipo
                     WHEN 'factura' THEN '01'
                     WHEN 'boleta' THEN '03'
