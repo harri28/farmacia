@@ -356,6 +356,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO series_comprobantes (tipo, serie, ultimo_numero) VALUES
     ('boleta',               'B001', 0),
     ('factura',              'F001', 0),
+    ('ticket',               'TK',   0),
     ('nota_credito',         'NC01', 0),
     ('nota_credito_boleta',  'BC01', 0),
     ('nota_credito_factura', 'FC01', 0)

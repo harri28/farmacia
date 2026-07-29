@@ -609,7 +609,8 @@ switch ($action) {
                 }
 
                 $serie = $serieRow['serie'];
-                $correlativo = str_pad((string) intval($serieRow['ultimo_numero']), 8, '0', STR_PAD_LEFT);
+                $correlativoDigitos = $tipoComp === 'ticket' ? 4 : 8;
+                $correlativo = str_pad((string) intval($serieRow['ultimo_numero']), $correlativoDigitos, '0', STR_PAD_LEFT);
                 $tipoDocumentoId = $serieRow['tipo_documento_id'] ?? null;
             }
 

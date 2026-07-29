@@ -2398,7 +2398,7 @@ function onComprobanteChange() {
     } else if (tipo === 'factura') {
         serieEl.innerHTML = '<option value="F001">F001</option>';
     } else {
-        serieEl.innerHTML = '<option value="">—</option>';
+        serieEl.innerHTML = '<option value="TK">TK</option>';
     }
 }
 
@@ -2926,7 +2926,7 @@ function showTicket(data) {
         tipo_pago:         data.tipo_pago || 'efectivo',
         tipo_comprobante:  data.tipo_comprobante || 'ticket',
         numero_venta:      data.numero_venta,
-        numero_comprobante: (c && !c.error_nubefact) ? c.numero_completo : ((data.serie && data.correlativo) ? `${data.serie}-${data.correlativo}` : null),
+        numero_comprobante: (c && !c.error_nubefact) ? c.numero_completo : ((data.serie && data.correlativo) ? (data.tipo_comprobante === 'ticket' ? `${data.serie}${data.correlativo}` : `${data.serie}-${data.correlativo}`) : null),
         cliente:           selectedCliente,
         payment_breakdown: data.payment_breakdown || [],
         cuotas:            data.cuotas || [],
@@ -3251,7 +3251,7 @@ function verTicketVenta(id) {
                 tipo_pago: data.tipo_pago || 'efectivo',
                 tipo_comprobante: data.tipo_comprobante || 'ticket',
                 numero_venta: data.numero_venta,
-                numero_comprobante: (data.serie && data.correlativo) ? `${data.serie}-${data.correlativo}` : null,
+                numero_comprobante: (data.serie && data.correlativo) ? (data.tipo_comprobante === 'ticket' ? `${data.serie}${data.correlativo}` : `${data.serie}-${data.correlativo}`) : null,
                 cliente,
                 payment_breakdown: paymentBreakdown,
                 cuotas: cuotasData,
