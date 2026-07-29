@@ -208,6 +208,9 @@ $_brand_logo_abs = $_brand_logo
                 <span>Compras</span>
             </a>
 
+            <?php if (isAdmin()): ?>
+            <span class="nav-label" style="margin-top:12px">SISTEMA</span>
+
             <!-- Facturación -->
             <a href="<?= $base_path ?? '' ?>modules/facturacion/index.php"
                class="nav-item <?= $current_module === 'facturacion' ? 'active' : '' ?>"
@@ -215,9 +218,6 @@ $_brand_logo_abs = $_brand_logo
                 <i class="fas fa-file-invoice"></i>
                 <span>Facturación</span>
             </a>
-
-            <?php if (isAdmin()): ?>
-            <span class="nav-label" style="margin-top:12px">SISTEMA</span>
 
             <a href="<?= $base_path ?? '' ?>modules/banco/index.php"
                class="nav-item <?= $current_module === 'banco' ? 'active' : '' ?>"

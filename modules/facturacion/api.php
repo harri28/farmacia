@@ -5,7 +5,7 @@
 // ============================================================
 
 require_once '../../config/database.php';
-requireApiAuth(['admin', 'gerente', 'cajero']);
+requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();

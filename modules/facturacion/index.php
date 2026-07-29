@@ -7,7 +7,7 @@
 require_once '../../config/database.php';
 
 $base_path      = '../../';
-$required_roles = ['admin', 'gerente', 'cajero'];
+$required_roles = ['admin', 'gerente'];
 $current_module = 'facturacion';
 $current_page   = 'facturacion';
 $page_title     = 'Facturación — FarmaSystem';
