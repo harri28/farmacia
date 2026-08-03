@@ -857,6 +857,29 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- MODAL: Confirmar reapertura de producto ya aplicado (Toma de Inventario) -->
+<div class="modal-overlay" id="modal-confirmar-editar-toma">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-triangle-exclamation" style="color:var(--danger);margin-right:8px"></i>Corregir stock físico
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-confirmar-editar-toma')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.93rem;color:var(--text)">
+                Esto revierte el ajuste de stock ya aplicado para este producto y lo deja disponible para volver a contar y aplicar. ¿Continuar?
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-confirmar-editar-toma')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-editar-toma" onclick="confirmarEditarProductoToma()">
+                <i class="fas fa-pen"></i> Corregir
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <link href="<?= $base_path ?>assets/vendor/select2/select2.min.css" rel="stylesheet">
@@ -1887,14 +1910,15 @@ function renderTomaDetalleTabla() {
         }
 
         const puedeAccionar = editable && d.producto_id && contado && !aplicado;
-        const acciones = aplicado ? '' : `
+        const puedeEditar   = editable && d.producto_id && aplicado;
+        const acciones = aplicado ? (puedeEditar ? `
+            <button type="button" title="Corregir stock físico" onclick="editarProductoAplicadoToma(${d.id})"
+                style="background:none;border:none;color:var(--primary);cursor:pointer;padding:4px 6px;font-size:1rem">
+                <i class="fas fa-pen"></i>
+            </button>` : '') : `
             <button type="button" title="Aplicar al stock" ${puedeAccionar ? '' : 'disabled'} onclick="aplicarProductoToma(${d.id})"
                 style="background:none;border:none;color:${puedeAccionar ? 'var(--success)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 6px;font-size:1rem">
                 <i class="fas fa-check"></i>
-            </button>
-            <button type="button" title="Descartar conteo" ${puedeAccionar ? '' : 'disabled'} onclick="descartarConteoProducto(${d.id})"
-                style="background:none;border:none;color:${puedeAccionar ? 'var(--danger)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 6px;font-size:1rem">
-                <i class="fas fa-times"></i>
             </button>`;
 
         return `
@@ -1936,8 +1960,42 @@ function aplicarProductoToma(detalleId) {
     .catch(() => showToast('Error al aplicar el producto', 'error'));
 }
 
-function descartarConteoProducto(detalleId) {
-    guardarConteoProducto(detalleId, '', null);
+let tomaDetalleIdEditarPendiente = null;
+
+function editarProductoAplicadoToma(detalleId) {
+    tomaDetalleIdEditarPendiente = detalleId;
+    openModal('modal-confirmar-editar-toma');
+}
+
+function confirmarEditarProductoToma() {
+    if (!tomaDetalleIdEditarPendiente) return;
+    const detalleId = tomaDetalleIdEditarPendiente;
+
+    const btn = document.getElementById('btn-confirmar-editar-toma');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Corrigiendo...';
+
+    fetch(BASE + 'modules/inventario/api.php?action=toma_reabrir_producto', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ detalle_id: detalleId }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); return; }
+        const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
+        if (detalle) detalle.aplicado = false;
+        showToast('Producto reabierto. Corrige el stock físico y vuelve a aplicar.', 'success');
+        closeModal('modal-confirmar-editar-toma');
+        renderTomaDetalleTabla();
+    })
+    .catch(() => showToast('Error al reabrir el producto', 'error'))
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        tomaDetalleIdEditarPendiente = null;
+    });
 }
 
 function guardarConteoProducto(detalleId, valor, inputEl) {

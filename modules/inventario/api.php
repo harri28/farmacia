@@ -849,6 +849,57 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
         }
 
+    case 'toma_reabrir_producto':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden corregir un producto ya aplicado'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $detalleId = intval($data['detalle_id'] ?? 0);
+        if (!$detalleId) jsonResponse(['error' => true, 'message' => 'Detalle inválido'], 400);
+
+        $check = $db->prepare("
+            SELECT d.id, d.producto_id, d.diferencia, d.aplicado, d.sesion_id, s.estado
+            FROM toma_inventario_detalles d
+            JOIN toma_inventario_sesiones s ON s.id = d.sesion_id
+            WHERE d.id = :id
+        ");
+        $check->execute([':id' => $detalleId]);
+        $row = $check->fetch();
+        if (!$row) jsonResponse(['error' => true, 'message' => 'Renglón no encontrado'], 404);
+        if ($row['estado'] !== 'activa') {
+            jsonResponse(['error' => true, 'message' => 'No se puede modificar una sesión que no está activa'], 422);
+        }
+        if (!$row['aplicado']) {
+            jsonResponse(['error' => true, 'message' => 'Este producto todavía no fue aplicado'], 422);
+        }
+        if (!$row['producto_id']) {
+            jsonResponse(['error' => true, 'message' => 'El producto de esta fila ya no existe'], 422);
+        }
+
+        $db->beginTransaction();
+        try {
+            // Revierte el delta aplicado anteriormente para dejar el producto
+            // listo para un nuevo conteo/aplicacion con el valor corregido.
+            if ((float) $row['diferencia'] !== 0.0) {
+                $db->prepare("UPDATE productos SET stock = stock - :delta, updated_at = NOW() WHERE id = :pid")
+                   ->execute([':delta' => $row['diferencia'], ':pid' => $row['producto_id']]);
+            }
+
+            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = FALSE WHERE id = :id")
+               ->execute([':id' => $detalleId]);
+
+            $db->commit();
+
+            registrarAuditoria(
+                'Corrección de conteo aplicado (toma de inventario)',
+                'inventario',
+                "Producto ID: {$row['producto_id']} | Diferencia revertida: {$row['diferencia']} | Sesión ID: {$row['sesion_id']}"
+            );
+
+            jsonResponse(['error' => false, 'message' => 'Producto reabierto para corrección']);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
+        }
+
     case 'toma_cancelar':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden cancelar una toma de inventario'], 403);
         $data = json_decode(file_get_contents('php://input'), true);
