@@ -5,6 +5,7 @@
 // ============================================================
 
 header('Content-Type: application/json; charset=UTF-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
 require_once '../../config/database.php';
 requireApiAuth(['admin', 'gerente', 'cajero']);
 
@@ -602,14 +603,10 @@ switch ($action) {
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden crear una toma de inventario'], 403);
         $data = json_decode(file_get_contents('php://input'), true);
         $categoriaIds = array_values(array_unique(array_filter(array_map('intval', $data['categorias_ids'] ?? []))));
-        $plazoDias = intval($data['plazo_dias'] ?? 0);
         $nombre = trim($data['nombre'] ?? '');
 
         if (empty($categoriaIds)) {
             jsonResponse(['error' => true, 'message' => 'Selecciona al menos una categoría'], 400);
-        }
-        if ($plazoDias < 1) {
-            jsonResponse(['error' => true, 'message' => 'El plazo debe ser de al menos 1 día'], 400);
         }
 
         $catsLiteral = '{' . implode(',', $categoriaIds) . '}';
@@ -633,17 +630,15 @@ switch ($action) {
 
             $stmt = $db->prepare("
                 INSERT INTO toma_inventario_sesiones
-                    (codigo, nombre, categorias_ids, plazo_dias, fecha_limite, total_productos, usuario_creador_id)
+                    (codigo, nombre, categorias_ids, total_productos, usuario_creador_id)
                 VALUES
-                    (:codigo, :nombre, :cats::integer[], :dias, NOW() + (:dias_txt || ' days')::interval, :total, :uid)
+                    (:codigo, :nombre, :cats::integer[], :total, :uid)
                 RETURNING id
             ");
             $stmt->execute([
                 ':codigo'   => $codigo,
                 ':nombre'   => $nombre !== '' ? $nombre : null,
                 ':cats'     => $catsLiteral,
-                ':dias'     => $plazoDias,
-                ':dias_txt' => (string) $plazoDias,
                 ':total'    => count($productos),
                 ':uid'      => sesionId(),
             ]);
@@ -673,7 +668,7 @@ switch ($action) {
             registrarAuditoria(
                 'Creación de toma de inventario',
                 'inventario',
-                "Sesión: {$codigo} | Categorías: " . implode(',', $categoriaIds) . " | Productos: " . count($productos) . " | Plazo: {$plazoDias} día(s)"
+                "Sesión: {$codigo} | Categorías: " . implode(',', $categoriaIds) . " | Productos: " . count($productos)
             );
 
             jsonResponse(['error' => false, 'message' => 'Toma de inventario creada', 'id' => $sesionId, 'codigo' => $codigo, 'total_productos' => count($productos)]);
@@ -684,9 +679,8 @@ switch ($action) {
 
     case 'toma_listar':
         $rows = $db->query("
-            SELECT s.id, s.codigo, s.nombre, s.categorias_ids, s.plazo_dias, s.fecha_inicio, s.fecha_limite,
+            SELECT s.id, s.codigo, s.nombre, s.categorias_ids, s.fecha_inicio,
                    s.estado, s.total_productos, s.total_contados, s.fecha_cierre, s.created_at,
-                   (s.estado = 'activa' AND s.fecha_limite < NOW()) AS vencida,
                    (
                        SELECT string_agg(c.nombre, ', ' ORDER BY c.nombre)
                        FROM categorias c
@@ -714,9 +708,8 @@ switch ($action) {
         if (!$id) jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
 
         $sesionStmt = $db->prepare("
-            SELECT id, codigo, nombre, categorias_ids, plazo_dias, fecha_inicio, fecha_limite,
-                   estado, total_productos, total_contados, observaciones, fecha_cierre, created_at,
-                   (estado = 'activa' AND fecha_limite < NOW()) AS vencida
+            SELECT id, codigo, nombre, categorias_ids, fecha_inicio,
+                   estado, total_productos, total_contados, observaciones, fecha_cierre, created_at
             FROM toma_inventario_sesiones WHERE id = :id
         ");
         $sesionStmt->execute([':id' => $id]);
@@ -855,39 +848,6 @@ switch ($action) {
             if ($db->inTransaction()) { $db->rollBack(); }
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 422);
         }
-
-    case 'toma_extender':
-        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden extender el plazo'], 403);
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id = intval($data['id'] ?? 0);
-        $diasAdicionales = intval($data['dias_adicionales'] ?? 0);
-
-        if (!$id || $diasAdicionales < 1) {
-            jsonResponse(['error' => true, 'message' => 'Datos inválidos'], 400);
-        }
-
-        $sesion = $db->prepare("SELECT codigo, estado FROM toma_inventario_sesiones WHERE id = :id");
-        $sesion->execute([':id' => $id]);
-        $row = $sesion->fetch();
-        if (!$row) jsonResponse(['error' => true, 'message' => 'Sesión no encontrada'], 404);
-        if ($row['estado'] !== 'activa') {
-            jsonResponse(['error' => true, 'message' => 'Solo se puede extender una sesión activa'], 422);
-        }
-
-        $stmt = $db->prepare("
-            UPDATE toma_inventario_sesiones
-            SET fecha_limite = fecha_limite + (:dias_txt || ' days')::interval,
-                plazo_dias = plazo_dias + :dias,
-                updated_at = NOW()
-            WHERE id = :id
-            RETURNING fecha_limite
-        ");
-        $stmt->execute([':dias_txt' => (string) $diasAdicionales, ':dias' => $diasAdicionales, ':id' => $id]);
-        $nuevaFecha = $stmt->fetch()['fecha_limite'];
-
-        registrarAuditoria('Extensión de plazo de toma de inventario', 'inventario', "Sesión: {$row['codigo']} | +{$diasAdicionales} día(s) | Nueva fecha límite: {$nuevaFecha}");
-
-        jsonResponse(['error' => false, 'fecha_limite' => $nuevaFecha]);
 
     case 'toma_cancelar':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden cancelar una toma de inventario'], 403);

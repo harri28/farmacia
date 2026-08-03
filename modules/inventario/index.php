@@ -242,8 +242,6 @@ include '../../includes/header.php';
                         <th>Código</th>
                         <th>Nombre</th>
                         <th>Categorías</th>
-                        <th style="text-align:center;width:90px">Plazo</th>
-                        <th style="width:150px">Fecha límite</th>
                         <th style="text-align:center;width:120px">Progreso</th>
                         <th style="text-align:center;width:140px">Vs</th>
                         <th style="width:110px">Estado</th>
@@ -251,7 +249,7 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody id="toma-tabla-body">
-                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -814,7 +812,7 @@ include '../../includes/header.php';
                 <label class="form-label">Nombre <span style="font-size:.8rem;color:var(--text-muted)">(opcional)</span></label>
                 <input type="text" id="nt-nombre" class="form-control" placeholder="Ej: Conteo trimestral">
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:0">
                 <label class="form-label">Categorías a incluir</label>
                 <div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;max-height:220px;overflow-y:auto">
                     <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:6px">
@@ -822,10 +820,6 @@ include '../../includes/header.php';
                     </label>
                     <div id="nt-categorias-list"></div>
                 </div>
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Plazo (días) <span style="color:var(--danger)">*</span></label>
-                <input type="number" id="nt-plazo" class="form-control" placeholder="Ej: 3" min="1" step="1">
                 <div style="font-size:.78rem;color:var(--text-muted);margin-top:4px">
                     Se incluirán los productos activos de las categorías seleccionadas al momento de crear la sesión.
                 </div>
@@ -1155,7 +1149,7 @@ function loadProductos() {
         '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     document.getElementById('inv-pagination').innerHTML = '';
 
-    fetch(BASE + 'modules/inventario/api.php?' + params)
+    fetch(BASE + 'modules/inventario/api.php?' + params, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
             if (!Array.isArray(data)) throw new Error('unexpected');
@@ -1704,14 +1698,13 @@ function formatearTiempoRelativo(isoTimestamp) {
 function badgeEstadoToma(sesion) {
     if (sesion.estado === 'completada') return '<span class="badge" style="background:var(--success);color:#fff">Completada</span>';
     if (sesion.estado === 'cancelada')  return '<span class="badge" style="background:var(--text-light);color:#fff">Cancelada</span>';
-    if (sesion.vencida === true || sesion.vencida === 't') return '<span class="badge" style="background:var(--danger);color:#fff">Vencida</span>';
     return '<span class="badge" style="background:var(--primary);color:#fff">Activa</span>';
 }
 
 function cargarTomaSesiones() {
     document.getElementById('toma-tabla-body').innerHTML =
-        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
-    fetch(BASE + 'modules/inventario/api.php?action=toma_listar')
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    fetch(BASE + 'modules/inventario/api.php?action=toma_listar', { cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
             tomaSesiones = Array.isArray(data) ? data : [];
@@ -1724,7 +1717,7 @@ function cargarTomaSesiones() {
 function renderTomaSesiones() {
     const tbody = document.getElementById('toma-tabla-body');
     if (!tomaSesiones.length) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-clipboard-check"></i>No hay sesiones de toma de inventario</div></td></tr>`;
         return;
     }
     tbody.innerHTML = tomaSesiones.map(s => {
@@ -1736,8 +1729,6 @@ function renderTomaSesiones() {
             <td style="font-family:monospace">${s.codigo}</td>
             <td>${s.nombre || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="font-size:.85rem">${s.categorias_nombres || '<span style="color:var(--text-light)">—</span>'}</td>
-            <td style="text-align:center">${s.plazo_dias} día(s)</td>
-            <td>${new Date(s.fecha_limite).toLocaleString('es-PE')}</td>
             <td style="text-align:center">${s.total_contados}/${s.total_productos}</td>
             <td style="text-align:center;font-size:.85rem">
                 ${stockInicial.toFixed(2)} <i class="fas fa-arrow-right" style="color:var(--text-light);font-size:.75rem"></i> <span style="font-weight:600;color:${vsColor}">${stockActual.toFixed(2)}</span>
@@ -1760,7 +1751,6 @@ function parsePgIntArray(raw) {
 
 function abrirNuevaTomaModal() {
     document.getElementById('nt-nombre').value = '';
-    document.getElementById('nt-plazo').value  = '';
     document.getElementById('nt-todas').checked = false;
 
     const categoriasAbiertas = new Set();
@@ -1788,11 +1778,9 @@ function toggleTodasCategorias(checked) {
 
 function guardarNuevaTomaModal() {
     const categoriaIds = Array.from(document.querySelectorAll('.nt-cat-check:checked')).map(chk => parseInt(chk.value));
-    const plazoDias = parseInt(document.getElementById('nt-plazo').value);
     const nombre = document.getElementById('nt-nombre').value.trim();
 
     if (!categoriaIds.length) { showToast('Selecciona al menos una categoría', 'error'); return; }
-    if (!plazoDias || plazoDias < 1) { showToast('Ingresa un plazo válido (mínimo 1 día)', 'error'); return; }
 
     const btn = document.getElementById('btn-guardar-nueva-toma');
     btn.disabled = true;
@@ -1801,7 +1789,7 @@ function guardarNuevaTomaModal() {
     fetch(BASE + 'modules/inventario/api.php?action=toma_crear', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ categorias_ids: categoriaIds, plazo_dias: plazoDias, nombre }),
+        body:    JSON.stringify({ categorias_ids: categoriaIds, nombre }),
     })
     .then(r => r.json())
     .then(data => {
@@ -1820,7 +1808,7 @@ function guardarNuevaTomaModal() {
 }
 
 function abrirTomaDetalle(id) {
-    fetch(BASE + `modules/inventario/api.php?action=toma_detalle&id=${id}`)
+    fetch(BASE + `modules/inventario/api.php?action=toma_detalle&id=${id}`, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
             if (data.error) { showToast(data.message, 'error'); return; }
@@ -1841,12 +1829,11 @@ function renderTomaDetalleHeader() {
     document.getElementById('toma-detalle-codigo').innerHTML =
         `${s.codigo}${s.nombre ? ' — ' + s.nombre : ''} ${badgeEstadoToma(s)}`;
     document.getElementById('toma-detalle-subinfo').textContent =
-        `Plazo: ${s.plazo_dias} día(s) · Fecha límite: ${new Date(s.fecha_limite).toLocaleString('es-PE')} · Contados: ${s.total_contados}/${s.total_productos}`;
+        `Contados: ${s.total_contados}/${s.total_productos}`;
 
     const acciones = document.getElementById('toma-detalle-acciones');
     if (esAdmin && s.estado === 'activa') {
         acciones.innerHTML = `
-            <button class="btn btn-outline btn-sm" onclick="extenderPlazoToma()"><i class="fas fa-calendar-plus"></i> Extender plazo</button>
             <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="cancelarToma()"><i class="fas fa-ban"></i> Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="openModal('modal-confirmar-aplicar-toma')"><i class="fas fa-check-double"></i> Cerrar sesión</button>
         `;
@@ -1979,24 +1966,6 @@ function guardarConteoProducto(detalleId, valor, inputEl) {
         renderTomaDetalleTabla();
     })
     .catch(() => showToast('Error al guardar el conteo', 'error'));
-}
-
-function extenderPlazoToma() {
-    const dias = parseInt(prompt('¿Cuántos días adicionales deseas agregar al plazo?', '1'));
-    if (!dias || dias < 1) return;
-
-    fetch(BASE + 'modules/inventario/api.php?action=toma_extender', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id: tomaSesionActual.id, dias_adicionales: dias }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) { showToast(data.message, 'error'); return; }
-        showToast('Plazo extendido correctamente', 'success');
-        abrirTomaDetalle(tomaSesionActual.id);
-    })
-    .catch(() => showToast('Error al extender el plazo', 'error'));
 }
 
 function cancelarToma() {

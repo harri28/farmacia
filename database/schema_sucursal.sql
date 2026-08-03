@@ -295,9 +295,7 @@ CREATE TABLE IF NOT EXISTS toma_inventario_sesiones (
     codigo             VARCHAR(30)   UNIQUE NOT NULL,
     nombre             VARCHAR(150),
     categorias_ids     INTEGER[]     NOT NULL,
-    plazo_dias         INTEGER       NOT NULL DEFAULT 1,
     fecha_inicio       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    fecha_limite       TIMESTAMP     NOT NULL,
     estado             VARCHAR(20)   NOT NULL DEFAULT 'activa',
     total_productos    INTEGER       NOT NULL DEFAULT 0,
     total_contados     INTEGER       NOT NULL DEFAULT 0,
@@ -307,8 +305,7 @@ CREATE TABLE IF NOT EXISTS toma_inventario_sesiones (
     fecha_cierre       TIMESTAMP,
     created_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     updated_at         TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_toma_inv_sesiones_estado CHECK (estado IN ('activa', 'completada', 'cancelada')),
-    CONSTRAINT chk_toma_inv_sesiones_plazo  CHECK (plazo_dias >= 1)
+    CONSTRAINT chk_toma_inv_sesiones_estado CHECK (estado IN ('activa', 'completada', 'cancelada'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_toma_inv_sesiones_estado
