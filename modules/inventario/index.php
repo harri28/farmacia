@@ -1925,8 +1925,8 @@ function renderTomaDetalleTabla() {
                 <i class="fas fa-pen"></i>
             </button>` : '') : `
             <button type="button" title="Aplicar al stock" ${puedeAccionar ? '' : 'disabled'} onclick="aplicarProductoToma(${d.id})"
-                style="background:none;border:none;color:${puedeAccionar ? 'var(--success)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 6px;font-size:1rem">
-                <i class="fas fa-check"></i>
+                style="display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid ${puedeAccionar ? 'var(--success)' : 'var(--border)'};border-radius:var(--radius-sm);color:${puedeAccionar ? 'var(--success)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 10px;font-size:.82rem;font-weight:600">
+                <i class="fas fa-check"></i> Aplicar
             </button>`;
 
         return `
