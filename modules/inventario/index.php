@@ -917,6 +917,11 @@ include '../../includes/header.php';
     background: var(--primary);
     color: #fff;
 }
+#toma-detalle-body tr.toma-fila-escaneada {
+    background: var(--primary-light);
+    box-shadow: inset 3px 0 0 var(--primary);
+    transition: background .3s;
+}
 </style>
 
 <script>
@@ -1922,7 +1927,7 @@ function renderTomaDetalleTabla() {
             </button>`;
 
         return `
-        <tr>
+        <tr data-detalle-id="${d.id}">
             <td style="font-family:monospace;color:var(--text-muted)">${d.producto_codigo}</td>
             <td>${d.producto_nombre}</td>
             <td>${d.categoria_nombre || '—'}</td>
@@ -2418,6 +2423,12 @@ function buscarProductoEnTomaDetalle(code) {
     document.getElementById('toma-detalle-solo-pendientes').checked = false;
     renderTomaDetalleTabla();
 
+    const fila = document.querySelector(`#toma-detalle-body tr[data-detalle-id="${detalle.id}"]`);
+    if (fila) {
+        fila.classList.add('toma-fila-escaneada');
+        fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     const aplicado = detalle.aplicado === true || detalle.aplicado === 't';
     if (aplicado) {
         showToast(detalle.producto_nombre + ' — ya fue aplicado, no se puede editar', 'info');
@@ -2426,7 +2437,6 @@ function buscarProductoEnTomaDetalle(code) {
 
     const input = document.querySelector(`input[data-detalle-id="${detalle.id}"]`);
     if (input) {
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         input.focus();
         input.select();
     }
