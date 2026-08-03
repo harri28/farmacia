@@ -844,8 +844,11 @@ include '../../includes/header.php';
             <button class="modal-close" onclick="closeModal('modal-confirmar-aplicar-toma')"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
-            <p style="font-size:.93rem;color:var(--text)">
-                Los productos que ya aplicaste (✓) quedan como están. Los que contaste pero no aplicaste, y los que no contaste, <strong>no modifican el stock</strong> — solo se marca la sesión como completada. <strong>Esta acción no se puede deshacer.</strong>
+            <p style="font-size:1.05rem;font-weight:700;color:var(--text);margin:0 0 8px">
+                ¿Estás seguro de cerrar sesión?
+            </p>
+            <p style="font-size:.85rem;color:var(--text-muted);margin:0">
+                Los productos que ya aplicaste quedarán registrados.
             </p>
         </div>
         <div class="modal-footer">

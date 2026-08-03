@@ -827,20 +827,28 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            if ((float) $row['diferencia'] !== 0.0) {
-                $db->prepare("UPDATE productos SET stock = stock + :delta, updated_at = NOW() WHERE id = :pid")
-                   ->execute([':delta' => $row['diferencia'], ':pid' => $row['producto_id']]);
-            }
+            // El conteo fisico reemplaza directamente el stock (no es un
+            // ajuste por diferencia contra la foto de cuando se creo la
+            // sesion) -- si el stock real ya habia cambiado mientras tanto
+            // (ej. una venta), el resultado antes no coincidia con el
+            // numero contado. Se guarda el stock previo para que "Editar"
+            // pueda revertir exactamente a ese valor.
+            $stockAntesStmt = $db->prepare("SELECT stock FROM productos WHERE id = :pid");
+            $stockAntesStmt->execute([':pid' => $row['producto_id']]);
+            $stockAntes = $stockAntesStmt->fetch()['stock'];
 
-            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = TRUE WHERE id = :id")
-               ->execute([':id' => $detalleId]);
+            $db->prepare("UPDATE productos SET stock = :nuevo, updated_at = NOW() WHERE id = :pid")
+               ->execute([':nuevo' => $row['cantidad_contada'], ':pid' => $row['producto_id']]);
+
+            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = TRUE, stock_antes_aplicar = :antes WHERE id = :id")
+               ->execute([':antes' => $stockAntes, ':id' => $detalleId]);
 
             $db->commit();
 
             registrarAuditoria(
                 'Aplicación individual de conteo (toma de inventario)',
                 'inventario',
-                "Producto ID: {$row['producto_id']} | Diferencia aplicada: {$row['diferencia']} | Sesión ID: {$row['sesion_id']}"
+                "Producto ID: {$row['producto_id']} | Stock: {$stockAntes} -> {$row['cantidad_contada']} | Sesión ID: {$row['sesion_id']}"
             );
 
             jsonResponse(['error' => false, 'message' => 'Producto aplicado al stock']);
@@ -856,7 +864,7 @@ switch ($action) {
         if (!$detalleId) jsonResponse(['error' => true, 'message' => 'Detalle inválido'], 400);
 
         $check = $db->prepare("
-            SELECT d.id, d.producto_id, d.diferencia, d.aplicado, d.sesion_id, s.estado
+            SELECT d.id, d.producto_id, d.stock_antes_aplicar, d.aplicado, d.sesion_id, s.estado
             FROM toma_inventario_detalles d
             JOIN toma_inventario_sesiones s ON s.id = d.sesion_id
             WHERE d.id = :id
@@ -876,14 +884,13 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
-            // Revierte el delta aplicado anteriormente para dejar el producto
-            // listo para un nuevo conteo/aplicacion con el valor corregido.
-            if ((float) $row['diferencia'] !== 0.0) {
-                $db->prepare("UPDATE productos SET stock = stock - :delta, updated_at = NOW() WHERE id = :pid")
-                   ->execute([':delta' => $row['diferencia'], ':pid' => $row['producto_id']]);
-            }
+            // Restaura el stock exacto que tenia el producto justo antes de
+            // esta aplicacion (no una diferencia), dejandolo listo para un
+            // nuevo conteo/aplicacion con el valor corregido.
+            $db->prepare("UPDATE productos SET stock = :antes, updated_at = NOW() WHERE id = :pid")
+               ->execute([':antes' => $row['stock_antes_aplicar'], ':pid' => $row['producto_id']]);
 
-            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = FALSE WHERE id = :id")
+            $db->prepare("UPDATE toma_inventario_detalles SET aplicado = FALSE, stock_antes_aplicar = NULL WHERE id = :id")
                ->execute([':id' => $detalleId]);
 
             $db->commit();
@@ -891,7 +898,7 @@ switch ($action) {
             registrarAuditoria(
                 'Corrección de conteo aplicado (toma de inventario)',
                 'inventario',
-                "Producto ID: {$row['producto_id']} | Diferencia revertida: {$row['diferencia']} | Sesión ID: {$row['sesion_id']}"
+                "Producto ID: {$row['producto_id']} | Stock restaurado a: {$row['stock_antes_aplicar']} | Sesión ID: {$row['sesion_id']}"
             );
 
             jsonResponse(['error' => false, 'message' => 'Producto reabierto para corrección']);
