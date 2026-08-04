@@ -293,7 +293,7 @@ include '../../includes/header.php';
                         <th>Nombre</th>
                         <th>Categoría</th>
                         <th style="width:80px">Unidad</th>
-                        <th class="text-right" style="width:100px">Stock Actual</th>
+                        <th class="text-right" style="width:100px">Stock</th>
                         <th class="text-right" style="width:120px">Conteo físico</th>
                         <th style="width:150px">Estado</th>
                         <th style="width:90px"></th>
@@ -1899,10 +1899,6 @@ function renderTomaDetalleTabla() {
         const contado  = d.cantidad_contada !== null;
 
         const stockVal = parseFloat(d.stock_sistema);
-        const stockMin = (d.stock_minimo === null || d.stock_minimo === undefined) ? null : parseFloat(d.stock_minimo);
-        const stockColor = stockVal <= 0
-            ? 'var(--danger)'
-            : (stockMin !== null && stockVal <= stockMin ? '#f59e0b' : 'var(--success)');
 
         let estado;
         if (!d.producto_id) {
@@ -1914,7 +1910,10 @@ function renderTomaDetalleTabla() {
         } else if (sesionActiva) {
             estado = `<span data-contado-en="${d.contado_en}" class="toma-badge-relativo">${formatearTiempoRelativo(d.contado_en)}</span>`;
         } else {
-            estado = '<span>Actualizado</span>';
+            // Contado pero nunca aplicado, y la sesion ya no esta activa:
+            // no se puede volver a aplicar desde aqui (requiere Ajuste de
+            // Stock manual). Debe quedar claro que el stock NO se actualizo.
+            estado = '<span style="color:#f59e0b;font-weight:600"><i class="fas fa-triangle-exclamation"></i> Contado, sin aplicar</span>';
         }
 
         const puedeAccionar = editable && d.producto_id && contado && !aplicado;
@@ -1935,7 +1934,7 @@ function renderTomaDetalleTabla() {
             <td>${d.producto_nombre}</td>
             <td>${d.categoria_nombre || '—'}</td>
             <td>${d.unidad || 'unidad'}</td>
-            <td class="text-right" style="font-weight:600;color:${stockColor}">${stockVal.toFixed(2)}</td>
+            <td class="text-right" style="font-weight:600;color:var(--text-muted)">${stockVal.toFixed(2)}</td>
             <td class="text-right">
                 <input type="number" step="0.01" min="0"
                     value="${d.cantidad_contada === null ? '' : parseFloat(d.cantidad_contada)}"
@@ -1952,20 +1951,31 @@ function renderTomaDetalleTabla() {
 }
 
 function aplicarProductoToma(detalleId) {
-    fetch(BASE + 'modules/inventario/api.php?action=toma_aplicar_producto', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ detalle_id: detalleId }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) { showToast(data.message, 'error'); return; }
-        const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
-        if (detalle) detalle.aplicado = true;
-        showToast('Producto aplicado al stock', 'success');
-        renderTomaDetalleTabla();
-    })
-    .catch(() => showToast('Error al aplicar el producto', 'error'));
+    // Si el input todavia tiene un valor sin guardar (el usuario escribio y
+    // dio clic directo en "Aplicar", sin que el blur alcanzara a terminar
+    // su guardado), se guarda primero y se espera esa respuesta antes de
+    // aplicar -- evita aplicar contra un conteo viejo/vacio en el servidor.
+    const input = document.querySelector(`input[data-detalle-id="${detalleId}"]`);
+    const guardarPrimero = input ? guardarConteoProducto(detalleId, input.value, input) : Promise.resolve({ error: false });
+
+    guardarPrimero.then(resultadoGuardado => {
+        if (resultadoGuardado && resultadoGuardado.error) return; // ya se mostro el toast de error
+
+        fetch(BASE + 'modules/inventario/api.php?action=toma_aplicar_producto', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ detalle_id: detalleId }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { showToast(data.message, 'error'); return; }
+            const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
+            if (detalle) detalle.aplicado = true;
+            showToast('Producto aplicado al stock', 'success');
+            renderTomaDetalleTabla();
+        })
+        .catch(() => showToast('Error al aplicar el producto', 'error'));
+    });
 }
 
 let tomaDetalleIdEditarPendiente = null;
@@ -2008,20 +2018,20 @@ function confirmarEditarProductoToma() {
 
 function guardarConteoProducto(detalleId, valor, inputEl) {
     const detalle = tomaDetallesActuales.find(d => d.id === detalleId);
-    if (!detalle) return;
+    if (!detalle) return Promise.resolve({ error: false });
 
     const cantidad = valor === '' ? null : parseFloat(valor);
     const valorAnterior = detalle.cantidad_contada === null ? null : parseFloat(detalle.cantidad_contada);
-    if (cantidad === valorAnterior) return; // no cambió, no llama a la API
+    if (cantidad === valorAnterior) return Promise.resolve({ error: false }); // no cambió, no llama a la API
 
-    fetch(BASE + 'modules/inventario/api.php?action=toma_guardar_conteo', {
+    return fetch(BASE + 'modules/inventario/api.php?action=toma_guardar_conteo', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ detalle_id: detalleId, cantidad }),
     })
     .then(r => r.json())
     .then(data => {
-        if (data.error) { showToast(data.message, 'error'); return; }
+        if (data.error) { showToast(data.message, 'error'); return data; }
         detalle.cantidad_contada = data.cantidad_contada;
         detalle.diferencia = data.diferencia;
         detalle.contado_en = data.contado_en;
@@ -2030,8 +2040,12 @@ function guardarConteoProducto(detalleId, valor, inputEl) {
         }
         renderTomaDetalleHeader();
         renderTomaDetalleTabla();
+        return data;
     })
-    .catch(() => showToast('Error al guardar el conteo', 'error'));
+    .catch(() => {
+        showToast('Error al guardar el conteo', 'error');
+        return { error: true };
+    });
 }
 
 function cancelarToma() {

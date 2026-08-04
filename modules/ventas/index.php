@@ -815,7 +815,7 @@ include '../../includes/header.php';
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline btn-sm" onclick="printReceipt(document.getElementById('ticket-body-historial').innerHTML)">
-                <i class="fas fa-print"></i> Reimprimir
+                <i class="fas fa-print"></i> Imprimir
             </button>
             <button class="btn btn-outline btn-sm" onclick="enviarWhatsApp()" style="border-color:#25d366;color:#25d366">
                 <i class="fab fa-whatsapp"></i> WhatsApp
