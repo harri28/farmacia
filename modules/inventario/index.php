@@ -925,6 +925,16 @@ include '../../includes/header.php';
     box-shadow: inset 3px 0 0 var(--primary);
     transition: background .3s;
 }
+/* Conteo fisico: este sistema no trabaja con decimales, no hacen falta
+   las flechas de incremento/decremento del input number */
+.toma-input-sin-flechas::-webkit-outer-spin-button,
+.toma-input-sin-flechas::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.toma-input-sin-flechas {
+    -moz-appearance: textfield;
+}
 </style>
 
 <script>
@@ -1936,7 +1946,7 @@ function renderTomaDetalleTabla() {
             <td>${d.unidad || 'unidad'}</td>
             <td class="text-right" style="font-weight:600;color:var(--text-muted)">${stockVal.toFixed(2)}</td>
             <td class="text-right">
-                <input type="number" step="0.01" min="0"
+                <input type="number" step="1" min="0" class="toma-input-sin-flechas"
                     value="${d.cantidad_contada === null ? '' : parseFloat(d.cantidad_contada)}"
                     ${(editable && d.producto_id && !aplicado) ? '' : 'disabled'}
                     data-detalle-id="${d.id}"
