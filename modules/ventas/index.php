@@ -1143,12 +1143,15 @@ function renderProducts(products, limit) {
     const buildCard = p => {
         const isOut = parseInt(p.stock) <= 0;
         const isLow = !isOut && parseInt(p.stock) <= parseInt(p.stock_minimo);
-        const cls   = isOut ? 'out-stock' : (isLow ? 'low-stock' : '');
-        const stockLabel = isOut
-            ? `<span class="product-stock out">Agotado</span>`
-            : (isLow
-                ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
-                : `<span class="product-stock">Stock: ${p.stock}</span>`);
+        const enConteo = p.en_conteo_inventario === true || p.en_conteo_inventario === 't';
+        const cls   = enConteo ? 'en-conteo' : (isOut ? 'out-stock' : (isLow ? 'low-stock' : ''));
+        const stockLabel = enConteo
+            ? `<span class="product-stock en-conteo"><i class="fas fa-clipboard-check"></i> En conteo de inventario</span>`
+            : (isOut
+                ? `<span class="product-stock out">Agotado</span>`
+                : (isLow
+                    ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
+                    : `<span class="product-stock">Stock: ${p.stock}</span>`));
         return `
         <div class="product-card ${cls}" onclick="addToCart(${p.id})" data-id="${p.id}">
             ${p.favorito == 't' ? '<span class="fav-icon"><i class="fas fa-star"></i></span>' : ''}
@@ -1239,6 +1242,10 @@ let _presentacionesActuales = [];
 function addToCart(productId) {
     const product = allProducts.find(p => parseInt(p.id) === productId);
     if (!product || parseInt(product.stock) <= 0) return;
+    if (product.en_conteo_inventario === true || product.en_conteo_inventario === 't') {
+        showToast(`"${product.nombre}" no se puede vender: la categoría "${product.categoria || ''}" está en conteo de inventario.`, 'error');
+        return;
+    }
 
     if (_presentacionesCache[productId] !== undefined) {
         continuarAgregarAlCarrito(product, _presentacionesCache[productId]);
@@ -3038,8 +3045,11 @@ function setupBarcodeScanner() {
         );
 
         if (product) {
+            const enConteo = product.en_conteo_inventario === true || product.en_conteo_inventario === 't';
             if (parseInt(product.stock) <= 0) {
                 showToast('<i class="fas fa-exclamation-triangle"></i> ' + product.nombre + ' — sin stock disponible', 'error');
+            } else if (enConteo) {
+                addToCart(parseInt(product.id)); // muestra su propio toast de bloqueo
             } else {
                 addToCart(parseInt(product.id));
                 showToast('<i class="fas fa-barcode"></i> ' + product.nombre, 'success');

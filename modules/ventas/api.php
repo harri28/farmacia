@@ -252,7 +252,11 @@ switch ($action) {
                 p.unidad_id, p.unidad_codigo, p.afectacion_igv_id, p.afectacion_igv_codigo,
                 p.porcentaje_igv, p.incluye_igv, p.icbper_activo, p.factor_icbper,
                 a.tipo AS afectacion_tipo, a.descripcion AS afectacion_descripcion,
-                c.nombre AS categoria
+                c.nombre AS categoria,
+                EXISTS (
+                    SELECT 1 FROM toma_inventario_sesiones s
+                    WHERE s.estado = 'activa' AND p.categoria_id = ANY(s.categorias_ids)
+                ) AS en_conteo_inventario
             FROM productos p
             LEFT JOIN public.categorias c ON c.id = p.categoria_id
             LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
@@ -453,7 +457,7 @@ switch ($action) {
                         p.id, p.stock, p.nombre, p.codigo, p.codigo_interno, p.codigo_sunat,
                         p.precio_venta, p.unidad_id, p.unidad_codigo, p.afectacion_igv_id,
                         p.afectacion_igv_codigo, p.porcentaje_igv, p.incluye_igv,
-                        p.icbper_activo, p.factor_icbper,
+                        p.icbper_activo, p.factor_icbper, p.categoria_id,
                         a.tipo AS afectacion_tipo
                     FROM productos p
                     LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
@@ -464,6 +468,28 @@ switch ($action) {
 
                 if (!$producto) {
                     throw new Exception("Producto ID {$productoId} no encontrado");
+                }
+
+                // Bloquea la venta si la categoria del producto tiene una
+                // Toma de Inventario activa -- desde que "Aplicar" reemplaza
+                // el stock directamente (no suma/resta), una venta hecha
+                // mientras se cuenta esa categoria se perderia al aplicar.
+                if ($producto['categoria_id']) {
+                    $tomaStmt = $db->prepare("
+                        SELECT COALESCE(c.nombre, 'La categoría de este producto') AS categoria_nombre
+                        FROM toma_inventario_sesiones s
+                        LEFT JOIN public.categorias c ON c.id = :cat_id1
+                        WHERE s.estado = 'activa' AND :cat_id2 = ANY(s.categorias_ids)
+                        LIMIT 1
+                    ");
+                    $tomaStmt->execute([
+                        ':cat_id1' => $producto['categoria_id'],
+                        ':cat_id2' => $producto['categoria_id'],
+                    ]);
+                    $tomaRow = $tomaStmt->fetch();
+                    if ($tomaRow) {
+                        throw new Exception("\"{$producto['nombre']}\" no se puede vender: la categoría \"{$tomaRow['categoria_nombre']}\" está en conteo de inventario. Espera a que se cierre la sesión.");
+                    }
                 }
 
                 // Si el item viene con una unidad de medida configurada (ej.
