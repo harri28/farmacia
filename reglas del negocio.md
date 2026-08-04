@@ -66,12 +66,16 @@
 ## Integridad transaccional
 - Todas las mutaciones de ventas e ingresos (registrar, anular) se ejecutan dentro de una transacción (`BEGIN`/`COMMIT`/`ROLLBACK`) para evitar estados inconsistentes entre stock, caja y comprobantes.
 
-## Convención UI: inputs numéricos editables en tablas (Cantidad, etc.)
-- **No usar `<input type="number">`** para campos numéricos editables dentro de filas de tabla (ej. Cantidad en Ingresos/Salidas de Almacén) — Chrome no permite mover el cursor programáticamente (`setSelectionRange`) en inputs `type="number"`, lo que impide controlar dónde queda el cursor de texto (caret).
-- Usar en su lugar `type="text" inputmode="decimal"` (mantiene el teclado numérico en celular) + un filtro en `oninput` que limpie el valor a solo dígitos y un punto decimal (ver `sanitizarCantidadInput()` en `modules/almacen/index.php`).
-- Al enfocar el campo, el cursor debe quedar **al final del valor** (para poder borrar con backspace de inmediato) — pero el navegador posiciona el cursor según el clic **después** de disparar el evento `focus`, así que hay que diferir el `setSelectionRange` con `setTimeout(fn, 0)` (ver `cursorAlFinal()`), si no el navegador pisa la posición.
+## Convención UI: inputs numéricos editables en tablas (Cantidad, P. Unitario, etc.)
+- **No usar `<input type="number">`** para campos numéricos editables dentro de filas de tabla — Chrome no permite mover el cursor programáticamente (`setSelectionRange`) en inputs `type="number"`, lo que impide controlar dónde queda el cursor de texto (caret).
+- Usar en su lugar `type="text" inputmode="decimal"` (mantiene el teclado numérico en celular) + un filtro en `oninput` que limpie el valor a solo dígitos (y un punto decimal, salvo que el campo sea explícitamente sin decimales — ver Toma de Inventario abajo).
+- Al enfocar el campo, el cursor debe quedar **al final del valor** (para poder borrar con backspace de inmediato) — pero el navegador posiciona el cursor según el clic **después** de disparar el evento `focus`, así que hay que diferir el `setSelectionRange` con `setTimeout(fn, 0)` (función `cursorAlFinal()`/`cursorAlFinalOrden()` según el módulo), si no el navegador pisa la posición.
 - El input necesita suficiente `padding` y texto centrado (no `text-align: right` pegado al borde) para que el cursor parpadeante no quede encimado sobre el propio dígito (ilegible durante el parpadeo) — ancho mínimo recomendado ~80px con `padding: 5px 10px`.
 - Aplicar este mismo patrón (tipo, filtro, cursor al final, padding) la próxima vez que se agregue un input numérico editable dentro de una fila de tabla en cualquier módulo.
+- **Implementaciones existentes de referencia** (cada una define sus propias funciones `sanitizar*`/`cursorAlFinal*`, no están compartidas entre módulos):
+  - `modules/almacen/index.php` — Cantidad en Ingreso/Salida de stock (`sanitizarCantidadInput()`, `cursorAlFinal()`), permite decimales.
+  - `modules/inventario/index.php` — Conteo físico en Toma de Inventario (`sanitizarConteoInput()`, `cursorAlFinal()`) — variante **sin decimales**, este negocio no cuenta fracciones de producto.
+  - `modules/compras/index.php` — Cantidad y P. Unitario en Nueva Orden de Compra (`sanitizarDecimalOrden()`, `cursorAlFinalOrden()`), permite decimales.
 
 ## Compras y cuentas por pagar/cobrar
 - Una orden de compra aprobada y recibida (`orden_recibir`) genera automáticamente un ingreso de almacén y, opcionalmente, una cuenta por pagar al proveedor.

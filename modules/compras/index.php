@@ -303,6 +303,10 @@ require_once '../../includes/header.php';
     </div>
 </div>
 
+<!-- Dropdown compartido del buscador de productos en Nueva Orden de Compra
+     (position:fixed, fuera de la tabla para que el overflow-x:auto no lo recorte) -->
+<div id="oc-producto-dropdown" style="display:none;position:fixed;z-index:2000;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);max-height:260px;overflow-y:auto"></div>
+
 <!-- ============================================================
      MODAL: Nueva Orden de Compra
 ============================================================ -->
@@ -354,11 +358,12 @@ require_once '../../includes/header.php';
         <div style="overflow-x:auto">
         <table class="items-table">
             <thead><tr>
-                <th style="width:35%">Producto</th>
-                <th style="width:22%">Descripción</th>
-                <th style="width:11%">U.M.</th>
-                <th style="width:12%">Cantidad</th>
-                <th style="width:15%">P. Unitario</th>
+                <th style="width:28%">Producto</th>
+                <th style="width:18%">Descripción</th>
+                <th style="width:9%">U.M.</th>
+                <th style="width:10%">Cantidad</th>
+                <th style="width:13%">P. Unitario</th>
+                <th style="width:13%">Sub. Total</th>
                 <th style="width:2%"></th>
             </tr></thead>
             <tbody id="itemsBody"></tbody>
@@ -379,11 +384,8 @@ require_once '../../includes/header.php';
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="cerrarModal('modalOrdenOverlay')">Cancelar</button>
-        <button class="btn btn-primary" id="btnRegistrarOrden" onclick="guardarOrden(false)">
+        <button class="btn btn-primary" id="btnRegistrarOrden" onclick="guardarOrden()">
             <i class="fas fa-save"></i> Registrar orden de compra
-        </button>
-        <button class="btn btn-primary" id="btnRegistrarCompartir" style="background:#16a34a" onclick="guardarOrden(true)">
-            <i class="fas fa-share-alt"></i> Registrar y compartir
         </button>
     </div>
 </div>
@@ -918,7 +920,9 @@ async function abrirNuevaOrden() {
     document.getElementById('ocDiasCredito').value   = '30';
     document.getElementById('ocConIgv').checked      = false;
     document.getElementById('ocObs').value           = '';
-    document.getElementById('ocFechaEntrega').value  = '';
+    const hoy = new Date();
+    document.getElementById('ocFechaEntrega').value  =
+        hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
     document.getElementById('itemsBody').innerHTML   = '';
     toggleCredito();
     calcularTotales();
@@ -951,6 +955,25 @@ function toggleCredito() {
     document.getElementById('grupoDiasCredito').style.display = es_credito ? '' : 'none';
 }
 
+// Cantidad y P. Unitario: type="text" en vez de "number" porque Chrome no
+// permite mover el cursor programaticamente en inputs number. Filtro deja
+// solo digitos y un punto decimal; el cursor se difiere con setTimeout
+// porque el navegador posiciona el cursor segun el clic DESPUES de
+// disparar "focus" (mismo patron ya usado en Almacen/Toma de Inventario).
+function sanitizarDecimalOrden(el) {
+    let v = el.value.replace(/[^0-9.]/g, '');
+    const partes = v.split('.');
+    if (partes.length > 2) v = partes[0] + '.' + partes.slice(1).join('');
+    el.value = v;
+}
+
+function cursorAlFinalOrden(el) {
+    setTimeout(() => {
+        const pos = el.value.length;
+        el.setSelectionRange(pos, pos);
+    }, 0);
+}
+
 let _filaIdx = 0;
 function agregarFila() {
     const idx = _filaIdx++;
@@ -958,51 +981,98 @@ function agregarFila() {
     tr.id     = `fila-${idx}`;
     tr.innerHTML = `
         <td>
-            <select onchange="selProducto(${idx},this)" style="padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.83rem;color:var(--text-primary);background:var(--surface);width:100%">
-                <option value="">— Seleccionar —</option>
-            </select>
+            <input type="text" id="fbusca-${idx}" placeholder="Buscar producto..." autocomplete="off"
+                oninput="buscarProductoOrden(${idx}, this.value)"
+                onfocus="buscarProductoOrden(${idx}, this.value)"
+                style="padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.83rem;color:var(--text-primary);background:var(--surface);width:100%">
             <input type="hidden" id="fp-${idx}">
         </td>
         <td><input type="text" id="fd-${idx}" placeholder="Descripción adicional"></td>
         <td><input type="text" id="fum-${idx}" placeholder="unidad" style="text-align:center"></td>
-        <td><input type="number" id="fq-${idx}" value="1" min="1" oninput="calcularFila(${idx})" style="text-align:center"></td>
-        <td><input type="number" id="fu-${idx}" value="0" min="0" step="0.01" oninput="calcularFila(${idx})" style="text-align:right"></td>
-        <td style="display:none" id="fs-${idx}">0</td>
+        <td><input type="text" inputmode="decimal" id="fq-${idx}" value="0"
+                oninput="sanitizarDecimalOrden(this); calcularFila(${idx})" onfocus="cursorAlFinalOrden(this)"
+                style="text-align:center;padding:7px 10px"></td>
+        <td><input type="text" inputmode="decimal" id="fu-${idx}" value="0.00"
+                oninput="sanitizarDecimalOrden(this); calcularFila(${idx})" onfocus="cursorAlFinalOrden(this)"
+                style="text-align:center;padding:7px 10px"></td>
+        <td class="text-right" id="fs-${idx}" data-valor="0" style="font-weight:600;white-space:nowrap">S/ 0.00</td>
         <td><button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();calcularTotales()"><i class="fas fa-trash"></i></button></td>
     `;
     document.getElementById('itemsBody').appendChild(tr);
-
-    // Poblar select de productos
-    const sel = tr.querySelector('select');
-    fetch(`${API}?action=productos_buscar&q=`).then(r=>r.json()).then(lista=>{
-        sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-            lista.map(p=>`<option value="${p.id}" data-pu="${p.precio_compra||0}" data-nombre="${esc(p.nombre)}" data-unidad="${esc(p.unidad||'')}">${esc(p.nombre)} (${esc(p.codigo)})</option>`).join('');
-    }).catch(()=>{});
 }
 
-function selProducto(idx, sel) {
-    const opt = sel.options[sel.selectedIndex];
-    document.getElementById(`fp-${idx}`).value = sel.value;
-    if (sel.value) {
-        if (opt.dataset.pu) document.getElementById(`fu-${idx}`).value = parseFloat(opt.dataset.pu).toFixed(2);
-        if (opt.dataset.unidad) document.getElementById(`fum-${idx}`).value = opt.dataset.unidad;
+// Buscador de producto por fila -- el dropdown es UN SOLO elemento
+// compartido (fuera de la tabla) posicionado con "fixed" segun el input
+// activo, para que el overflow-x:auto de la tabla no lo recorte.
+let _ocBuscaTimer = null;
+let _ocDropdownIdx = null;
+
+function buscarProductoOrden(idx, valor) {
+    _ocDropdownIdx = idx;
+    const dropdown = document.getElementById('oc-producto-dropdown');
+    const input    = document.getElementById(`fbusca-${idx}`);
+    const rect     = input.getBoundingClientRect();
+    dropdown.style.left  = rect.left + 'px';
+    dropdown.style.top   = (rect.bottom + 4) + 'px';
+    dropdown.style.width = rect.width + 'px';
+
+    clearTimeout(_ocBuscaTimer);
+    const q = valor.trim();
+    if (!q) {
+        dropdown.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:.83rem">Escribe para buscar...</div>';
+        dropdown.style.display = 'block';
+        return;
     }
+    _ocBuscaTimer = setTimeout(() => {
+        fetch(`${API}?action=productos_buscar&q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(lista => {
+                if (_ocDropdownIdx !== idx) return; // el usuario ya cambio de fila
+                dropdown.innerHTML = !Array.isArray(lista) || !lista.length
+                    ? '<div style="padding:10px 14px;color:var(--text-muted);font-size:.83rem">Sin resultados</div>'
+                    : lista.map(p => `
+                        <div onclick='seleccionarProductoOrden(${idx}, ${JSON.stringify(p).replace(/'/g, "&#39;")})'
+                            style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:.83rem"
+                            onmouseover="this.style.background='var(--primary-light)'"
+                            onmouseout="this.style.background=''">
+                            <div style="font-weight:600">${esc(p.nombre)}</div>
+                            <div style="color:var(--text-muted);font-size:.76rem">${esc(p.codigo)} · Stock: ${p.stock}</div>
+                        </div>`).join('');
+                dropdown.style.display = 'block';
+            })
+            .catch(() => {});
+    }, 200);
+}
+
+function seleccionarProductoOrden(idx, p) {
+    document.getElementById(`fbusca-${idx}`).value = p.nombre;
+    document.getElementById(`fp-${idx}`).value      = p.id;
+    if (p.precio_compra) document.getElementById(`fu-${idx}`).value  = parseFloat(p.precio_compra).toFixed(2);
+    if (p.unidad)         document.getElementById(`fum-${idx}`).value = p.unidad;
+    document.getElementById('oc-producto-dropdown').style.display = 'none';
     calcularFila(idx);
 }
+
+document.addEventListener('click', e => {
+    const dropdown = document.getElementById('oc-producto-dropdown');
+    if (!dropdown || dropdown.style.display === 'none') return;
+    if (e.target.id?.startsWith('fbusca-') || dropdown.contains(e.target)) return;
+    dropdown.style.display = 'none';
+});
 
 function calcularFila(idx) {
     const q = parseFloat(document.getElementById(`fq-${idx}`)?.value||0);
     const u = parseFloat(document.getElementById(`fu-${idx}`)?.value||0);
     const s = q * u;
     const el = document.getElementById(`fs-${idx}`);
-    if (el) el.textContent = s.toFixed(2);
+    if (el) { el.textContent = 'S/ ' + s.toFixed(2); el.dataset.valor = s; }
     calcularTotales();
 }
 
 function calcularTotales() {
     let sub = 0;
     document.querySelectorAll('[id^="fs-"]').forEach(el => {
-        sub += parseFloat(el.textContent) || 0;
+        sub += parseFloat(el.dataset.valor) || 0;
     });
     const conIgv = document.getElementById('ocConIgv')?.checked;
     const igv    = conIgv ? sub * 0.18 : 0;
@@ -1016,7 +1086,7 @@ document.getElementById('ocConIgv').addEventListener('change', calcularTotales);
 
 let _ultimaOrden = null;
 
-async function guardarOrden(compartir = false) {
+async function guardarOrden() {
     const pid = document.getElementById('ocProveedor').value;
     if (!pid) { toast('Selecciona un proveedor','err'); return; }
 
@@ -1034,9 +1104,8 @@ async function guardarOrden(compartir = false) {
     });
     if (!items.length) { toast('Agrega al menos un ítem','err'); return; }
 
-    const btnReg  = document.getElementById('btnRegistrarOrden');
-    const btnComp = document.getElementById('btnRegistrarCompartir');
-    [btnReg, btnComp].forEach(b => b && (b.disabled = true));
+    const btnReg = document.getElementById('btnRegistrarOrden');
+    btnReg.disabled = true;
 
     try {
         const r = await fetch(`${API}?action=orden_crear`, {
@@ -1057,15 +1126,9 @@ async function guardarOrden(compartir = false) {
         _ultimaOrden = { id: d.id, numero: d.numero };
         cerrarModal('modalOrdenOverlay');
         cargarOrdenes(); cargarStats();
-
-        if (compartir) {
-            document.getElementById('compartirNumOrden').textContent = d.numero;
-            document.getElementById('modalCompartirOverlay').classList.add('active');
-        } else {
-            toast('Orden registrada correctamente');
-        }
+        toast('Orden registrada correctamente');
     } catch { toast('Error de conexión','err'); }
-    finally { [btnReg, btnComp].forEach(b => b && (b.disabled = false)); }
+    finally { btnReg.disabled = false; }
 }
 
 function cerrarCompartir() {
