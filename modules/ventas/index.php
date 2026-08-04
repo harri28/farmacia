@@ -823,9 +823,6 @@ include '../../includes/header.php';
             <button class="btn btn-outline btn-sm" onclick="copiarEnlaceComprobante()">
                 <i class="fas fa-link"></i> Copiar enlace
             </button>
-            <button class="btn btn-primary" onclick="closeModal('modal-ticket-historial')">
-                Cerrar
-            </button>
         </div>
     </div>
 </div>
@@ -922,7 +919,20 @@ include '../../includes/header.php';
 <div class="app-toast-container" id="toast-container"></div>
 
 <style>
-/* La impresión de tickets se hace en ventana nueva (printReceipt) — no se necesita @media print aquí */
+/* Respaldo por si la ventana nueva de printReceipt() queda bloqueada
+   (bloqueador de ventanas emergentes, común en equipos de impresora
+   térmica/POS) y el usuario termina imprimiendo la página de fondo con
+   Ctrl+P: oculta todo excepto el ticket, para no imprimir el modal
+   completo (encabezado, botones, etc.) */
+@media print {
+    body * { visibility: hidden; }
+    #ticket-body, #ticket-body *,
+    #ticket-body-historial, #ticket-body-historial *,
+    #preview-ticket-body, #preview-ticket-body * { visibility: visible; }
+    #ticket-body, #ticket-body-historial, #preview-ticket-body {
+        position: absolute; left: 0; top: 0; width: 100%;
+    }
+}
 </style>
 
 <script src="<?= $base_path ?>assets/vendor/jquery/jquery-3.7.1.min.js"></script>
