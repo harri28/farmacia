@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS ordenes_compra (
     subtotal        DECIMAL(10,2) DEFAULT 0,
     igv             DECIMAL(10,2) DEFAULT 0,
     total           DECIMAL(10,2) DEFAULT 0,
+    numero_factura  VARCHAR(30),
     observaciones   TEXT,
     fecha_entrega   DATE,
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP

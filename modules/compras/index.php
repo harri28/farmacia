@@ -343,8 +343,8 @@ require_once '../../includes/header.php';
                 <input type="number" id="ocDiasCredito" value="30" min="1" max="365">
             </div>
             <div class="form-group">
-                <label><input type="checkbox" id="ocConIgv" style="width:auto;margin-right:6px">Incluir IGV (18%)</label>
-                <input type="hidden" id="ocConIgvHidden">
+                <label>Número de Factura</label>
+                <input type="text" id="ocNumeroFactura" placeholder="F001-00040598">
             </div>
         </div>
 
@@ -370,9 +370,7 @@ require_once '../../includes/header.php';
         </table>
         </div>
         <div class="items-total" id="itemsTotales">
-            <span style="color:var(--text-muted);margin-right:16px" id="igvRow" style="display:none">IGV: <strong id="totIgv">S/ 0.00</strong></span>
             Total: <strong id="totTotal">S/ 0.00</strong>
-            <strong id="totSubtotal" style="display:none">S/ 0.00</strong>
         </div>
 
         <div class="form-row" style="margin-top:10px">
@@ -713,6 +711,10 @@ async function verOrden(id) {
                     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Entrega esperada</div>
                     <div>${fmtDate(o.fecha_entrega)}</div>
                 </div>`:''}
+                ${o.numero_factura?`<div>
+                    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">N° Factura</div>
+                    <div>${esc(o.numero_factura)}</div>
+                </div>`:''}
             </div>
             <table class="items-table" style="margin-bottom:12px">
                 <thead><tr><th>Producto</th><th>Descripción</th><th style="text-align:center">U.M.</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Subtotal</th></tr></thead>
@@ -918,7 +920,7 @@ async function abrirNuevaOrden() {
     document.getElementById('ocProveedor').innerHTML = '<option value="">Cargando...</option>';
     document.getElementById('ocTipoPago').value      = 'efectivo';
     document.getElementById('ocDiasCredito').value   = '30';
-    document.getElementById('ocConIgv').checked      = false;
+    document.getElementById('ocNumeroFactura').value = '';
     document.getElementById('ocObs').value           = '';
     const hoy = new Date();
     document.getElementById('ocFechaEntrega').value  =
@@ -1074,15 +1076,9 @@ function calcularTotales() {
     document.querySelectorAll('[id^="fs-"]').forEach(el => {
         sub += parseFloat(el.dataset.valor) || 0;
     });
-    const conIgv = document.getElementById('ocConIgv')?.checked;
-    const igv    = conIgv ? sub * 0.18 : 0;
-    document.getElementById('totSubtotal').textContent = 'S/ ' + sub.toFixed(2);
-    document.getElementById('totIgv').textContent      = 'S/ ' + igv.toFixed(2);
-    document.getElementById('totTotal').textContent    = 'S/ ' + (sub + igv).toFixed(2);
-    document.getElementById('igvRow').style.display    = conIgv ? '' : 'none';
+    document.getElementById('totTotal').textContent = 'S/ ' + sub.toFixed(2);
 }
 
-document.getElementById('ocConIgv').addEventListener('change', calcularTotales);
 
 let _ultimaOrden = null;
 
@@ -1111,12 +1107,12 @@ async function guardarOrden() {
         const r = await fetch(`${API}?action=orden_crear`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
-                proveedor_id:  parseInt(pid),
-                tipo_pago:     document.getElementById('ocTipoPago').value,
-                dias_credito:  parseInt(document.getElementById('ocDiasCredito').value||0),
-                con_igv:       document.getElementById('ocConIgv').checked,
-                fecha_entrega: document.getElementById('ocFechaEntrega').value || null,
-                observaciones: document.getElementById('ocObs').value.trim(),
+                proveedor_id:   parseInt(pid),
+                tipo_pago:      document.getElementById('ocTipoPago').value,
+                dias_credito:   parseInt(document.getElementById('ocDiasCredito').value||0),
+                numero_factura: document.getElementById('ocNumeroFactura').value.trim(),
+                fecha_entrega:  document.getElementById('ocFechaEntrega').value || null,
+                observaciones:  document.getElementById('ocObs').value.trim(),
                 items,
             }),
         });

@@ -99,17 +99,16 @@ switch ($action) {
         foreach ($d['items'] as $item) {
             $subtotal += floatval($item['cantidad']) * floatval($item['precio_unitario']);
         }
-        $con_igv = !empty($d['con_igv']);
-        $igv     = $con_igv ? round($subtotal * 0.18, 2) : 0;
-        $total   = $subtotal + $igv;
+        // Ordenes de compra simples: sin IGV, subtotal = total.
+        $total = $subtotal;
 
         $db->beginTransaction();
         try {
             $ins = $db->prepare("
                 INSERT INTO ordenes_compra
                     (numero_orden, proveedor_id, usuario_id, estado, tipo_pago, dias_credito,
-                     subtotal, igv, total, observaciones, fecha_entrega)
-                VALUES (:num, :pid, :uid, 'pendiente', :tp, :dc, :sub, :igv, :tot, :obs, :fe)
+                     subtotal, igv, total, numero_factura, observaciones, fecha_entrega)
+                VALUES (:num, :pid, :uid, 'pendiente', :tp, :dc, :sub, 0, :tot, :nf, :obs, :fe)
                 RETURNING id
             ");
             $ins->execute([
@@ -119,8 +118,8 @@ switch ($action) {
                 ':tp'  => $d['tipo_pago'] ?? 'efectivo',
                 ':dc'  => intval($d['dias_credito'] ?? 0),
                 ':sub' => $subtotal,
-                ':igv' => $igv,
                 ':tot' => $total,
+                ':nf'  => trim($d['numero_factura'] ?? '') ?: null,
                 ':obs' => trim($d['observaciones'] ?? ''),
                 ':fe'  => $d['fecha_entrega'] ?: null,
             ]);
