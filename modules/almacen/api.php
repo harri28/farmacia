@@ -36,11 +36,110 @@ function almacenTablaTieneColumna(PDO $db, string $tabla, string $columna): bool
     return $cache[$key] = (bool) $stmt->fetchColumn();
 }
 
+// Mismo servicio (Factiliza) y logica que consultarDocumentoExterno() en
+// modules/clientes/api.php -- se duplica aqui porque cada api.php de este
+// proyecto es autocontenido (no se importan funciones entre modulos).
+function almacenConsultarDocumentoExterno(string $numero): array
+{
+    $token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ODgiLCJuYW1lIjoiTXl0ZW1zIiwiZW1haWwiOiJteXRlbXNjb250YWN0b0BnbWFpbC5jb20iLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJjb25zdWx0b3IifQ.CMerOf33h1rSeWSEtfPwOv_6_vLhC0ZyhseiQs5Ba6c';
+    $numero = trim($numero);
+    $url = strlen($numero) === 8
+        ? 'https://api.factiliza.com/pe/v1/dni/info/' . $numero
+        : 'https://api.factiliza.com/pe/v1/ruc/info/' . $numero;
+
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'GET',
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $token,
+            'Accept: application/json',
+        ],
+    ]);
+
+    $response = curl_exec($curl);
+    $curlError = curl_error($curl);
+    $httpCode = intval(curl_getinfo($curl, CURLINFO_HTTP_CODE));
+    curl_close($curl);
+
+    if ($response === false || $curlError) {
+        return [
+            'ok' => false,
+            'message' => 'No se pudo consultar el documento: ' . ($curlError ?: 'error de conexion'),
+        ];
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data)) {
+        return [
+            'ok' => false,
+            'message' => 'La respuesta del servicio de documentos no fue valida.',
+        ];
+    }
+
+    if ($httpCode >= 400 || intval($data['status'] ?? 200) >= 400) {
+        return [
+            'ok' => false,
+            'message' => $data['message'] ?? 'No se encontro informacion para el documento consultado.',
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'data' => $data['data'] ?? null,
+    ];
+}
+
 switch ($action) {
 
     // ================================================================
     // PROVEEDORES
     // ================================================================
+
+    case 'proveedor_lookup_documento':
+        $data   = json_decode(file_get_contents('php://input'), true);
+        $numero = trim((string) ($data['numero'] ?? ''));
+
+        if (!preg_match('/^\d{8}$/', $numero) && !preg_match('/^\d{11}$/', $numero)) {
+            jsonResponse(['error' => true, 'message' => 'Ingresa un DNI (8 dígitos) o RUC (11 dígitos) válido'], 422);
+        }
+
+        $consulta = almacenConsultarDocumentoExterno($numero);
+        if (!$consulta['ok']) {
+            jsonResponse(['error' => true, 'message' => $consulta['message']], 404);
+        }
+
+        $docData = $consulta['data'];
+        if (!$docData) {
+            jsonResponse(['error' => true, 'message' => 'No se encontró información para el documento consultado'], 404);
+        }
+
+        if (strlen($numero) === 8) {
+            $razonSocial = trim(
+                (string) ($docData['nombres'] ?? '') . ' ' .
+                (string) ($docData['apellido_paterno'] ?? '') . ' ' .
+                (string) ($docData['apellido_materno'] ?? '')
+            );
+        } else {
+            $razonSocial = trim((string) ($docData['nombre_o_razon_social'] ?? ''));
+        }
+        $direccion = trim((string) ($docData['direccion'] ?? ''));
+        if ($direccion === '-') { $direccion = ''; }
+
+        jsonResponse([
+            'error' => false,
+            'message' => 'Documento consultado correctamente',
+            'proveedor' => [
+                'razon_social' => $razonSocial,
+                'direccion'    => $direccion,
+            ],
+        ]);
 
     case 'proveedores_listar':
         $q      = '%' . trim($_GET['q'] ?? '') . '%';

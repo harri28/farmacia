@@ -239,8 +239,13 @@ include '../../includes/header.php';
         <div class="modal-body">
             <div class="form-row c2">
                 <div class="form-group">
-                    <label>RUC</label>
-                    <input type="text" id="p-ruc" placeholder="20100055858" maxlength="20">
+                    <label>RUC / DNI</label>
+                    <div class="input-lookup">
+                        <input type="text" id="p-ruc" placeholder="20100055858" maxlength="20">
+                        <button type="button" class="btn btn-outline" id="btnConsultarProveedor" onclick="consultarDocumentoProveedor()">
+                            <i class="fas fa-search"></i> Consultar
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Nombre Comercial</label>
@@ -479,6 +484,42 @@ function openProveedorModal(p = null) {
     document.getElementById('p-direccion').value        = p?.direccion        ?? '';
     document.getElementById('modal-proveedor').classList.add('active');
     setTimeout(() => document.getElementById('p-ruc').focus(), 100);
+}
+
+async function consultarDocumentoProveedor() {
+    const numero = document.getElementById('p-ruc').value.trim();
+    if (!/^\d{8}$/.test(numero) && !/^\d{11}$/.test(numero)) {
+        toast('Ingresa un DNI (8 dígitos) o RUC (11 dígitos) válido', 'err');
+        return;
+    }
+
+    const btn = document.getElementById('btnConsultarProveedor');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando';
+
+    try {
+        const r = await fetch(`${ALMACEN_API}?action=proveedor_lookup_documento`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ numero }),
+        });
+        const d = await r.json();
+        if (d.error) {
+            toast(d.message, 'err');
+            return;
+        }
+
+        document.getElementById('p-razon-social').value = d.proveedor?.razon_social ?? '';
+        if (d.proveedor?.direccion) {
+            document.getElementById('p-direccion').value = d.proveedor.direccion;
+        }
+        toast('Documento consultado correctamente', 'ok');
+    } catch (e) {
+        toast('No se pudo consultar el documento', 'err');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search"></i> Consultar';
+    }
 }
 
 function saveProveedor() {
