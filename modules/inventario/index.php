@@ -925,16 +925,6 @@ include '../../includes/header.php';
     box-shadow: inset 3px 0 0 var(--primary);
     transition: background .3s;
 }
-/* Conteo fisico: este sistema no trabaja con decimales, no hacen falta
-   las flechas de incremento/decremento del input number */
-.toma-input-sin-flechas::-webkit-outer-spin-button,
-.toma-input-sin-flechas::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-.toma-input-sin-flechas {
-    -moz-appearance: textfield;
-}
 </style>
 
 <script>
@@ -1933,7 +1923,7 @@ function renderTomaDetalleTabla() {
                 style="background:none;border:none;color:var(--primary);cursor:pointer;padding:4px 6px;font-size:1rem">
                 <i class="fas fa-pen"></i>
             </button>` : '') : `
-            <button type="button" title="Aplicar al stock" ${puedeAccionar ? '' : 'disabled'} onclick="aplicarProductoToma(${d.id})"
+            <button type="button" id="toma-btn-aplicar-${d.id}" title="Aplicar al stock" ${puedeAccionar ? '' : 'disabled'} onclick="aplicarProductoToma(${d.id})"
                 style="display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid ${puedeAccionar ? 'var(--success)' : 'var(--border)'};border-radius:var(--radius-sm);color:${puedeAccionar ? 'var(--success)' : 'var(--text-light)'};cursor:${puedeAccionar ? 'pointer' : 'not-allowed'};padding:4px 10px;font-size:.82rem;font-weight:600">
                 <i class="fas fa-check"></i> Aplicar
             </button>`;
@@ -1946,18 +1936,54 @@ function renderTomaDetalleTabla() {
             <td>${d.unidad || 'unidad'}</td>
             <td class="text-right" style="font-weight:600;color:var(--text-muted)">${stockVal.toFixed(2)}</td>
             <td class="text-right">
-                <input type="number" step="1" min="0" class="toma-input-sin-flechas"
+                <input type="text" inputmode="numeric"
                     value="${d.cantidad_contada === null ? '' : parseFloat(d.cantidad_contada)}"
                     ${(editable && d.producto_id && !aplicado) ? '' : 'disabled'}
                     data-detalle-id="${d.id}"
-                    style="width:100px;text-align:right;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem"
+                    style="width:90px;text-align:center;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem"
                     onblur="guardarConteoProducto(${d.id}, this.value, this)"
+                    oninput="toggleBotonAplicarToma(${d.id}, sanitizarConteoInput(this))"
+                    onfocus="cursorAlFinal(this)"
                     onkeydown="if(event.key==='Enter'){this.blur();}">
             </td>
             <td>${estado}</td>
             <td style="white-space:nowrap">${acciones}</td>
         </tr>`;
     }).join('');
+}
+
+// Deja solo digitos (sin punto decimal, este sistema no cuenta
+// fracciones aqui) y refleja el valor limpio en el input -- type="text"
+// en vez de "number" porque Chrome no permite mover el cursor
+// programaticamente en inputs type="number".
+function sanitizarConteoInput(el) {
+    const v = el.value.replace(/[^0-9]/g, '');
+    el.value = v;
+    return v;
+}
+
+function cursorAlFinal(el) {
+    // El navegador posiciona el cursor segun el clic DESPUES de disparar
+    // "focus" -- si no se difiere, esa posicion pisa la nuestra.
+    setTimeout(() => {
+        const pos = el.value.length;
+        el.setSelectionRange(pos, pos);
+    }, 0);
+}
+
+function toggleBotonAplicarToma(detalleId, valor) {
+    // Habilita/deshabilita "Aplicar" en tiempo real segun lo que hay
+    // escrito en el input, sin esperar a que el blur/guardado en el
+    // servidor termine -- antes el boton solo se habilitaba despues de
+    // ese guardado, y el primer clic (con el boton aun deshabilitado)
+    // no hacia nada, dando la sensacion de que hacia falta doble clic.
+    const btn = document.getElementById(`toma-btn-aplicar-${detalleId}`);
+    if (!btn) return;
+    const habilitar = valor !== '' && valor !== null;
+    btn.disabled = !habilitar;
+    btn.style.borderColor = habilitar ? 'var(--success)' : 'var(--border)';
+    btn.style.color = habilitar ? 'var(--success)' : 'var(--text-light)';
+    btn.style.cursor = habilitar ? 'pointer' : 'not-allowed';
 }
 
 function aplicarProductoToma(detalleId) {
