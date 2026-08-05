@@ -296,11 +296,12 @@ include '../../includes/header.php';
                         <th class="text-right" style="width:100px">Stock</th>
                         <th class="text-right" style="width:120px">Conteo físico</th>
                         <th style="width:150px">Estado</th>
+                        <th style="width:130px">Actualizado</th>
                         <th style="width:90px"></th>
                     </tr>
                 </thead>
                 <tbody id="toma-detalle-body">
-                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">
                         <i class="fas fa-spinner fa-spin"></i>
                     </td></tr>
                 </tbody>
@@ -1726,6 +1727,22 @@ function formatearTiempoRelativo(isoTimestamp) {
     return `hace ${Math.floor(diffH / 24)} d`;
 }
 
+// Columna "Actualizado": tiempo relativo (estilo WhatsApp) desde que se
+// dio clic en "Aplicar", hasta 3 dias. Desde el 4to dia muestra la fecha
+// exacta en vez de "hace N d".
+function formatearActualizadoToma(isoTimestamp) {
+    if (!isoTimestamp) return '—';
+    const fecha = new Date(isoTimestamp);
+    const diffMin = Math.floor((Date.now() - fecha.getTime()) / 60000);
+    if (diffMin < 1)  return 'hace un momento';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24)   return `hace ${diffH} h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 4)    return `hace ${diffD} día${diffD === 1 ? '' : 's'}`;
+    return fecha.toLocaleDateString('es-PE');
+}
+
 function badgeEstadoToma(sesion) {
     if (sesion.estado === 'completada') return '<span class="badge" style="background:var(--success);color:#fff">Completada</span>';
     if (sesion.estado === 'cancelada')  return '<span class="badge" style="background:var(--text-light);color:#fff">Cancelada</span>';
@@ -1850,7 +1867,9 @@ function abrirTomaDetalle(id) {
             switchTab('toma-detalle');
             renderTomaDetalleHeader();
             renderTomaDetalleTabla();
-            if (tomaSesionActual.estado === 'activa') iniciarRefrescoBadgesToma();
+            // Se refresca siempre (activa o cerrada) -- "Actualizado" (columna
+            // de aplicado_en) es relevante sin importar el estado de la sesion.
+            iniciarRefrescoBadgesToma();
         })
         .catch(() => showToast('Error al cargar el detalle de la sesión', 'error'));
 }
@@ -1890,7 +1909,7 @@ function renderTomaDetalleTabla() {
     const editable = esAdmin && sesionActiva;
 
     if (!filas.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>`;
         return;
     }
 
@@ -1947,6 +1966,7 @@ function renderTomaDetalleTabla() {
                     onkeydown="if(event.key==='Enter'){this.blur();}">
             </td>
             <td>${estado}</td>
+            <td><span data-aplicado-en="${d.aplicado_en || ''}" class="toma-badge-aplicado">${formatearActualizadoToma(d.aplicado_en)}</span></td>
             <td style="white-space:nowrap">${acciones}</td>
         </tr>`;
     }).join('');
@@ -2133,6 +2153,9 @@ function iniciarRefrescoBadgesToma() {
     tomaRefreshInterval = setInterval(() => {
         document.querySelectorAll('.toma-badge-relativo').forEach(el => {
             el.textContent = formatearTiempoRelativo(el.getAttribute('data-contado-en'));
+        });
+        document.querySelectorAll('.toma-badge-aplicado').forEach(el => {
+            el.textContent = formatearActualizadoToma(el.getAttribute('data-aplicado-en') || null);
         });
     }, 30000);
 }
