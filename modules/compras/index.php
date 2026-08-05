@@ -406,36 +406,6 @@ require_once '../../includes/header.php';
 </div>
 
 <!-- ============================================================
-     MODAL: Recibir Orden (Convertir a compra)
-============================================================ -->
-<div class="modal-overlay" id="modalRecibirOverlay">
-<div class="modal modal-md">
-    <div class="modal-header">
-        <span class="modal-title"><i class="fas fa-box-open" style="color:#16a34a;margin-right:8px"></i>Recibir Mercadería</span>
-        <button class="modal-close" onclick="cerrarModal('modalRecibirOverlay')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-        <input type="hidden" id="recibirOrdenId">
-        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:16px">
-            Se creará un ingreso de stock y, si el pago es a crédito, una cuenta por pagar.
-        </p>
-        <div class="form-group" style="margin-bottom:14px">
-            <label>Nº Factura / Documento del proveedor</label>
-            <input type="text" id="recibirNumDoc" placeholder="F001-00123">
-        </div>
-        <div class="form-group">
-            <label>Observaciones</label>
-            <textarea id="recibirObs" rows="2" placeholder="Notas de la recepción..."></textarea>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="cerrarModal('modalRecibirOverlay')">Cancelar</button>
-        <button class="btn btn-primary" onclick="confirmarRecibir()"><i class="fas fa-check"></i> Confirmar recepción</button>
-    </div>
-</div>
-</div>
-
-<!-- ============================================================
      MODAL: Registrar Pago
 ============================================================ -->
 <div class="modal-overlay" id="modalPagoOverlay">
@@ -674,9 +644,7 @@ async function cargarOrdenes() {
                     <button class="btn btn-secondary btn-sm" onclick="verOrden(${o.id})" title="Ver detalle">
                         <i class="fas fa-eye"></i>
                     </button>
-                    ${o.estado==='pendiente' ? `<button class="btn btn-primary btn-sm" onclick="cambiarEstado(${o.id},'aprobada')" title="Aprobar"><i class="fas fa-check"></i></button>` : ''}
-                    ${o.estado==='aprobada'  ? `<button class="btn btn-primary btn-sm" style="background:#16a34a" onclick="abrirRecibir(${o.id})" title="Recibir mercadería"><i class="fas fa-box-open"></i></button>` : ''}
-                    ${['pendiente','aprobada'].includes(o.estado) ? `<button class="btn btn-secondary btn-sm" style="color:#dc2626" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
+                    ${o.estado!=='cancelada' ? `<button class="btn btn-secondary btn-sm" style="color:#dc2626" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
                 </div>
             </td>
         </tr>`).join('');
@@ -743,13 +711,7 @@ async function verOrden(id) {
         let btns = `<button class="btn btn-secondary" onclick="cerrarModal('modalDetalleOverlay')">Cerrar</button>`;
 
         // Acciones según estado
-        if (o.estado === 'pendiente') {
-            btns += `<button class="btn btn-primary" onclick="cerrarModal('modalDetalleOverlay');cambiarEstado(${o.id},'aprobada')"><i class="fas fa-check"></i> Aprobar</button>`;
-        }
-        if (o.estado === 'aprobada') {
-            btns += `<button class="btn btn-primary" style="background:#16a34a" onclick="cerrarModal('modalDetalleOverlay');abrirRecibir(${o.id})"><i class="fas fa-box-open"></i> Recibir mercadería</button>`;
-        }
-        if (['pendiente','aprobada'].includes(o.estado)) {
+        if (o.estado !== 'cancelada') {
             btns += `<button class="btn btn-secondary" style="color:#dc2626" onclick="cerrarModal('modalDetalleOverlay');cambiarEstado(${o.id},'cancelada')"><i class="fas fa-ban"></i> Cancelar</button>`;
         }
 
@@ -772,31 +734,6 @@ async function cambiarEstado(id, estado) {
         const d = await r.json();
         if (d.error) { toast(d.message,'err'); return; }
         toast(d.message);
-        cargarOrdenes(); cargarStats();
-    } catch { toast('Error de conexión','err'); }
-}
-
-// ---- Recibir ----
-function abrirRecibir(id) {
-    document.getElementById('recibirOrdenId').value = id;
-    document.getElementById('recibirNumDoc').value  = '';
-    document.getElementById('recibirObs').value     = '';
-    document.getElementById('modalRecibirOverlay').classList.add('active');
-    setTimeout(()=>document.getElementById('recibirNumDoc').focus(), 80);
-}
-async function confirmarRecibir() {
-    const id     = document.getElementById('recibirOrdenId').value;
-    const numDoc = document.getElementById('recibirNumDoc').value.trim();
-    const obs    = document.getElementById('recibirObs').value.trim();
-    try {
-        const r = await fetch(`${API}?action=orden_recibir`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({id:parseInt(id), numero_doc: numDoc, observaciones: obs}),
-        });
-        const d = await r.json();
-        if (d.error) { toast(d.message,'err'); return; }
-        toast(d.message);
-        cerrarModal('modalRecibirOverlay');
         cargarOrdenes(); cargarStats();
     } catch { toast('Error de conexión','err'); }
 }

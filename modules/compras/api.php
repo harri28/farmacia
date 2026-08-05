@@ -102,20 +102,28 @@ switch ($action) {
         // Ordenes de compra simples: sin IGV, subtotal = total.
         $total = $subtotal;
 
+        $tipoPago = $d['tipo_pago'] ?? 'efectivo';
+
         $db->beginTransaction();
         try {
+            // Registrar una Orden de Compra es simple e inmediato: no hay
+            // paso de "Aprobar"/"Recibir mercadería" (se eliminaron, no
+            // tenian quien los aprobara en la practica) -- el stock se suma
+            // de una vez, junto con el Ingreso en Almacen y, si es a
+            // credito, la Cuenta por Pagar, que antes se generaban recien
+            // al "recibir".
             $ins = $db->prepare("
                 INSERT INTO ordenes_compra
                     (numero_orden, proveedor_id, usuario_id, estado, tipo_pago, dias_credito,
                      subtotal, igv, total, numero_factura, observaciones, fecha_entrega)
-                VALUES (:num, :pid, :uid, 'pendiente', :tp, :dc, :sub, 0, :tot, :nf, :obs, :fe)
+                VALUES (:num, :pid, :uid, 'recibida', :tp, :dc, :sub, 0, :tot, :nf, :obs, :fe)
                 RETURNING id
             ");
             $ins->execute([
                 ':num' => generarNumeroOrden($db),
                 ':pid' => intval($d['proveedor_id']),
                 ':uid' => sesionId(),
-                ':tp'  => $d['tipo_pago'] ?? 'efectivo',
+                ':tp'  => $tipoPago,
                 ':dc'  => intval($d['dias_credito'] ?? 0),
                 ':sub' => $subtotal,
                 ':tot' => $total,
@@ -125,27 +133,85 @@ switch ($action) {
             ]);
             $orden_id = $ins->fetch()['id'];
 
+            // Ingreso en Almacen que respalda la compra (mismo numero de
+            // formato que ya usaba orden_recibir).
+            $stmt_cnt = $db->query("SELECT COUNT(*) AS total FROM ingresos WHERE DATE(created_at) = CURRENT_DATE");
+            $num_ing  = 'I' . date('Ymd') . '-' . str_pad($stmt_cnt->fetch()['total'] + 1, 4, '0', STR_PAD_LEFT);
+            $insIng = $db->prepare("
+                INSERT INTO ingresos (numero_ingreso, proveedor_id, usuario_id, total, estado, tipo_pago, orden_compra_id, observaciones)
+                VALUES (:num, :pid, :uid, :tot, 'completado', :tp, :oid, :obs)
+                RETURNING id
+            ");
+            $insIng->execute([
+                ':num' => $num_ing,
+                ':pid' => intval($d['proveedor_id']),
+                ':uid' => sesionId(),
+                ':tot' => $total,
+                ':tp'  => $tipoPago,
+                ':oid' => $orden_id,
+                ':obs' => trim($d['observaciones'] ?? ''),
+            ]);
+            $ingreso_id = $insIng->fetch()['id'];
+
             foreach ($d['items'] as $item) {
-                $sub_item = floatval($item['cantidad']) * floatval($item['precio_unitario']);
+                $sub_item   = floatval($item['cantidad']) * floatval($item['precio_unitario']);
+                $productoId = intval($item['producto_id'] ?? 0) ?: null;
                 $db->prepare("
                     INSERT INTO orden_compra_detalles
                         (orden_id, producto_id, descripcion, unidad_medida, cantidad, precio_unitario, subtotal)
                     VALUES (:oid, :pid, :desc, :um, :qty, :pu, :sub)
                 ")->execute([
                     ':oid'  => $orden_id,
-                    ':pid'  => intval($item['producto_id'] ?? 0) ?: null,
+                    ':pid'  => $productoId,
                     ':desc' => trim($item['descripcion'] ?? ''),
                     ':um'   => trim($item['unidad_medida'] ?? ''),
                     ':qty'  => intval($item['cantidad']),
                     ':pu'   => floatval($item['precio_unitario']),
                     ':sub'  => $sub_item,
                 ]);
+
+                if ($productoId) {
+                    $db->prepare("
+                        INSERT INTO ingreso_detalles (ingreso_id, producto_id, cantidad, precio_unitario, subtotal)
+                        VALUES (:iid, :pid, :qty, :pu, :sub)
+                    ")->execute([
+                        ':iid' => $ingreso_id,
+                        ':pid' => $productoId,
+                        ':qty' => intval($item['cantidad']),
+                        ':pu'  => floatval($item['precio_unitario']),
+                        ':sub' => $sub_item,
+                    ]);
+                    $db->prepare("UPDATE productos SET stock = stock + :qty, precio_compra = :pu WHERE id = :id")
+                       ->execute([
+                           ':qty' => intval($item['cantidad']),
+                           ':pu'  => floatval($item['precio_unitario']),
+                           ':id'  => $productoId,
+                       ]);
+                }
+            }
+
+            if ($tipoPago === 'credito') {
+                $diasCredito = intval($d['dias_credito'] ?? 0);
+                $vence = $diasCredito ? date('Y-m-d', strtotime("+{$diasCredito} days")) : null;
+                $db->prepare("
+                    INSERT INTO cuentas_por_pagar
+                        (proveedor_id, ingreso_id, orden_compra_id, numero_doc, monto_total, monto_pendiente, estado, fecha_vencimiento)
+                    VALUES (:pid, :iid, :oid, :doc, :mt, :mp, 'pendiente', :fv)
+                ")->execute([
+                    ':pid' => intval($d['proveedor_id']),
+                    ':iid' => $ingreso_id,
+                    ':oid' => $orden_id,
+                    ':doc' => trim($d['numero_factura'] ?? ''),
+                    ':mt'  => $total,
+                    ':mp'  => $total,
+                    ':fv'  => $vence,
+                ]);
             }
 
             $db->commit();
             $num_orden = $db->prepare("SELECT numero_orden FROM ordenes_compra WHERE id = :id");
             $num_orden->execute([':id' => $orden_id]);
-            jsonResponse(['error' => false, 'message' => 'Orden creada', 'id' => $orden_id, 'numero' => $num_orden->fetchColumn()]);
+            jsonResponse(['error' => false, 'message' => 'Orden creada. Stock actualizado.', 'id' => $orden_id, 'numero' => $num_orden->fetchColumn()]);
         } catch (Exception $e) {
             $db->rollBack();
             jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -162,91 +228,6 @@ switch ($action) {
         $db->prepare("UPDATE ordenes_compra SET estado = :e WHERE id = :id")
            ->execute([':e' => $d['estado'], ':id' => $id]);
         jsonResponse(['error' => false, 'message' => 'Estado actualizado']);
-        break;
-
-    case 'orden_recibir':
-        // Convierte una OC aprobada en ingreso de stock + cuenta por pagar si es crédito
-        $d  = json_decode(file_get_contents('php://input'), true);
-        $id = intval($d['id'] ?? 0);
-
-        $oc = $db->prepare("SELECT * FROM ordenes_compra WHERE id = :id AND estado = 'aprobada'");
-        $oc->execute([':id' => $id]);
-        $orden = $oc->fetch();
-        if (!$orden) jsonResponse(['error' => true, 'message' => 'Orden no encontrada o no aprobada'], 404);
-
-        $items = $db->prepare("SELECT * FROM orden_compra_detalles WHERE orden_id = :id");
-        $items->execute([':id' => $id]);
-        $detalles = $items->fetchAll();
-
-        $db->beginTransaction();
-        try {
-            // Generar número de ingreso
-            $stmt_cnt = $db->query("SELECT COUNT(*) AS total FROM ingresos WHERE DATE(created_at) = CURRENT_DATE");
-            $num_ing  = 'I' . date('Ymd') . '-' . str_pad($stmt_cnt->fetch()['total'] + 1, 4, '0', STR_PAD_LEFT);
-
-            // Crear ingreso
-            $ins = $db->prepare("
-                INSERT INTO ingresos (numero_ingreso, proveedor_id, usuario_id, total, estado, tipo_pago, orden_compra_id, observaciones)
-                VALUES (:num, :pid, :uid, :tot, 'completado', :tp, :oid, :obs)
-                RETURNING id
-            ");
-            $ins->execute([
-                ':num' => $num_ing,
-                ':pid' => $orden['proveedor_id'],
-                ':uid' => sesionId(),
-                ':tot' => $orden['total'],
-                ':tp'  => $orden['tipo_pago'],
-                ':oid' => $id,
-                ':obs' => $d['observaciones'] ?? $orden['observaciones'],
-            ]);
-            $ingreso_id = $ins->fetch()['id'];
-
-            // Crear detalles e incrementar stock
-            foreach ($detalles as $item) {
-                if (!$item['producto_id']) continue;
-                $db->prepare("
-                    INSERT INTO ingreso_detalles (ingreso_id, producto_id, cantidad, precio_unitario, subtotal)
-                    VALUES (:iid, :pid, :qty, :pu, :sub)
-                ")->execute([
-                    ':iid' => $ingreso_id,
-                    ':pid' => $item['producto_id'],
-                    ':qty' => $item['cantidad'],
-                    ':pu'  => $item['precio_unitario'],
-                    ':sub' => $item['subtotal'],
-                ]);
-                $db->prepare("UPDATE productos SET stock = stock + :qty, precio_compra = :pu WHERE id = :id")
-                   ->execute([':qty' => $item['cantidad'], ':pu' => $item['precio_unitario'], ':id' => $item['producto_id']]);
-            }
-
-            // Si es crédito → crear cuenta por pagar
-            if ($orden['tipo_pago'] === 'credito') {
-                $vence = $orden['dias_credito']
-                    ? date('Y-m-d', strtotime("+{$orden['dias_credito']} days"))
-                    : null;
-                $db->prepare("
-                    INSERT INTO cuentas_por_pagar
-                        (proveedor_id, ingreso_id, orden_compra_id, numero_doc, monto_total, monto_pendiente, estado, fecha_vencimiento)
-                    VALUES (:pid, :iid, :oid, :doc, :mt, :mp, 'pendiente', :fv)
-                ")->execute([
-                    ':pid' => $orden['proveedor_id'],
-                    ':iid' => $ingreso_id,
-                    ':oid' => $id,
-                    ':doc' => $d['numero_doc'] ?? '',
-                    ':mt'  => $orden['total'],
-                    ':mp'  => $orden['total'],
-                    ':fv'  => $vence,
-                ]);
-            }
-
-            // Marcar OC como recibida
-            $db->prepare("UPDATE ordenes_compra SET estado = 'recibida' WHERE id = :id")->execute([':id' => $id]);
-
-            $db->commit();
-            jsonResponse(['error' => false, 'message' => 'Compra registrada. Stock actualizado.', 'ingreso_id' => $ingreso_id]);
-        } catch (Exception $e) {
-            $db->rollBack();
-            jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
-        }
         break;
 
     // ----------------------------------------------------------------
