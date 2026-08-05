@@ -491,7 +491,7 @@ switch ($action) {
         $stmt = $db->prepare("
             SELECT id, codigo, nombre, unidad, precio_compra, precio_venta, stock
             FROM productos
-            WHERE activo = TRUE AND (nombre ILIKE :q OR codigo ILIKE :q)
+            WHERE activo = TRUE AND (nombre ILIKE :q OR codigo ILIKE :q OR codigo_barras ILIKE :q)
             ORDER BY nombre ASC LIMIT 20
         ");
         $stmt->execute([':q' => "%{$q}%"]);

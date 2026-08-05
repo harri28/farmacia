@@ -935,7 +935,7 @@ function agregarFila() {
     tr.id     = `fila-${idx}`;
     tr.innerHTML = `
         <td>
-            <input type="text" id="fbusca-${idx}" placeholder="Buscar producto..." autocomplete="off"
+            <input type="text" id="fbusca-${idx}" placeholder="Buscar producto o escanee..." autocomplete="off"
                 oninput="buscarProductoOrden(${idx}, this.value)"
                 onfocus="buscarProductoOrden(${idx}, this.value)"
                 style="padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.83rem;color:var(--text-primary);background:var(--surface);width:100%">
