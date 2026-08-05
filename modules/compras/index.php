@@ -1052,7 +1052,7 @@ async function guardarOrden() {
             items.push({ producto_id: parseInt(pid_p||0)||null, descripcion: desc, unidad_medida: um, cantidad: qty, precio_unitario: pu });
         }
     });
-    if (!items.length) { toast('Agrega al menos un ítem','err'); return; }
+    if (!items.length) { toast('Agrega al menos una cantidad','err'); return; }
 
     const btnReg = document.getElementById('btnRegistrarOrden');
     btnReg.disabled = true;

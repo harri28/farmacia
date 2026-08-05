@@ -161,8 +161,7 @@ switch ($action) {
 
             // Ingreso en Almacen que respalda la compra (mismo numero de
             // formato que ya usaba orden_recibir).
-            $stmt_cnt = $db->query("SELECT COUNT(*) AS total FROM ingresos WHERE DATE(created_at) = CURRENT_DATE");
-            $num_ing  = 'I' . date('Ymd') . '-' . str_pad($stmt_cnt->fetch()['total'] + 1, 4, '0', STR_PAD_LEFT);
+            $num_ing  = generarNumeroIngreso($db);
             $insIng = $db->prepare("
                 INSERT INTO ingresos (numero_ingreso, proveedor_id, usuario_id, total, estado, tipo_pago, orden_compra_id, observaciones)
                 VALUES (:num, :pid, :uid, :tot, 'completado', :tp, :oid, :obs)
