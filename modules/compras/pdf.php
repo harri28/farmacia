@@ -167,6 +167,9 @@ $fecha = $orden['fecha_emision'] ?? $orden['created_at'] ?? date('Y-m-d');
     <?php if ($orden['con_igv'] == 't' || $orden['con_igv'] === true || $orden['con_igv'] == 1): ?>
     <tr><td>IGV (18%):</td><td class="text-right">S/ <?= number_format(floatval($orden['igv']), 2) ?></td></tr>
     <?php endif; ?>
+    <?php if (floatval($orden['costo_envio'] ?? 0) > 0): ?>
+    <tr><td>Envío:</td><td class="text-right">S/ <?= number_format(floatval($orden['costo_envio']), 2) ?></td></tr>
+    <?php endif; ?>
     <tr class="total-final"><td>Total:</td><td class="text-right">S/ <?= number_format(floatval($orden['total']), 2) ?></td></tr>
   </table>
 </div>

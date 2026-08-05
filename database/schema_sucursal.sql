@@ -230,6 +230,7 @@ CREATE TABLE IF NOT EXISTS ordenes_compra (
     dias_credito    INTEGER       DEFAULT 0,
     subtotal        DECIMAL(10,2) DEFAULT 0,
     igv             DECIMAL(10,2) DEFAULT 0,
+    costo_envio     DECIMAL(10,2) DEFAULT 0,
     total           DECIMAL(10,2) DEFAULT 0,
     numero_factura  VARCHAR(30),
     observaciones   TEXT,

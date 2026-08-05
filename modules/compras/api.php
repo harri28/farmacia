@@ -49,7 +49,7 @@ switch ($action) {
             $params = $estado ? [':estado' => $estado] : [];
             $stmt   = $db->prepare("
                 SELECT oc.id, oc.numero_orden, oc.estado, oc.tipo_pago, oc.dias_credito,
-                       oc.subtotal, oc.igv, oc.total, oc.fecha_entrega, oc.observaciones, oc.created_at,
+                       oc.subtotal, oc.igv, oc.costo_envio, oc.total, oc.fecha_entrega, oc.observaciones, oc.created_at,
                        p.razon_social AS proveedor, p.ruc,
                        COUNT(d.id) AS total_items
                 FROM ordenes_compra oc
@@ -99,8 +99,11 @@ switch ($action) {
         foreach ($d['items'] as $item) {
             $subtotal += floatval($item['cantidad']) * floatval($item['precio_unitario']);
         }
-        // Ordenes de compra simples: sin IGV, subtotal = total.
-        $total = $subtotal;
+        // Ordenes de compra simples: sin IGV. El costo de envio se suma al
+        // total de la orden (y por lo tanto a la cuenta por pagar / ingreso),
+        // pero NO se reparte entre los items ni afecta su precio_compra.
+        $costoEnvio = floatval($d['costo_envio'] ?? 0);
+        $total = $subtotal + $costoEnvio;
 
         $tipoPago = $d['tipo_pago'] ?? 'efectivo';
 
@@ -115,8 +118,8 @@ switch ($action) {
             $ins = $db->prepare("
                 INSERT INTO ordenes_compra
                     (numero_orden, proveedor_id, usuario_id, estado, tipo_pago, dias_credito,
-                     subtotal, igv, total, numero_factura, observaciones, fecha_entrega)
-                VALUES (:num, :pid, :uid, 'recibida', :tp, :dc, :sub, 0, :tot, :nf, :obs, :fe)
+                     subtotal, igv, costo_envio, total, numero_factura, observaciones, fecha_entrega)
+                VALUES (:num, :pid, :uid, 'recibida', :tp, :dc, :sub, 0, :env, :tot, :nf, :obs, :fe)
                 RETURNING id
             ");
             $ins->execute([
@@ -126,6 +129,7 @@ switch ($action) {
                 ':tp'  => $tipoPago,
                 ':dc'  => intval($d['dias_credito'] ?? 0),
                 ':sub' => $subtotal,
+                ':env' => $costoEnvio,
                 ':tot' => $total,
                 ':nf'  => trim($d['numero_factura'] ?? '') ?: null,
                 ':obs' => trim($d['observaciones'] ?? ''),

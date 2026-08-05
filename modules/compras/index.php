@@ -114,6 +114,7 @@ require_once '../../includes/header.php';
 .btn-del-row:hover { background:#dc2626; color:#fff; }
 .items-total { text-align:right; font-size:.9rem; color:var(--text-secondary); padding:8px 0; border-top:1px solid var(--border); }
 .items-total strong { color:var(--text-primary); font-size:1rem; }
+#ocCostoEnvio { width:140px !important; padding:7px 9px; font-size:.83rem; }
 
 /* ---- Historial pagos ---- */
 .pago-row { display:flex; align-items:center; justify-content:space-between;
@@ -370,6 +371,18 @@ require_once '../../includes/header.php';
         </table>
         </div>
         <div class="items-total" id="itemsTotales">
+            Subtotal: <strong id="totSubtotal">S/ 0.00</strong>
+        </div>
+
+        <div class="form-row c2" style="margin-top:10px">
+            <div class="form-group">
+                <label>Costo de Envío</label>
+                <input type="text" inputmode="decimal" id="ocCostoEnvio" placeholder="0.00"
+                    oninput="sanitizarDecimalOrden(this); calcularTotales()">
+            </div>
+        </div>
+
+        <div class="items-total" id="itemsTotalFinal" style="margin-top:4px">
             Total: <strong id="totTotal">S/ 0.00</strong>
         </div>
 
@@ -700,6 +713,7 @@ async function verOrden(id) {
             <div style="text-align:right;font-size:.88rem;padding-top:8px;border-top:1px solid var(--border)">
                 <span style="color:var(--text-muted);margin-right:16px">Subtotal: <strong>S/ ${parseFloat(o.subtotal).toFixed(2)}</strong></span>
                 ${parseFloat(o.igv)>0?`<span style="color:var(--text-muted);margin-right:16px">IGV: <strong>S/ ${parseFloat(o.igv).toFixed(2)}</strong></span>`:''}
+                ${parseFloat(o.costo_envio||0)>0?`<span style="color:var(--text-muted);margin-right:16px">Envío: <strong>S/ ${parseFloat(o.costo_envio).toFixed(2)}</strong></span>`:''}
                 <span style="font-size:1rem">Total: <strong>S/ ${parseFloat(o.total).toFixed(2)}</strong></span>
             </div>
             ${o.observaciones?`<div style="margin-top:14px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:.84rem;color:var(--text-secondary)">${esc(o.observaciones)}</div>`:''}
@@ -859,6 +873,7 @@ async function abrirNuevaOrden() {
     document.getElementById('ocDiasCredito').value   = '30';
     document.getElementById('ocNumeroFactura').value = '';
     document.getElementById('ocObs').value           = '';
+    document.getElementById('ocCostoEnvio').value    = '';
     const hoy = new Date();
     document.getElementById('ocFechaEntrega').value  =
         hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
@@ -928,7 +943,7 @@ function agregarFila() {
         </td>
         <td><input type="text" id="fd-${idx}" placeholder="Descripción adicional"></td>
         <td><input type="text" id="fum-${idx}" placeholder="unidad" style="text-align:center"></td>
-        <td><input type="text" inputmode="decimal" id="fq-${idx}" value="0"
+        <td><input type="text" inputmode="decimal" id="fq-${idx}" value="" placeholder="0"
                 oninput="sanitizarDecimalOrden(this); calcularFila(${idx})" onfocus="cursorAlFinalOrden(this)"
                 style="text-align:center;padding:7px 10px"></td>
         <td><input type="text" inputmode="decimal" id="fu-${idx}" value="0.00"
@@ -1013,7 +1028,9 @@ function calcularTotales() {
     document.querySelectorAll('[id^="fs-"]').forEach(el => {
         sub += parseFloat(el.dataset.valor) || 0;
     });
-    document.getElementById('totTotal').textContent = 'S/ ' + sub.toFixed(2);
+    const envio = parseFloat(document.getElementById('ocCostoEnvio')?.value || 0) || 0;
+    document.getElementById('totSubtotal').textContent = 'S/ ' + sub.toFixed(2);
+    document.getElementById('totTotal').textContent = 'S/ ' + (sub + envio).toFixed(2);
 }
 
 
@@ -1050,6 +1067,7 @@ async function guardarOrden() {
                 numero_factura: document.getElementById('ocNumeroFactura').value.trim(),
                 fecha_entrega:  document.getElementById('ocFechaEntrega').value || null,
                 observaciones:  document.getElementById('ocObs').value.trim(),
+                costo_envio:    parseFloat(document.getElementById('ocCostoEnvio').value || 0) || 0,
                 items,
             }),
         });
