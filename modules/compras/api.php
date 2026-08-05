@@ -11,9 +11,22 @@ $action = $_GET['action'] ?? '';
 $db     = getDB();
 
 function generarNumeroOrden(PDO $db): string {
-    $stmt = $db->query("SELECT COUNT(*) AS total FROM ordenes_compra WHERE DATE(created_at) = CURRENT_DATE");
-    $num  = str_pad(($stmt->fetch()['total'] + 1), 4, '0', STR_PAD_LEFT);
-    return 'OC' . date('Ymd') . '-' . $num;
+    // Mismo patron que generarNumeroVenta()/generarNumeroIngreso() en
+    // config/database.php: prefijo y conteo se derivan del mismo reloj
+    // (PHP), via MAX(...) sobre el propio numero_orden -- nunca comparando
+    // contra CURRENT_DATE/created_at (reloj de Postgres). Mezclar ambos
+    // relojes causaba colisiones de numero_orden cuando PHP y Postgres
+    // no estan perfectamente sincronizados (confirmado en produccion
+    // 2026-08-05: PHP iba 1 hora adelantado de Postgres/sistema).
+    $prefijo = 'OC' . date('Ymd') . '-';
+    $stmt = $db->prepare("
+        SELECT COALESCE(MAX(CAST(SUBSTRING(numero_orden FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
+        FROM ordenes_compra
+        WHERE numero_orden LIKE :prefijo
+    ");
+    $stmt->execute([':prefijo' => $prefijo . '%']);
+    $ultimo = (int) ($stmt->fetch()['ultimo'] ?? 0);
+    return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
 }
 
 switch ($action) {
