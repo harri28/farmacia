@@ -109,6 +109,15 @@ switch ($action) {
 
         $db->beginTransaction();
         try {
+            // Serializa la generacion del numero de orden: sin este lock,
+            // dos requests casi simultaneos (doble clic, reintento de red)
+            // pueden leer el mismo COUNT(*) en generarNumeroOrden() y
+            // ambos intentar el mismo numero_orden -- el segundo choca con
+            // la unique constraint. El lock es de duracion de transaccion
+            // (se libera solo en commit/rollback), asi que el segundo
+            // request simplemente espera a que el primero termine.
+            $db->exec("SELECT pg_advisory_xact_lock(hashtext('ordenes_compra_numero_orden'))");
+
             // Registrar una Orden de Compra es simple e inmediato: no hay
             // paso de "Aprobar"/"Recibir mercadería" (se eliminaron, no
             // tenian quien los aprobara en la practica) -- el stock se suma
