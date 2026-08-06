@@ -949,7 +949,9 @@ function agregarFila() {
         <td><input type="text" inputmode="decimal" id="fu-${idx}" value="0.00"
                 oninput="sanitizarDecimalOrden(this); calcularFila(${idx})" onfocus="cursorAlFinalOrden(this)"
                 style="text-align:center;padding:7px 10px"></td>
-        <td class="text-right" id="fs-${idx}" data-valor="0" style="font-weight:600;white-space:nowrap">S/ 0.00</td>
+        <td><input type="text" inputmode="decimal" id="fs-${idx}" value="0.00"
+                oninput="sanitizarDecimalOrden(this); calcularSubtotalManual(${idx})" onfocus="cursorAlFinalOrden(this)"
+                style="text-align:right;padding:7px 10px;font-weight:600"></td>
         <td><button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();calcularTotales()"><i class="fas fa-trash"></i></button></td>
     `;
     document.getElementById('itemsBody').appendChild(tr);
@@ -1057,18 +1059,31 @@ document.addEventListener('barcodescan', function (e) {
 });
 
 function calcularFila(idx) {
+    const q  = parseFloat(document.getElementById(`fq-${idx}`)?.value||0);
+    const u  = parseFloat(document.getElementById(`fu-${idx}`)?.value||0);
+    const fs = document.getElementById(`fs-${idx}`);
+    if (fs) fs.value = (q * u).toFixed(2);
+    calcularTotales();
+}
+
+// Contraparte de calcularFila: al escribir el Subtotal a mano, se
+// deriva el Precio Unitario (Cantidad sigue siendo la que manda -- si
+// despues se edita Cantidad, calcularFila vuelve a mandar y recalcula
+// el Subtotal en base al Precio Unitario que quedo aqui).
+function calcularSubtotalManual(idx) {
     const q = parseFloat(document.getElementById(`fq-${idx}`)?.value||0);
-    const u = parseFloat(document.getElementById(`fu-${idx}`)?.value||0);
-    const s = q * u;
-    const el = document.getElementById(`fs-${idx}`);
-    if (el) { el.textContent = 'S/ ' + s.toFixed(2); el.dataset.valor = s; }
+    const s = parseFloat(document.getElementById(`fs-${idx}`)?.value||0);
+    if (q > 0) {
+        const fu = document.getElementById(`fu-${idx}`);
+        if (fu) fu.value = (s / q).toFixed(2);
+    }
     calcularTotales();
 }
 
 function calcularTotales() {
     let sub = 0;
     document.querySelectorAll('[id^="fs-"]').forEach(el => {
-        sub += parseFloat(el.dataset.valor) || 0;
+        sub += parseFloat(el.value) || 0;
     });
     const envio = parseFloat(document.getElementById('ocCostoEnvio')?.value || 0) || 0;
     document.getElementById('totSubtotal').textContent = 'S/ ' + sub.toFixed(2);
