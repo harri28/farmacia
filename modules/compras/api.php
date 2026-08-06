@@ -501,7 +501,7 @@ switch ($action) {
     case 'productos_buscar':
         $q    = trim($_GET['q'] ?? '');
         $stmt = $db->prepare("
-            SELECT id, codigo, nombre, unidad, precio_compra, precio_venta, stock
+            SELECT id, codigo, codigo_barras, nombre, unidad, precio_compra, precio_venta, stock
             FROM productos
             WHERE activo = TRUE AND (nombre ILIKE :q OR codigo ILIKE :q OR codigo_barras ILIKE :q)
             ORDER BY nombre ASC LIMIT 20

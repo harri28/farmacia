@@ -953,6 +953,7 @@ function agregarFila() {
         <td><button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();calcularTotales()"><i class="fas fa-trash"></i></button></td>
     `;
     document.getElementById('itemsBody').appendChild(tr);
+    return idx;
 }
 
 // Buscador de producto por fila -- el dropdown es UN SOLO elemento
@@ -1012,6 +1013,47 @@ document.addEventListener('click', e => {
     if (!dropdown || dropdown.style.display === 'none') return;
     if (e.target.id?.startsWith('fbusca-') || dropdown.contains(e.target)) return;
     dropdown.style.display = 'none';
+});
+
+// El scanner HID (assets/js/barcode-scanner.js) borra lo tipeado del
+// input activo y dispara este evento en su lugar -- por eso escanear
+// dentro de "Buscar producto o escanee" no dejaba nada escrito. Igual
+// que en Almacen (setupBarcodeScanner), se agrega directo a la lista.
+document.addEventListener('barcodescan', function (e) {
+    if (!document.getElementById('modalOrdenOverlay').classList.contains('active')) return;
+    const code = e.detail.code.trim();
+    if (!code) return;
+
+    fetch(`${API}?action=productos_buscar&q=${encodeURIComponent(code)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data) || !data.length) {
+                toast(`Código ${code} no encontrado`, 'err');
+                return;
+            }
+            const exact = data.find(p =>
+                (p.codigo_barras || '').toUpperCase() === code.toUpperCase() ||
+                p.codigo.toUpperCase() === code.toUpperCase());
+            const prod = exact || data[0];
+
+            let idxExistente = null;
+            document.querySelectorAll('[id^="fp-"]').forEach(el => {
+                if (parseInt(el.value) === parseInt(prod.id)) idxExistente = el.id.replace('fp-', '');
+            });
+
+            if (idxExistente !== null) {
+                const fq = document.getElementById(`fq-${idxExistente}`);
+                fq.value = (parseFloat(fq.value) || 0) + 1;
+                calcularFila(idxExistente);
+            } else {
+                const idx = agregarFila();
+                seleccionarProductoOrden(idx, prod);
+                document.getElementById(`fq-${idx}`).value = '1';
+                calcularFila(idx);
+            }
+            toast(`Escaneado: ${prod.nombre}`);
+        })
+        .catch(() => toast('Error al buscar el código escaneado', 'err'));
 });
 
 function calcularFila(idx) {
