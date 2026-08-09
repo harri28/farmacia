@@ -990,6 +990,7 @@ let tiposDocumentoCliente = [];
 
 // ---- Init ----
 let cajaAbierta = false;
+let cajaEsMia   = true;
 
 document.addEventListener('DOMContentLoaded', () => {
     bootstrapPosClienteUI();
@@ -1008,23 +1009,34 @@ function checkCaja() {
         .then(r => r.json())
         .then(d => {
             const banner = document.getElementById('caja-banner');
+            const btnVender = document.getElementById('btn-vender');
             if (d.caja && d.caja.estado === 'abierta') {
                 cajaAbierta = true;
+                cajaEsMia = !!d.es_propia;
                 banner.style.display = 'flex';
-                banner.style.background = '#f0fdf4';
-                banner.style.border = '1px solid #bbf7d0';
-                banner.style.color = '#15803d';
-                banner.innerHTML = '<i class="fas fa-cash-register"></i> Caja abierta — ' + (d.caja.nombre || 'Caja Principal');
+                if (cajaEsMia) {
+                    banner.style.background = '#f0fdf4';
+                    banner.style.border = '1px solid #bbf7d0';
+                    banner.style.color = '#15803d';
+                    banner.innerHTML = '<i class="fas fa-cash-register"></i> Caja abierta — ' + (d.caja.nombre || 'Caja Principal');
+                } else {
+                    banner.style.background = '#fffbeb';
+                    banner.style.border = '1px solid #fde68a';
+                    banner.style.color = '#b45309';
+                    banner.innerHTML = '<i class="fas fa-eye"></i> Caja abierta por ' + (d.caja.usuario_apertura || 'otro usuario') + ' — modo solo lectura';
+                }
             } else {
                 cajaAbierta = false;
+                cajaEsMia = true;
                 banner.style.display = 'flex';
                 banner.style.background = '#fef2f2';
                 banner.style.border = '1px solid #fecaca';
                 banner.style.color = '#dc2626';
                 banner.innerHTML = '<i class="fas fa-lock"></i> Caja cerrada — <a href="../caja/index.php" style="color:#dc2626;margin-left:4px;font-weight:700">Ir a aperturar</a>';
             }
+            if (btnVender) btnVender.disabled = !cart.length || !cajaEsMia;
         })
-        .catch(() => { cajaAbierta = false; });
+        .catch(() => { cajaAbierta = false; cajaEsMia = true; });
 }
 
 function productAffectationType(product) {
@@ -1389,7 +1401,7 @@ function renderCart() {
 
     emptyEl.style.display = 'none';
     summaryEl.style.display = 'block';
-    btnVender.disabled = false;
+    btnVender.disabled = !cajaEsMia;
 
     // Rebuild items
     const oldItems = itemsEl.querySelectorAll('.cart-item');
@@ -2353,6 +2365,10 @@ function procesarVenta() {
     if (!cart.length) return;
     if (!cajaAbierta) {
         showToast('Debes aperturar la caja antes de registrar ventas', 'error');
+        return;
+    }
+    if (!cajaEsMia) {
+        showToast('La caja está abierta por otro usuario. No puedes registrar ventas en modo solo lectura.', 'error');
         return;
     }
     const totals   = computeCartTotals();

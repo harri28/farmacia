@@ -131,6 +131,7 @@ include '../../includes/header.php';
     }
     $saldo_esperado = floatval($caja['saldo_inicial']) + floatval($ventas['total']) + $ingresos_adic - $egresos;
     $apertura_dt    = new DateTime($caja['apertura_at']);
+    $esPropia       = ((int) $caja['usuario_id'] === (int) sesionId());
 
     // Desglose por metodo de pago del turno (lee payment_breakdown, cubre
     // pagos simples y divididos; el credito no aporta porque queda vacio)
@@ -165,14 +166,23 @@ include '../../includes/header.php';
         </div>
     </div>
     <div class="page-actions">
+        <?php if ($esPropia): ?>
         <button class="btn btn-outline" onclick="openModal('modal-gasto')" style="border-color:var(--danger);color:var(--danger)">
             <i class="fas fa-receipt"></i> Registrar Gasto
         </button>
         <button class="btn btn-danger" onclick="openCerrarModal()">
             <i class="fas fa-lock"></i> Cerrar Caja
         </button>
+        <?php endif; ?>
     </div>
 </div>
+
+<?php if (!$esPropia): ?>
+<div class="alert" style="background:var(--surface-2);border:1px solid var(--border);border-left:4px solid var(--warning, #f59e0b);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:.88rem;display:flex;align-items:center;gap:10px">
+    <i class="fas fa-eye" style="color:var(--warning, #f59e0b)"></i>
+    <span>Caja abierta por <strong><?= htmlspecialchars($caja['usuario_apertura']) ?></strong> — estás en modo de solo lectura, no puedes operar sobre esta caja.</span>
+</div>
+<?php endif; ?>
 
 <!-- Stats del turno -->
 <div class="row g-3 mb-4">

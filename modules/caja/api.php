@@ -57,6 +57,7 @@ switch ($action) {
         echo json_encode([
             'abierta'              => true,
             'caja'                 => $caja,
+            'es_propia'            => ((int) $caja['usuario_id'] === (int) sesionId()),
             'ventas_count'         => intval($ventas['count']),
             'ventas_total'         => floatval($ventas['total']),
             'ingresos_adicionales' => $ingresos,
@@ -243,6 +244,9 @@ switch ($action) {
         $caja->execute([':id' => $caja_id]);
         $cajaRow = $caja->fetch();
         if (!$cajaRow) jsonResponse(['error' => true, 'message' => 'Caja no encontrada o ya cerrada'], 404);
+        if ((int) $cajaRow['usuario_id'] !== (int) sesionId()) {
+            jsonResponse(['error' => true, 'message' => 'Esta caja fue aperturada por otro usuario. No puedes cerrarla.'], 403);
+        }
 
         // El monto de cierre se calcula en el servidor -- no se acepta un monto
         // enviado desde el navegador. Cualquier faltante/excedente se resuelve
@@ -288,9 +292,13 @@ switch ($action) {
         if (!$concepto) jsonResponse(['error' => true, 'message' => 'El concepto es requerido'], 400);
 
         // Verificar que la caja esté abierta
-        $ck = $db->prepare("SELECT id FROM cajas WHERE id = :id AND estado = 'abierta'");
+        $ck = $db->prepare("SELECT id, usuario_id FROM cajas WHERE id = :id AND estado = 'abierta'");
         $ck->execute([':id' => $caja_id]);
-        if (!$ck->fetch()) jsonResponse(['error' => true, 'message' => 'La caja no está abierta'], 409);
+        $ckRow = $ck->fetch();
+        if (!$ckRow) jsonResponse(['error' => true, 'message' => 'La caja no está abierta'], 409);
+        if ((int) $ckRow['usuario_id'] !== (int) sesionId()) {
+            jsonResponse(['error' => true, 'message' => 'Esta caja fue aperturada por otro usuario. No puedes registrar movimientos en ella.'], 403);
+        }
 
         $stmt = $db->prepare("
             INSERT INTO caja_movimientos (caja_id, tipo, monto, concepto, usuario)
@@ -352,6 +360,15 @@ switch ($action) {
         if ($monto <= 0)   jsonResponse(['error' => true, 'message' => 'El monto debe ser mayor a 0'], 400);
 
         $caja_id = intval($data['caja_id'] ?? 0) ?: null;
+
+        if ($caja_id) {
+            $ckGasto = $db->prepare("SELECT usuario_id FROM cajas WHERE id = :id AND estado = 'abierta'");
+            $ckGasto->execute([':id' => $caja_id]);
+            $cajaGastoRow = $ckGasto->fetch();
+            if ($cajaGastoRow && (int) $cajaGastoRow['usuario_id'] !== (int) sesionId()) {
+                jsonResponse(['error' => true, 'message' => 'Esta caja fue aperturada por otro usuario. No puedes registrar gastos en ella.'], 403);
+            }
+        }
 
         $db->beginTransaction();
         try {

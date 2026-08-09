@@ -389,10 +389,13 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
         }
 
-        $cajaStmt = $db->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1");
+        $cajaStmt = $db->query("SELECT id, usuario_id FROM cajas WHERE estado = 'abierta' LIMIT 1");
         $caja = $cajaStmt->fetch();
         if (!$caja) {
             jsonResponse(['error' => true, 'message' => 'No hay una caja abierta. Debes aperturar la caja antes de registrar ventas.', 'caja_cerrada' => true], 422);
+        }
+        if ((int) $caja['usuario_id'] !== (int) sesionId()) {
+            jsonResponse(['error' => true, 'message' => 'La caja abierta pertenece a otro usuario. No puedes registrar ventas en ella.'], 403);
         }
         $cajaId = $caja['id'];
 
@@ -966,6 +969,15 @@ switch ($action) {
             }
             if ($venta['estado'] === 'anulada') {
                 throw new Exception('La venta ya esta anulada');
+            }
+
+            if ($venta['caja_id']) {
+                $cajaVenta = $db->prepare("SELECT usuario_id FROM cajas WHERE id = :cid AND estado = 'abierta'");
+                $cajaVenta->execute([':cid' => $venta['caja_id']]);
+                $cajaVentaRow = $cajaVenta->fetch();
+                if ($cajaVentaRow && (int) $cajaVentaRow['usuario_id'] !== (int) sesionId()) {
+                    throw new Exception('La caja de esta venta fue aperturada por otro usuario. No puedes anularla.');
+                }
             }
 
             $detalles = $db->prepare("SELECT producto_id, cantidad, COALESCE(factor_equivalencia, 1) AS factor_equivalencia FROM venta_detalles WHERE venta_id = :id");
