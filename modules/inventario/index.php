@@ -985,7 +985,9 @@ function switchTab(tab) {
     } else if (tab === 'producto-vista') {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Detalle de Producto';
         document.getElementById('inv-page-subtitle').textContent = 'Información del producto';
-        document.getElementById('inv-page-actions').innerHTML   = '<button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>';
+        document.getElementById('inv-page-actions').innerHTML   = esAdmin
+            ? '<button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>'
+            : '';
     } else if (tab === 'toma') {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-clipboard-check" style="color:var(--primary);margin-right:8px"></i>Toma de Inventario';
         document.getElementById('inv-page-subtitle').textContent = 'Conteo físico de productos por categoría';

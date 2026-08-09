@@ -358,6 +358,9 @@ switch ($action) {
         jsonResponse(['error' => false, 'message' => 'Producto creado correctamente', 'id' => $id]);
 
     case 'actualizar':
+        if (isCajero()) {
+            jsonResponse(['error' => true, 'message' => 'No tienes permiso para editar productos'], 403);
+        }
         $data = json_decode(file_get_contents('php://input'), true);
         $id   = intval($data['id'] ?? 0);
         if (!$id || empty($data['nombre']) || empty($data['codigo']) || !isset($data['precio_venta'])) {
