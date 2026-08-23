@@ -945,6 +945,7 @@ include '../../includes/header.php';
 // ============================================================
 
 const BASE = '../../';
+const esCajero = <?= isCajero() ? 'true' : 'false' ?>;
 const CLIENTES_API = BASE + 'modules/clientes/api.php';
 const EMPRESA_NOMBRE  = <?= json_encode(sesionTenantNombre()) ?>;
 const EMPRESA_RUC     = <?= json_encode($_tenant_info['ruc']       ?? '') ?>;
@@ -3229,7 +3230,7 @@ function loadHistorial() {
                         <button class="btn btn-ghost btn-sm" title="Ver comprobante" onclick="verTicketVenta(${v.id})">
                             <i class="fas fa-receipt"></i>
                         </button>
-                        ${v.estado === 'completada' ? `
+                        ${(v.estado === 'completada' && !esCajero) ? `
                         <button class="btn btn-ghost btn-sm" title="Anular venta" style="color:var(--danger)" onclick="anularVentaDesdeHistorial(${v.id},'${v.numero_venta}')">
                             <i class="fas fa-ban"></i>
                         </button>` : ''}

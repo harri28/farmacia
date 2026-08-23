@@ -949,6 +949,9 @@ switch ($action) {
         break;
 
     case 'anular_venta':
+        if (isCajero()) {
+            jsonResponse(['error' => true, 'message' => 'No tienes permiso para anular ventas'], 403);
+        }
         $raw    = file_get_contents('php://input');
         $data   = json_decode($raw, true);
         $id     = intval($data['id'] ?? 0);

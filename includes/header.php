@@ -226,6 +226,13 @@ $_brand_logo_abs = $_brand_logo
                 <span>Banco</span>
             </a>
 
+            <a href="<?= $base_path ?? '' ?>modules/reportes/index.php"
+               class="nav-item <?= $current_module === 'reportes' ? 'active' : '' ?>"
+               data-tooltip="Reportes">
+                <i class="fas fa-chart-pie"></i>
+                <span>Reportes</span>
+            </a>
+
             <?php if (sesionRol() === 'admin'): ?>
             <a href="<?= $base_path ?? '' ?>modules/admin/index.php"
                class="nav-item <?= $current_module === 'admin' ? 'active' : '' ?>"
