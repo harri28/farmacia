@@ -150,7 +150,7 @@ Every PHP page must set these variables **before** `include '../../includes/head
 **Key stock rules:**
 - Stock decremented on `registrar_venta`, restored on `anular_venta`
 - `total_vendido` on `productos` increments on sale but is **not** decremented on cancellation
-- `cajas` must be `estado = 'abierta'` before sales can be registered
+- `cajas` must be `estado = 'abierta'` before sales can be registered — **caja is per-user, not per-branch**: any number of users (cajero, admin, gerente) can each have their own caja open at the same time in the same sucursal; a sale always resolves to the caja opened by `sesionId()`, never "the" open caja. A user still can't have two cajas open at once (same branch or across branches — checked in `caja/api.php`'s `aperturar`)
 
 **PostgreSQL quirk:** Boolean columns return string `'t'`/`'f'` in PDO — JS checks `p.favorito == 't'`.
 

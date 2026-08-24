@@ -13,12 +13,14 @@ $db     = getDB();
 
 switch ($action) {
 
-    // ---- GET: Estado actual de la caja ----
+    // ---- GET: Estado actual de la caja (del usuario en sesión) ----
     case 'estado':
-        $caja = $db->query("
-            SELECT * FROM cajas WHERE estado = 'abierta'
+        $caja = $db->prepare("
+            SELECT * FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid
             ORDER BY apertura_at DESC LIMIT 1
-        ")->fetch();
+        ");
+        $caja->execute([':uid' => (int) sesionId()]);
+        $caja = $caja->fetch();
 
         if (!$caja) {
             echo json_encode(['abierta' => false]);
@@ -190,12 +192,14 @@ switch ($action) {
 
         if (!$usuario) jsonResponse(['error' => true, 'message' => 'El nombre del usuario es requerido'], 400);
 
-        // Verificar que no haya caja abierta en esta sucursal
-        $abierta = $db->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1")->fetch();
-        if ($abierta) jsonResponse(['error' => true, 'message' => 'Ya hay una caja abierta en esta sucursal'], 409);
+        // Verificar que el usuario en sesión no tenga ya una caja abierta en esta sucursal
+        // (varios usuarios pueden tener cada uno su propia caja abierta al mismo tiempo)
+        $uid_sesion = (int) sesionId();
+        $miAbierta = $db->prepare("SELECT id FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid LIMIT 1");
+        $miAbierta->execute([':uid' => $uid_sesion]);
+        if ($miAbierta->fetch()) jsonResponse(['error' => true, 'message' => 'Ya tienes una caja abierta. Ciérrala antes de aperturar otra.'], 409);
 
         // Verificar que el usuario no tenga caja abierta en OTRA sucursal
-        $uid_sesion = (int)sesionId();
         if ($uid_sesion > 0) {
             try {
                 $suc_chk = $db->prepare("

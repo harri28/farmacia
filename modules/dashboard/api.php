@@ -51,8 +51,10 @@ switch ($action) {
             FROM ingresos
         ")->fetch();
 
-        // Estado caja
-        $caja = $db->query("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY apertura_at DESC LIMIT 1")->fetch();
+        // Estado caja (del usuario en sesión)
+        $caja = $db->prepare("SELECT * FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid ORDER BY apertura_at DESC LIMIT 1");
+        $caja->execute([':uid' => (int) sesionId()]);
+        $caja = $caja->fetch();
         $caja_info = ['abierta' => false];
         if ($caja) {
             $v = $db->prepare("SELECT COUNT(*) AS cnt, COALESCE(SUM(total), 0) AS total FROM ventas WHERE caja_id = :id AND estado = 'completada'");

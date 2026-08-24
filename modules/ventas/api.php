@@ -389,13 +389,11 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'Datos invalidos'], 400);
         }
 
-        $cajaStmt = $db->query("SELECT id, usuario_id FROM cajas WHERE estado = 'abierta' LIMIT 1");
+        $cajaStmt = $db->prepare("SELECT id FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid LIMIT 1");
+        $cajaStmt->execute([':uid' => (int) sesionId()]);
         $caja = $cajaStmt->fetch();
         if (!$caja) {
             jsonResponse(['error' => true, 'message' => 'No hay una caja abierta. Debes aperturar la caja antes de registrar ventas.', 'caja_cerrada' => true], 422);
-        }
-        if ((int) $caja['usuario_id'] !== (int) sesionId()) {
-            jsonResponse(['error' => true, 'message' => 'La caja abierta pertenece a otro usuario. No puedes registrar ventas en ella.'], 403);
         }
         $cajaId = $caja['id'];
 

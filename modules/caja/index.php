@@ -14,11 +14,13 @@ $breadcrumb     = '<strong>Caja</strong>';
 
 $db = getDB();
 
-// Estado actual de la caja (server-side para renderizado inicial)
-$caja = $db->query("
-    SELECT * FROM cajas WHERE estado = 'abierta'
+// Estado actual de la caja del usuario en sesión (server-side para renderizado inicial)
+$caja = $db->prepare("
+    SELECT * FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid
     ORDER BY apertura_at DESC LIMIT 1
-")->fetch();
+");
+$caja->execute([':uid' => (int) sesionId()]);
+$caja = $caja->fetch();
 
 // Usuarios previos para datalist
 $usuarios_previos = $db->query("

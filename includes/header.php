@@ -365,7 +365,9 @@ endif;
 
 if (isCajero()) {
     try {
-        $_caja_row = getDB()->query("SELECT id FROM cajas WHERE estado = 'abierta' LIMIT 1")->fetch();
+        $_caja_stmt = getDB()->prepare("SELECT id FROM cajas WHERE estado = 'abierta' AND usuario_id = :uid LIMIT 1");
+        $_caja_stmt->execute([':uid' => (int) sesionId()]);
+        $_caja_row = $_caja_stmt->fetch();
         if (!$_caja_row):
 ?>
 <div style="background:#fef3c7;border-bottom:2px solid #f59e0b;padding:10px 24px;display:flex;align-items:center;gap:10px;font-size:.88rem;color:#92400e">
