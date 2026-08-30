@@ -100,6 +100,33 @@ switch ($action) {
            ]);
         jsonResponse(['error' => false, 'message' => 'Empresa actualizada']);
 
+    // ---- GET: Datos SUNAT (solo lectura) + notas internas de superadmin ----
+    case 'tenant_sunat_info':
+        $id = intval($_GET['tenant_id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'Empresa inválida'], 400);
+
+        $stmt = $db->prepare("
+            SELECT ruc, sunat_username, sunat_password, notas_superadmin
+            FROM public.tenants
+            WHERE id = :id
+        ");
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        if (!$row) jsonResponse(['error' => true, 'message' => 'Empresa no encontrada'], 404);
+
+        echo json_encode(['error' => false] + $row);
+        break;
+
+    // ---- POST: Guardar notas internas de superadmin (no toca RUC/SOL) ----
+    case 'tenant_notas_guardar':
+        $d  = json_decode(file_get_contents('php://input'), true);
+        $id = intval($d['tenant_id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'Empresa inválida'], 400);
+
+        $db->prepare("UPDATE public.tenants SET notas_superadmin = :n WHERE id = :id")
+           ->execute([':n' => trim($d['notas'] ?? '') ?: null, ':id' => $id]);
+        jsonResponse(['error' => false, 'message' => 'Notas guardadas']);
+
     // ---- POST: Toggle activo ----
     case 'tenant_toggle_activo':
         $d  = json_decode(file_get_contents('php://input'), true);

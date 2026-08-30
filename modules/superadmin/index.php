@@ -17,7 +17,8 @@ requireAuth($required_roles);
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#4f46e5">
     <title><?= $page_title ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -173,9 +174,10 @@ requireAuth($required_roles);
             background: #fff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            overflow: hidden;
+            overflow-x: auto;
             box-shadow: 0 1px 3px rgba(0,0,0,.04);
         }
+        #sucursalesLista, #usuariosLista { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         thead th {
             background: #f8fafc;
@@ -395,6 +397,27 @@ requireAuth($required_roles);
         /* ---- Grid 2 cols ---- */
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+
+        /* ---- Planes grid ---- */
+        .planes-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+        /* ---- Mobile (celular, Android/iOS) ---- */
+        @media (max-width: 640px) {
+            .topbar { height: auto; min-height: 60px; padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+            .topbar-brand { font-size: .92rem; }
+            .topbar-right { font-size: .8rem; gap: 10px; }
+            .main { padding: 16px; }
+            .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .section-header { flex-wrap: wrap; gap: 10px; }
+            .section-header .btn-primary { width: 100%; justify-content: center; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .stat-card { padding: 14px; }
+            .stat-value { font-size: 1.4rem; }
+            .planes-grid { grid-template-columns: 1fr; }
+            .btn-icon { width: 38px; height: 38px; font-size: .85rem; }
+            .modal-header, .modal-body, .modal-footer { padding-left: 16px; padding-right: 16px; }
+            #toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: none; }
+        }
     </style>
 </head>
 <body>
@@ -439,7 +462,7 @@ requireAuth($required_roles);
             <i class="fas fa-chevron-down" id="planes-chevron" style="font-size:.7rem;transition:transform .2s"></i>
         </button>
 
-        <div id="planes-grid" style="display:none;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px">
+        <div id="planes-grid" class="planes-grid" style="display:none;margin-top:12px">
 
             <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 18px;border-top:3px solid #94a3b8">
                 <div style="margin-bottom:8px">

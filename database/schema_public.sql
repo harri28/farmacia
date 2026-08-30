@@ -315,4 +315,5 @@ ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS certificate_path     VARC
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS certificate_password VARCHAR(255);
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS certificate_expires_at DATE;
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS sunat_server         VARCHAR(10);
+ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS notas_superadmin     TEXT;
 ALTER TABLE public.usuarios   ADD COLUMN IF NOT EXISTS email     VARCHAR(150);

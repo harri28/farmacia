@@ -22,7 +22,8 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#4f46e5">
     <title><?= htmlspecialchars($tenant['nombre']) ?> — FarmaSystem</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -93,6 +94,7 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
             display: grid; grid-template-columns: repeat(3, 1fr);
             gap: 14px; margin-bottom: 28px;
         }
+        @media (max-width: 640px) { .stats-row { grid-template-columns: 1fr; } }
         .stat-card {
             background: #fff; border: 1px solid #e2e8f0;
             border-radius: 12px; padding: 18px 20px;
@@ -126,6 +128,7 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         .section-head-title i { color: #6366f1; }
 
         /* Table inside section */
+        #listaSucursales, #listaUsuarios { overflow-x: auto; }
         .sec-table { width: 100%; border-collapse: collapse; }
         .sec-table thead th {
             background: #f8fafc; padding: 9px 16px;
@@ -189,6 +192,13 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
             outline: none; transition: border-color .15s;
         }
         .form-group input:focus, .form-group select:focus { border-color: #6366f1; }
+        .sunat-readonly {
+            width: 100%; padding: 9px 11px;
+            background: #f8fafc; border: 1.5px solid #e2e8f0;
+            border-radius: 8px; font-size: .88rem; color: #1e293b;
+            font-family: monospace; min-height: 20px;
+        }
+        .sunat-readonly.empty { color: #94a3b8; font-family: inherit; font-style: italic; }
         .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 
         /* Inline edit row */
@@ -239,6 +249,20 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         .modal-close:hover { color: #1e293b; }
         .modal-body { padding: 18px 22px; }
         .modal-footer { padding: 14px 22px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* ---- Mobile (celular, Android/iOS) ---- */
+        @media (max-width: 640px) {
+            .topbar { height: auto; min-height: 60px; padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+            .topbar-left { gap: 10px; }
+            .main { padding: 16px; }
+            .hero { flex-direction: column; align-items: flex-start; gap: 14px; padding: 18px 20px; }
+            .hero-actions { width: 100%; }
+            .hero-actions .btn-primary { width: 100%; justify-content: center; }
+            .form-row.cols2, .form-row.cols3 { grid-template-columns: 1fr; }
+            .btn-icon { width: 36px; height: 36px; font-size: .8rem; }
+            .modal-header, .modal-body, .modal-footer { padding-left: 16px; padding-right: 16px; }
+            #toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+        }
     </style>
 </head>
 <body>
@@ -280,6 +304,10 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         <div class="hero-actions">
             <button class="btn-primary" onclick="abrirEditEmpresa()">
                 <i class="fas fa-pen"></i> Editar empresa
+            </button>
+            <button class="btn-cancel" onclick="abrirSunatInfo()"
+                    style="display:inline-flex;align-items:center;gap:7px;background:#eef2ff;color:#4f46e5;border-color:#c7d2fe">
+                <i class="fas fa-key"></i> Datos SUNAT
             </button>
         </div>
     </div>
@@ -465,6 +493,49 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         <div class="modal-footer">
             <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
             <button class="btn-primary" onclick="guardarEmpresa()"><i class="fas fa-save"></i> Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Datos SUNAT (solo lectura) + Notas internas de superadmin -->
+<div class="modal-overlay" id="modalSunatInfoOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-key" style="color:#4f46e5;margin-right:8px"></i>Datos SUNAT</span>
+            <button class="modal-close" onclick="cerrarSunatInfo()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.78rem;color:#94a3b8;margin-bottom:16px">
+                Estos 3 campos son de solo lectura — los configura el Admin de la empresa desde su propio panel (Configuración). Editarlos no es posible desde acá.
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>RUC</label>
+                    <div class="sunat-readonly" id="sInfoRuc">—</div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Usuario SOL</label>
+                    <div class="sunat-readonly" id="sInfoUsuario">—</div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Clave SOL</label>
+                    <div class="sunat-readonly" id="sInfoClave">—</div>
+                </div>
+            </div>
+            <div class="form-row" style="margin-top:6px">
+                <div class="form-group">
+                    <label>Notas <span style="text-transform:none;font-weight:400;color:#94a3b8">(solo visibles para superadmin)</span></label>
+                    <textarea id="sInfoNotas" rows="4" style="width:100%;padding:9px 11px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.88rem;color:#1e293b;outline:none;resize:vertical;font-family:inherit"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="cerrarSunatInfo()">Cerrar</button>
+            <button class="btn-primary" onclick="guardarNotasSuperadmin()"><i class="fas fa-save"></i> Guardar notas</button>
         </div>
     </div>
 </div>
@@ -924,6 +995,50 @@ async function guardarEmpresa() {
 // ---- Cerrar modal al click fuera ----
 document.getElementById('modalEmpresaOverlay').addEventListener('click', e => {
     if (e.target.id === 'modalEmpresaOverlay') cerrarModal();
+});
+
+// ---- Datos SUNAT (solo lectura) + Notas internas de superadmin ----
+function pintarSunatCampo(elId, valor) {
+    const el = document.getElementById(elId);
+    if (valor) { el.textContent = valor; el.classList.remove('empty'); }
+    else       { el.textContent = 'Sin configurar'; el.classList.add('empty'); }
+}
+
+async function abrirSunatInfo() {
+    document.getElementById('modalSunatInfoOverlay').classList.add('active');
+    pintarSunatCampo('sInfoRuc', '');
+    pintarSunatCampo('sInfoUsuario', '');
+    pintarSunatCampo('sInfoClave', '');
+    document.getElementById('sInfoNotas').value = '';
+
+    try {
+        const r = await fetch(`${API}?action=tenant_sunat_info&tenant_id=${TENANT_ID}`);
+        const d = await r.json();
+        if (d.error) { toast(d.message,'err'); return; }
+        pintarSunatCampo('sInfoRuc', d.ruc);
+        pintarSunatCampo('sInfoUsuario', d.sunat_username);
+        pintarSunatCampo('sInfoClave', d.sunat_password);
+        document.getElementById('sInfoNotas').value = d.notas_superadmin || '';
+    } catch { toast('Error al cargar los datos SUNAT','err'); }
+}
+
+function cerrarSunatInfo() {
+    document.getElementById('modalSunatInfoOverlay').classList.remove('active');
+}
+
+async function guardarNotasSuperadmin() {
+    const notas = document.getElementById('sInfoNotas').value;
+    const r = await fetch(`${API}?action=tenant_notas_guardar`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({tenant_id:TENANT_ID, notas}),
+    });
+    const d = await r.json();
+    if (d.error) { toast(d.message,'err'); return; }
+    toast(d.message);
+}
+
+document.getElementById('modalSunatInfoOverlay').addEventListener('click', e => {
+    if (e.target.id === 'modalSunatInfoOverlay') cerrarSunatInfo();
 });
 
 // ---- Actualizar stats combinados ----
