@@ -561,6 +561,23 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
     </div>
 </div>
 
+<!-- Modal confirmacion generica -->
+<div class="modal-overlay" id="modalConfirmOverlay">
+    <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-triangle-exclamation" style="color:#d97706;margin-right:8px"></i>Confirmar acción</span>
+            <button class="modal-close" onclick="cerrarConfirm()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmMsg" style="font-size:.9rem;color:#475569;line-height:1.6;white-space:pre-line"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="cerrarConfirm()">Cancelar</button>
+            <button class="btn-primary" id="btnConfirmAceptar" style="background:#d97706"><i class="fas fa-check"></i> Sí, continuar</button>
+        </div>
+    </div>
+</div>
+
 <div id="toast"><i id="toastIcon" class="fas fa-check-circle"></i><span id="toastMsg"></span></div>
 
 <script>
@@ -579,6 +596,22 @@ function toast(msg, tipo = 'ok') {
 function esc(s) {
     return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\r?\n/g,' ');
 }
+
+// ---- Modal de confirmacion (reemplaza confirm() nativo del navegador) ----
+function mostrarConfirm(mensaje, onAceptar) {
+    document.getElementById('confirmMsg').textContent = mensaje;
+    const btn = document.getElementById('btnConfirmAceptar');
+    const nuevoBtn = btn.cloneNode(true); // limpia listeners anteriores
+    btn.parentNode.replaceChild(nuevoBtn, btn);
+    nuevoBtn.addEventListener('click', () => { cerrarConfirm(); onAceptar(); });
+    document.getElementById('modalConfirmOverlay').classList.add('active');
+}
+function cerrarConfirm() {
+    document.getElementById('modalConfirmOverlay').classList.remove('active');
+}
+document.getElementById('modalConfirmOverlay').addEventListener('click', e => {
+    if (e.target.id === 'modalConfirmOverlay') cerrarConfirm();
+});
 function toggleForm(id) {
     const el = document.getElementById(id);
     el.classList.toggle('open');
@@ -700,26 +733,27 @@ async function crearSucursal() {
 }
 
 async function archivarSucursal(id, nombre) {
-    if (!confirm(`¿Archivar "${nombre}"?\n\nLa sucursal quedará inactiva y no contará para el límite de tu plan. Si el total baja del límite Pro, el plan se reducirá automáticamente.`)) return;
-    try {
-        const r = await fetch(`${API}?action=sucursal_archivar`, {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}),
-        });
-        const d = await r.json();
-        if (d.error) { toast(d.message,'err'); return; }
-        if (d.plan_nuevo) {
-            const PLAN_LABELS = { basico:'Básico', pro:'Pro', enterprise:'Enterprise' };
-            toast(`Sucursal archivada. Plan reducido automáticamente a ${PLAN_LABELS[d.plan_nuevo]||d.plan_nuevo}.`);
-            const badge = document.querySelector('.badge-basico, .badge-pro, .badge-enterprise');
-            if (badge) {
-                badge.className = `badge badge-${d.plan_nuevo}`;
-                badge.textContent = PLAN_LABELS[d.plan_nuevo];
+    mostrarConfirm(`¿Archivar "${nombre}"?\n\nLa sucursal quedará inactiva y no contará para el límite de tu plan. Si el total baja del límite Pro, el plan se reducirá automáticamente.`, async () => {
+        try {
+            const r = await fetch(`${API}?action=sucursal_archivar`, {
+                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}),
+            });
+            const d = await r.json();
+            if (d.error) { toast(d.message,'err'); return; }
+            if (d.plan_nuevo) {
+                const PLAN_LABELS = { basico:'Básico', pro:'Pro', enterprise:'Enterprise' };
+                toast(`Sucursal archivada. Plan reducido automáticamente a ${PLAN_LABELS[d.plan_nuevo]||d.plan_nuevo}.`);
+                const badge = document.querySelector('.badge-basico, .badge-pro, .badge-enterprise');
+                if (badge) {
+                    badge.className = `badge badge-${d.plan_nuevo}`;
+                    badge.textContent = PLAN_LABELS[d.plan_nuevo];
+                }
+            } else {
+                toast('Sucursal archivada');
             }
-        } else {
-            toast('Sucursal archivada');
-        }
-        cargarSucursales();
-    } catch { toast('Error de conexión','err'); }
+            cargarSucursales();
+        } catch { toast('Error de conexión','err'); }
+    });
 }
 
 async function restaurarSucursal(id) {
@@ -746,14 +780,20 @@ async function restaurarSucursal(id) {
 }
 
 async function toggleSucursal(id, activaActualmente, nombre) {
-    if (activaActualmente && !confirm(`¿Desactivar "${nombre}"?\n\nEstá ACTIVA y funcionando — al desactivarla, sus usuarios ya no podrán operar en ella.`)) return;
-    const r = await fetch(`${API}?action=sucursal_toggle_activo`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}),
-    });
-    const d = await r.json();
-    if (d.error) { toast(d.message,'err'); return; }
-    toast(d.activo ? 'Sucursal activada' : 'Sucursal desactivada');
-    cargarSucursales();
+    const ejecutar = async () => {
+        const r = await fetch(`${API}?action=sucursal_toggle_activo`, {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}),
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.message,'err'); return; }
+        toast(d.activo ? 'Sucursal activada' : 'Sucursal desactivada');
+        cargarSucursales();
+    };
+    if (activaActualmente) {
+        mostrarConfirm(`¿Desactivar "${nombre}"?\n\nEstá ACTIVA y funcionando — al desactivarla, sus usuarios ya no podrán operar en ella.`, ejecutar);
+    } else {
+        ejecutar();
+    }
 }
 
 // ---- USUARIOS ----
