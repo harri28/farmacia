@@ -293,6 +293,20 @@ switch ($action) {
         reportesCsvOutput('valorizacion_inventario', $stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
+    case 'inventario_nombre_stock_exportar':
+        [$where, $params] = reportesInventarioFiltro();
+        $stmt = $db->prepare("
+            SELECT
+                p.nombre AS \"Producto\",
+                p.stock  AS \"Stock\"
+            FROM productos p
+            $where
+            ORDER BY p.nombre ASC
+        ");
+        $stmt->execute($params);
+        reportesCsvOutput('productos_stock', $stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
     case 'categorias_lista':
         try {
             $rows = $db->query("SELECT id, nombre FROM categorias ORDER BY nombre")->fetchAll();

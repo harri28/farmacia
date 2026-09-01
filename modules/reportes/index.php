@@ -263,6 +263,9 @@ include '../../includes/header.php';
             <div class="card-title">Valorización por producto</div>
             <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
                 <span style="font-size:.82rem;color:var(--text-muted)" id="inv-result-count">—</span>
+                <button class="btn btn-outline btn-sm" onclick="invExportarNombreStock()">
+                    <i class="fas fa-file-excel"></i> Solo nombre y stock
+                </button>
                 <button class="btn btn-success btn-sm" onclick="invExportar()">
                     <i class="fas fa-file-excel"></i> Exportar
                 </button>
@@ -592,6 +595,7 @@ function invBuscar() {
 }
 
 function invExportar() { repDownload(API + '?action=inventario_valorizacion_exportar&' + invParams()); }
+function invExportarNombreStock() { repDownload(API + '?action=inventario_nombre_stock_exportar&' + invParams()); }
 
 // ================================================================
 // CAJA (Movimientos)
