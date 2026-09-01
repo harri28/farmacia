@@ -127,6 +127,25 @@ switch ($action) {
            ->execute([':n' => trim($d['notas'] ?? '') ?: null, ':id' => $id]);
         jsonResponse(['error' => false, 'message' => 'Notas guardadas']);
 
+    // ---- POST: Guardar RUC/Usuario SOL/Clave SOL + notas desde Superadmin ----
+    case 'tenant_sunat_guardar':
+        $d  = json_decode(file_get_contents('php://input'), true);
+        $id = intval($d['tenant_id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'Empresa inválida'], 400);
+
+        $db->prepare("
+            UPDATE public.tenants
+            SET ruc = :ruc, sunat_username = :usr, sunat_password = :pass, notas_superadmin = :n
+            WHERE id = :id
+        ")->execute([
+            ':ruc'  => trim($d['ruc'] ?? '') ?: null,
+            ':usr'  => trim($d['sunat_username'] ?? '') ?: null,
+            ':pass' => trim($d['sunat_password'] ?? '') ?: null,
+            ':n'    => trim($d['notas'] ?? '') ?: null,
+            ':id'   => $id,
+        ]);
+        jsonResponse(['error' => false, 'message' => 'Datos SUNAT guardados']);
+
     // ---- POST: Toggle activo ----
     case 'tenant_toggle_activo':
         $d  = json_decode(file_get_contents('php://input'), true);

@@ -506,24 +506,24 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         </div>
         <div class="modal-body">
             <p style="font-size:.78rem;color:#94a3b8;margin-bottom:16px">
-                Estos 3 campos son de solo lectura — los configura el Admin de la empresa desde su propio panel (Configuración). Editarlos no es posible desde acá.
+                Editable desde acá por el superadmin. El Admin de la empresa también puede cambiar estos datos desde su propio panel (Configuración) — el que se guarde último es el que queda.
             </p>
             <div class="form-row">
                 <div class="form-group">
                     <label>RUC</label>
-                    <div class="sunat-readonly" id="sInfoRuc">—</div>
+                    <input type="text" id="sInfoRuc" placeholder="Sin configurar">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label>Usuario SOL</label>
-                    <div class="sunat-readonly" id="sInfoUsuario">—</div>
+                    <input type="text" id="sInfoUsuario" placeholder="Sin configurar">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label>Clave SOL</label>
-                    <div class="sunat-readonly" id="sInfoClave">—</div>
+                    <input type="text" id="sInfoClave" placeholder="Sin configurar">
                 </div>
             </div>
             <div class="form-row" style="margin-top:6px">
@@ -535,7 +535,7 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="cerrarSunatInfo()">Cerrar</button>
-            <button class="btn-primary" onclick="guardarNotasSuperadmin()"><i class="fas fa-save"></i> Guardar notas</button>
+            <button class="btn-primary" onclick="guardarSunatInfo()"><i class="fas fa-save"></i> Guardar</button>
         </div>
     </div>
 </div>
@@ -636,7 +636,7 @@ async function cargarSucursales() {
                         ` : `
                             <button class="btn-icon btn-edit" title="Editar" onclick="abrirEditSucursal(${s.id})"><i class="fas fa-pen"></i></button>
                             <button class="btn-icon btn-toggle ${s.activo?'':'off'}" title="${s.activo?'Desactivar':'Activar'}"
-                                onclick="toggleSucursal(${s.id})"><i class="fas fa-power-off"></i></button>
+                                onclick="toggleSucursal(${s.id}, ${s.activo ? 'true' : 'false'}, '${esc(s.nombre)}')"><i class="fas fa-power-off"></i></button>
                             <button class="btn-icon" title="Archivar sucursal (optimizar costos)"
                                 style="background:#fef3c7;color:#b45309"
                                 onclick="archivarSucursal(${s.id},'${esc(s.nombre)}')"><i class="fas fa-archive"></i></button>
@@ -745,7 +745,8 @@ async function restaurarSucursal(id) {
     } catch { toast('Error de conexión','err'); }
 }
 
-async function toggleSucursal(id) {
+async function toggleSucursal(id, activaActualmente, nombre) {
+    if (activaActualmente && !confirm(`¿Desactivar "${nombre}"?\n\nEstá ACTIVA y funcionando — al desactivarla, sus usuarios ya no podrán operar en ella.`)) return;
     const r = await fetch(`${API}?action=sucursal_toggle_activo`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}),
     });
@@ -997,27 +998,21 @@ document.getElementById('modalEmpresaOverlay').addEventListener('click', e => {
     if (e.target.id === 'modalEmpresaOverlay') cerrarModal();
 });
 
-// ---- Datos SUNAT (solo lectura) + Notas internas de superadmin ----
-function pintarSunatCampo(elId, valor) {
-    const el = document.getElementById(elId);
-    if (valor) { el.textContent = valor; el.classList.remove('empty'); }
-    else       { el.textContent = 'Sin configurar'; el.classList.add('empty'); }
-}
-
+// ---- Datos SUNAT (editable) + Notas internas de superadmin ----
 async function abrirSunatInfo() {
     document.getElementById('modalSunatInfoOverlay').classList.add('active');
-    pintarSunatCampo('sInfoRuc', '');
-    pintarSunatCampo('sInfoUsuario', '');
-    pintarSunatCampo('sInfoClave', '');
+    document.getElementById('sInfoRuc').value = '';
+    document.getElementById('sInfoUsuario').value = '';
+    document.getElementById('sInfoClave').value = '';
     document.getElementById('sInfoNotas').value = '';
 
     try {
         const r = await fetch(`${API}?action=tenant_sunat_info&tenant_id=${TENANT_ID}`);
         const d = await r.json();
         if (d.error) { toast(d.message,'err'); return; }
-        pintarSunatCampo('sInfoRuc', d.ruc);
-        pintarSunatCampo('sInfoUsuario', d.sunat_username);
-        pintarSunatCampo('sInfoClave', d.sunat_password);
+        document.getElementById('sInfoRuc').value = d.ruc || '';
+        document.getElementById('sInfoUsuario').value = d.sunat_username || '';
+        document.getElementById('sInfoClave').value = d.sunat_password || '';
         document.getElementById('sInfoNotas').value = d.notas_superadmin || '';
     } catch { toast('Error al cargar los datos SUNAT','err'); }
 }
@@ -1026,11 +1021,14 @@ function cerrarSunatInfo() {
     document.getElementById('modalSunatInfoOverlay').classList.remove('active');
 }
 
-async function guardarNotasSuperadmin() {
-    const notas = document.getElementById('sInfoNotas').value;
-    const r = await fetch(`${API}?action=tenant_notas_guardar`,{
+async function guardarSunatInfo() {
+    const ruc            = document.getElementById('sInfoRuc').value;
+    const sunat_username  = document.getElementById('sInfoUsuario').value;
+    const sunat_password  = document.getElementById('sInfoClave').value;
+    const notas           = document.getElementById('sInfoNotas').value;
+    const r = await fetch(`${API}?action=tenant_sunat_guardar`,{
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({tenant_id:TENANT_ID, notas}),
+        body:JSON.stringify({tenant_id:TENANT_ID, ruc, sunat_username, sunat_password, notas}),
     });
     const d = await r.json();
     if (d.error) { toast(d.message,'err'); return; }
