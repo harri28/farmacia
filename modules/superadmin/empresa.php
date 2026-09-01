@@ -697,7 +697,7 @@ async function cargarSucursales() {
 
 function abrirEditSucursal(id) {
     document.querySelectorAll('.edit-row').forEach(r => r.style.display = 'none');
-    document.getElementById(`sedit-${id}`).style.display = '';
+    document.getElementById(`sedit-${id}`).style.display = 'table-row';
     document.getElementById(`se-n-${id}`).focus();
 }
 function cerrarEditSucursal(id) { document.getElementById(`sedit-${id}`).style.display = 'none'; }
