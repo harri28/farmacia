@@ -148,17 +148,17 @@ function getTenantConfig(): array
 
     $tid = sesionTenantId();
     if (!$tid) {
-        return $cfg = ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null];
+        return $cfg = ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null, 'tema_oscuro' => false];
     }
     try {
         $stmt = getDB()->prepare(
-            "SELECT nombre_sistema, logo_path FROM public.tenant_config WHERE tenant_id = :tid"
+            "SELECT nombre_sistema, logo_path, COALESCE(tema_oscuro, FALSE) AS tema_oscuro FROM public.tenant_config WHERE tenant_id = :tid"
         );
         $stmt->execute([':tid' => $tid]);
         $row = $stmt->fetch();
-        $cfg = $row ?: ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null];
+        $cfg = $row ?: ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null, 'tema_oscuro' => false];
     } catch (Exception $e) {
-        $cfg = ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null];
+        $cfg = ['nombre_sistema' => 'FarmaSystem', 'logo_path' => null, 'tema_oscuro' => false];
     }
     return $cfg;
 }

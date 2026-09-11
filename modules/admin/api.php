@@ -19,6 +19,7 @@ $admin_only = [
     'asignar_acceso', 'revocar_acceso',
     'sucursales_listar', 'sucursal_crear', 'sucursal_actualizar', 'sucursal_toggle_activo',
     'config_guardar', 'logo_subir', 'logo_eliminar', 'certificate_subir',
+    'tema_guardar',
 ];
 if (in_array($action, $admin_only, true) && !isAdmin()) {
     jsonResponse(['error' => true, 'message' => 'No tienes permiso para realizar esta acción'], 403);
@@ -617,6 +618,31 @@ switch ($action) {
             'message' => 'Configuracion guardada correctamente',
             'productos_exonerados' => $productosExonerados,
         ]);
+
+    case 'tema_get':
+        $stmt = $db->prepare("SELECT COALESCE(tema_oscuro, FALSE) AS tema_oscuro FROM public.tenant_config WHERE tenant_id = :tid");
+        $stmt->execute([':tid' => sesionTenantId()]);
+        $row = $stmt->fetch() ?: ['tema_oscuro' => false];
+        jsonResponse(['error' => false, 'tema_oscuro' => in_array($row['tema_oscuro'], [true, 't', 1, '1'], true)]);
+
+    case 'tema_guardar':
+        $d = json_decode(file_get_contents('php://input'), true);
+        $temaOscuro = array_key_exists('tema_oscuro', $d) && (bool) $d['tema_oscuro'];
+
+        $db->prepare("
+            INSERT INTO public.tenant_config (tenant_id, tema_oscuro, updated_at)
+            VALUES (:tid, :tema, NOW())
+            ON CONFLICT (tenant_id) DO UPDATE
+            SET tema_oscuro = EXCLUDED.tema_oscuro,
+                updated_at = NOW()
+        ")->execute([
+            ':tid' => sesionTenantId(),
+            ':tema' => $temaOscuro ? 'true' : 'false',
+        ]);
+
+        registrarAuditoria('Cambio de tema del sistema', 'admin', $temaOscuro ? 'Modo oscuro activado (aplica a toda la empresa)' : 'Modo oscuro desactivado');
+
+        jsonResponse(['error' => false, 'message' => 'Tema guardado correctamente']);
 
     case 'logo_subir':
         if (empty($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {

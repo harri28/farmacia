@@ -56,9 +56,10 @@ $_brand_logo = $_brand['logo_path'] ?? null;
 $_brand_logo_abs = $_brand_logo
     ? realpath(__DIR__ . '/../' . $_brand_logo)
     : null;
+$_tema_oscuro = in_array($_brand['tema_oscuro'] ?? false, [true, 't', 1, '1'], true);
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="<?= $_tema_oscuro ? 'dark' : 'light' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

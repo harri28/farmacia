@@ -39,6 +39,9 @@ include '../../includes/header.php';
     <button class="tab-btn" id="tab-auditoria" onclick="switchTab('auditoria')">
         <i class="fas fa-shield-alt"></i> Auditoría
     </button>
+    <button class="tab-btn" id="tab-temas" onclick="switchTab('temas')">
+        <i class="fas fa-moon"></i> Temas
+    </button>
 </div>
 
 <!-- ======================================================
@@ -288,14 +291,14 @@ include '../../includes/header.php';
             </div>
         </div>
         <div style="padding:24px;max-width:920px">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px;padding:18px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(135deg,#f8fbff 0%,#f3f7ff 100%)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface-2)">
                 <div style="display:flex;gap:16px;align-items:center;min-width:280px;flex:1">
-                    <div style="width:78px;height:78px;border-radius:16px;border:1px dashed var(--border);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                    <div style="width:78px;height:78px;border-radius:16px;border:1px dashed var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
                         <i class="fas fa-store-alt" id="cfg-header-icon" style="font-size:2rem;color:var(--primary)"></i>
                         <img id="cfg-header-logo" src="" alt="Logo empresa" style="max-width:78px;max-height:78px;object-fit:contain;display:none">
                     </div>
                     <div>
-                        <div id="cfg-header-business-name" style="font-size:1.1rem;font-weight:700;color:var(--text-dark);margin-bottom:6px">Datos de la botica</div>
+                        <div id="cfg-header-business-name" style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:6px">Datos de la botica</div>
                         <div style="display:flex;gap:16px;flex-wrap:wrap;color:var(--text-muted);font-size:.85rem">
                             <span><i class="fas fa-id-card" style="margin-right:6px"></i><span id="cfg-header-ruc">RUC pendiente</span></span>
                             <span><i class="fas fa-map-marker-alt" style="margin-right:6px"></i><span id="cfg-header-address">Direccion pendiente</span></span>
@@ -497,10 +500,10 @@ include '../../includes/header.php';
             </div>
 
             <div id="cfg-pane-sunat" style="display:none">
-                <div style="border:1px solid var(--border);border-radius:16px;padding:18px;background:linear-gradient(180deg,#fffdf7 0%,#fff 100%);margin-bottom:18px">
+                <div style="border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface-2);margin-bottom:18px">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
                         <div>
-                        <div style="font-size:1rem;font-weight:700;color:var(--text-dark);margin-bottom:6px">
+                        <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:6px">
                             Datos para emitir en SUNAT
                         </div>
                         <div style="font-size:.84rem;color:var(--text-muted);max-width:620px;line-height:1.55">
@@ -682,6 +685,37 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ======================================================
+     TAB: TEMAS
+     ====================================================== -->
+<div id="pane-temas" style="display:none">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-moon" style="color:var(--primary);margin-right:8px"></i>Apariencia
+            </div>
+        </div>
+        <div style="padding:24px;max-width:640px">
+            <div class="form-group" style="margin:0">
+                <label class="form-label" style="margin-bottom:10px">Apariencia del sistema</label>
+                <div style="display:flex;align-items:center;gap:14px">
+                    <label class="ios-switch">
+                        <input type="checkbox" id="tema-switch" onchange="aplicarTema(this.checked)">
+                        <span class="ios-switch-slider"></span>
+                    </label>
+                    <span id="tema-switch-label" style="font-weight:600;color:var(--text)">
+                        <i class="fas fa-sun"></i> Modo claro
+                    </span>
+                </div>
+                <small style="color:var(--text-muted);font-size:.76rem;display:block;margin-top:10px">
+                    Se aplica de inmediato para todos los usuarios de esta empresa, en todas las sucursales.
+                    Puedes cambiar entre uno y otro cuando quieras.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <style>
@@ -706,6 +740,22 @@ include '../../includes/header.php';
 .badge-rol-gerente { background:#fef3c7; color:#d97706; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
 .badge-rol-admin   { background:#eef2ff; color:#4f46e5; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
 .badge-rol-cajero  { background:#f0fdf4; color:#16a34a; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+
+.ios-switch { position: relative; display: inline-block; width: 51px; height: 31px; flex-shrink: 0; }
+.ios-switch input { opacity: 0; width: 0; height: 0; }
+.ios-switch-slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background-color: #e2e8f0; border-radius: 34px; transition: .25s;
+}
+.ios-switch-slider::before {
+    position: absolute; content: ""; height: 27px; width: 27px; left: 2px; top: 2px;
+    background-color: #fff; border-radius: 50%; transition: .25s;
+    box-shadow: 0 2px 4px rgba(0,0,0,.25);
+}
+.ios-switch input:checked + .ios-switch-slider { background-color: #34C759; }
+.ios-switch input:checked + .ios-switch-slider::before { transform: translateX(20px); }
+.ios-switch input:disabled + .ios-switch-slider { opacity: .6; cursor: default; }
+.ios-switch input:focus-visible + .ios-switch-slider { box-shadow: 0 0 0 3px rgba(37,99,235,.3); }
 </style>
 
 <script>
@@ -714,13 +764,49 @@ let sucursalesList = [];
 
 // ---- Tabs ----
 function switchTab(tab) {
-    ['usuarios', 'sucursales', 'configuracion', 'auditoria'].forEach(t => {
+    ['usuarios', 'sucursales', 'configuracion', 'auditoria', 'temas'].forEach(t => {
         document.getElementById('pane-' + t).style.display = t === tab ? '' : 'none';
         document.getElementById('tab-' + t).classList.toggle('active', t === tab);
     });
     if (tab === 'sucursales')    loadSucursales();
     if (tab === 'configuracion') loadConfig();
     if (tab === 'auditoria')     loadAuditoria();
+    if (tab === 'temas')         loadTema();
+}
+
+// ================================================================
+// TEMAS
+// ================================================================
+
+function loadTema() {
+    fetch(BASE + 'modules/admin/api.php?action=tema_get')
+        .then(r => r.json())
+        .then(data => syncTemaSwitch(!!data.tema_oscuro))
+        .catch(() => showToast('Error al cargar el tema', 'error'));
+}
+
+function syncTemaSwitch(temaOscuro) {
+    document.getElementById('tema-switch').checked = temaOscuro;
+    document.getElementById('tema-switch-label').innerHTML = temaOscuro
+        ? '<i class="fas fa-moon"></i> Modo oscuro'
+        : '<i class="fas fa-sun"></i> Modo claro';
+}
+
+async function aplicarTema(temaOscuro) {
+    const sw = document.getElementById('tema-switch');
+    sw.disabled = true;
+    try {
+        const r = await post('tema_guardar', { tema_oscuro: temaOscuro });
+        if (r.error) { showToast(r.message, 'error'); syncTemaSwitch(!temaOscuro); return; }
+        document.documentElement.setAttribute('data-theme', temaOscuro ? 'dark' : 'light');
+        syncTemaSwitch(temaOscuro);
+        showToast(temaOscuro ? 'Modo oscuro activado' : 'Modo claro activado', 'success');
+    } catch (e) {
+        showToast('Error al guardar el tema', 'error');
+        syncTemaSwitch(!temaOscuro);
+    } finally {
+        sw.disabled = false;
+    }
 }
 
 function switchConfigSubtab(tab) {
