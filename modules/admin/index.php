@@ -519,13 +519,13 @@ include '../../includes/header.php';
                     <div class="col-12 col-md-6">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Nombre del negocio</label>
-                            <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial">
+                            <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Usuario SOL</label>
-                            <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL">
+                            <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -534,13 +534,13 @@ include '../../includes/header.php';
                     <div class="col-12 col-md-4">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Clave SOL</label>
-                            <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL">
+                            <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-4">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Clave certificado</label>
-                            <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado">
+                            <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-4">
