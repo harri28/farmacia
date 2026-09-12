@@ -5,22 +5,25 @@
 -- EJECUTAR para una nueva sucursal:
 --   SET search_path = nombre_schema;
 --   \i database/schema_sucursal.sql
+--
+-- NOTA: este archivo debe reflejar el estado final de una sucursal
+-- YA migrada (no solo el estado "recien creada" original). Cada vez
+-- que se agregue una columna via migration_XX a las sucursales
+-- existentes, hay que agregarla tambien aqui -- si no, una sucursal
+-- nueva nace desactualizada y falla con "column does not exist" en
+-- cuanto se usa esa funcionalidad. Ver CLAUDE.md.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS categorias (
-    id          SERIAL PRIMARY KEY,
-    nombre      VARCHAR(100) NOT NULL UNIQUE,
-    descripcion TEXT,
-    activo      BOOLEAN DEFAULT TRUE,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Las categorías son globales (public.categorias, ver
+-- migration_21_categorias_global.sql) -- NO se crea tabla local aqui,
+-- productos.categoria_id referencia directo a public.categorias(id).
 
 CREATE TABLE IF NOT EXISTS productos (
     id               SERIAL PRIMARY KEY,
     codigo           VARCHAR(50)    UNIQUE NOT NULL,
     nombre           VARCHAR(200)   NOT NULL,
     descripcion      TEXT,
-    categoria_id     INTEGER        REFERENCES categorias(id),
+    categoria_id     INTEGER        REFERENCES public.categorias(id),
     precio_compra    DECIMAL(10,3)  DEFAULT 0,
     precio_venta     DECIMAL(10,2)  NOT NULL,
     stock            DECIMAL(10,2)  DEFAULT 0,
@@ -32,9 +35,24 @@ CREATE TABLE IF NOT EXISTS productos (
     activo           BOOLEAN        DEFAULT TRUE,
     favorito         BOOLEAN        DEFAULT FALSE,
     total_vendido    INTEGER        DEFAULT 0,
+    fecha_vencimiento DATE,
+    -- Campos de facturacion electronica (migration_09/22/26)
+    codigo_interno       VARCHAR(50),
+    codigo_barras        VARCHAR(100),
+    codigo_sunat         VARCHAR(8)     DEFAULT '00000000',
+    unidad_id            INTEGER        REFERENCES public.fe_unidades(id),
+    unidad_codigo        VARCHAR(3)     DEFAULT 'NIU',
+    afectacion_igv_id    INTEGER        REFERENCES public.fe_tipos_afectacion_igv(id),
+    afectacion_igv_codigo VARCHAR(2)    DEFAULT '10',
+    porcentaje_igv       DECIMAL(5,2)   DEFAULT 18.00,
+    incluye_igv          BOOLEAN        DEFAULT TRUE,
+    icbper_activo        BOOLEAN        DEFAULT FALSE,
+    factor_icbper        DECIMAL(10,4)  DEFAULT 0,
+    product_type         VARCHAR(20)    DEFAULT 'product',
     created_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_productos_codigo_sunat ON productos (codigo_sunat);
 
 -- Catálogo reutilizable de unidades de medida para "Precios por unidad de
 -- medida" (ej. CAJA, BLISTER, PAQUETE). Extensible desde el formulario de
@@ -72,8 +90,17 @@ CREATE TABLE IF NOT EXISTS clientes (
     email      VARCHAR(100),
     direccion  TEXT,
     activo     BOOLEAN   DEFAULT TRUE,
+    -- Campos de facturacion electronica (migration_09)
+    tipo_documento_id     INTEGER REFERENCES public.fe_tipos_documento_identidad(id),
+    tipo_documento_codigo VARCHAR(2),
+    numero_documento      VARCHAR(20),
+    nombre_completo       VARCHAR(255),
+    razon_social          VARCHAR(255),
+    codigo_pais           VARCHAR(2) DEFAULT 'PE',
+    ubigeo                VARCHAR(6),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_clientes_numero_documento ON clientes (numero_documento);
 
 CREATE TABLE IF NOT EXISTS cajas (
     id               SERIAL PRIMARY KEY,
@@ -104,8 +131,39 @@ CREATE TABLE IF NOT EXISTS ventas (
     observaciones    TEXT,
     motivo_anulacion TEXT,
     vendedor         VARCHAR(100)  DEFAULT 'Administrador',
+    -- Campos de facturacion electronica (migration_09/22/30)
+    fecha_emision          DATE    DEFAULT CURRENT_DATE,
+    fecha_vencimiento      DATE,
+    hora_emision           TIME    DEFAULT CURRENT_TIME,
+    moneda_id              INTEGER REFERENCES public.fe_monedas(id),
+    moneda_codigo          VARCHAR(3) DEFAULT 'PEN',
+    tipo_documento_id      INTEGER REFERENCES public.fe_tipos_documento(id),
+    codigo_tipo_documento  VARCHAR(2),
+    serie                  VARCHAR(4),
+    correlativo            VARCHAR(8),
+    operacion_tipo_codigo  VARCHAR(4) DEFAULT '0101',
+    forma_pago_id          INTEGER REFERENCES public.fe_formas_pago(id),
+    sunat_forma_pago       VARCHAR(20) DEFAULT 'Contado',
+    exonerada              DECIMAL(18,2) DEFAULT 0,
+    inafecta               DECIMAL(18,2) DEFAULT 0,
+    gravada                DECIMAL(18,2) DEFAULT 0,
+    gratuita               DECIMAL(18,2) DEFAULT 0,
+    anticipo               DECIMAL(18,2) DEFAULT 0,
+    otros_cargos           DECIMAL(18,2) DEFAULT 0,
+    icbper                 DECIMAL(18,2) DEFAULT 0,
+    monto_credito          DECIMAL(18,2) DEFAULT 0,
+    vuelto                 DECIMAL(18,2) DEFAULT 0,
+    cuotas                 JSONB,
+    payment_breakdown      JSONB,
+    anulado                BOOLEAN DEFAULT FALSE,
+    cdr                    INTEGER,
+    estado_cpe             INTEGER,
+    ticket_sunat           VARCHAR(100),
+    qr                     TEXT,
     created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_ventas_fecha_emision ON ventas (fecha_emision);
+CREATE INDEX IF NOT EXISTS idx_ventas_codigo_tipo_documento ON ventas (codigo_tipo_documento);
 
 CREATE TABLE IF NOT EXISTS venta_detalles (
     id                     SERIAL PRIMARY KEY,
@@ -117,6 +175,21 @@ CREATE TABLE IF NOT EXISTS venta_detalles (
     subtotal               DECIMAL(10,2) NOT NULL,
     unidad_medida_vendida  VARCHAR(50),        -- NULL = unidad base del producto
     factor_equivalencia    DECIMAL(10,2) DEFAULT 1,  -- unidades base que representa 1 "cantidad" de esta linea
+    -- Campos de facturacion electronica (migration_09/22)
+    unidad_id              INTEGER REFERENCES public.fe_unidades(id),
+    unidad_codigo          VARCHAR(3) DEFAULT 'NIU',
+    afectacion_igv_id      INTEGER REFERENCES public.fe_tipos_afectacion_igv(id),
+    afectacion_igv_codigo  VARCHAR(2) DEFAULT '10',
+    descripcion            VARCHAR(255),
+    codigo_interno         VARCHAR(50),
+    codigo_sunat           VARCHAR(8) DEFAULT '00000000',
+    igv                    DECIMAL(18,2) DEFAULT 0,
+    valor_unitario         DECIMAL(18,10) DEFAULT 0,
+    valor_total            DECIMAL(18,2) DEFAULT 0,
+    precio_total           DECIMAL(18,2) DEFAULT 0,
+    icbper                 DECIMAL(18,2) DEFAULT 0,
+    factor_icbper          DECIMAL(18,4) DEFAULT 0,
+    cantidad_bolsas        DECIMAL(18,2) DEFAULT 0,
     created_at             TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -141,6 +214,8 @@ CREATE TABLE IF NOT EXISTS ingresos (
     total           DECIMAL(10,2) DEFAULT 0,
     estado          VARCHAR(20)   DEFAULT 'completado',
     observaciones   TEXT,
+    tipo_pago       VARCHAR(30)   DEFAULT 'efectivo',
+    orden_compra_id INTEGER,      -- FK agregada mas abajo, una vez creada ordenes_compra
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -211,13 +286,32 @@ CREATE TABLE IF NOT EXISTS comprobantes_electronicos (
     documento_modificado_numero VARCHAR(20),
     documento_modificado_numero_completo VARCHAR(30),
     documento_modificado_fecha DATE,
+    -- Campos de facturacion electronica (migration_09/22)
+    codigo_tipo_documento VARCHAR(2),
+    fecha_emision         DATE,
+    ticket_sunat          VARCHAR(100),
+    codigo_respuesta      VARCHAR(20),
+    mensaje_respuesta     TEXT,
+    hash_cpe              TEXT,
+    soap_request          TEXT,
+    soap_response         TEXT,
+    payload_json          JSONB,
+    sunat_response_json   JSONB,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    anulado               BOOLEAN DEFAULT FALSE,
     created_at            TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS series_comprobantes (
     tipo            VARCHAR(20)  PRIMARY KEY,  -- boleta | factura
     serie           VARCHAR(10)  NOT NULL,
-    ultimo_numero   INTEGER      DEFAULT 0
+    ultimo_numero   INTEGER      DEFAULT 0,
+    -- Campos de facturacion electronica (migration_09)
+    tipo_documento_id     INTEGER REFERENCES public.fe_tipos_documento(id),
+    codigo_tipo_documento VARCHAR(2),
+    descripcion           VARCHAR(100),
+    anexo_establecimiento VARCHAR(4) DEFAULT '0000',
+    activo                BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE IF NOT EXISTS ordenes_compra (
@@ -237,6 +331,16 @@ CREATE TABLE IF NOT EXISTS ordenes_compra (
     fecha_entrega   DATE,
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'ingresos_orden_compra_id_fkey'
+    ) THEN
+        ALTER TABLE ingresos ADD CONSTRAINT ingresos_orden_compra_id_fkey
+            FOREIGN KEY (orden_compra_id) REFERENCES ordenes_compra(id);
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS orden_compra_detalles (
     id              SERIAL PRIMARY KEY,
@@ -273,8 +377,31 @@ CREATE TABLE IF NOT EXISTS pagos_proveedor (
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE ingresos ADD COLUMN IF NOT EXISTS tipo_pago       VARCHAR(30) DEFAULT 'efectivo';
-ALTER TABLE ingresos ADD COLUMN IF NOT EXISTS orden_compra_id INTEGER REFERENCES ordenes_compra(id);
+-- Cuentas por cobrar (ventas al crédito) -- migration_19/19b
+CREATE TABLE IF NOT EXISTS cuentas_por_cobrar (
+    id                SERIAL PRIMARY KEY,
+    cliente_id        INTEGER       REFERENCES clientes(id),
+    venta_id          INTEGER       REFERENCES ventas(id),
+    numero_doc        VARCHAR(50),
+    monto_total       DECIMAL(10,2) NOT NULL,
+    monto_pagado      DECIMAL(10,2) DEFAULT 0,
+    monto_pendiente   DECIMAL(10,2) NOT NULL,
+    estado            VARCHAR(20)   DEFAULT 'pendiente',  -- pendiente | parcial | pagado | vencido
+    fecha_vencimiento DATE,
+    notas             TEXT,
+    created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS cobros_cliente (
+    id          SERIAL PRIMARY KEY,
+    cuenta_id   INTEGER       NOT NULL REFERENCES cuentas_por_cobrar(id),
+    monto       DECIMAL(10,2) NOT NULL,
+    metodo_pago VARCHAR(30)   DEFAULT 'efectivo',
+    referencia  VARCHAR(100),
+    usuario_id  INTEGER,
+    notas       TEXT,
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS gastos (
     id                 SERIAL PRIMARY KEY,
@@ -340,25 +467,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_toma_inv_detalles_sesion_producto
 CREATE INDEX IF NOT EXISTS idx_toma_inv_detalles_sesion
     ON toma_inventario_detalles (sesion_id);
 
--- Categorías iniciales en la tabla local de la sucursal
-INSERT INTO categorias (nombre, descripcion) VALUES
-    ('Medicamentos',          'Fármacos y medicamentos en general'),
-    ('Vitaminas y Suplementos','Vitaminas, minerales y suplementos nutricionales'),
-    ('Cuidado Personal',      'Productos de higiene y cuidado personal'),
-    ('Primeros Auxilios',     'Materiales de curación y primeros auxilios'),
-    ('Bebés y Niños',         'Productos para bebés y niños'),
-    ('Genéricos',             'Medicamentos genéricos')
-ON CONFLICT (nombre) DO NOTHING;
+-- Categorías: globales en public.categorias (migration_21) -- ya vienen
+-- seedeadas ahi (Medicamentos, Vitaminas y Suplementos, Cuidado Personal,
+-- Primeros Auxilios, Bebés y Niños, Genéricos), no hace falta reinsertarlas
+-- por sucursal.
 
 INSERT INTO clientes (nombres, apellidos, dni, telefono)
 VALUES ('Cliente', 'General', '00000000', '000000000')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO series_comprobantes (tipo, serie, ultimo_numero) VALUES
-    ('boleta',               'B001', 0),
-    ('factura',              'F001', 0),
-    ('ticket',               'TK',   0),
-    ('nota_credito',         'NC01', 0),
-    ('nota_credito_boleta',  'BC01', 0),
-    ('nota_credito_factura', 'FC01', 0)
-ON CONFLICT DO NOTHING;
+INSERT INTO series_comprobantes (tipo, serie, ultimo_numero, codigo_tipo_documento, descripcion, anexo_establecimiento, activo) VALUES
+    ('boleta',               'B001', 0, '03', 'Boleta de venta',       '0000', TRUE),
+    ('factura',              'F001', 0, '01', 'Factura',               '0000', TRUE),
+    ('ticket',               'TK',   0, '02', 'Nota de venta',         '0000', TRUE),
+    ('nota_credito',         'NC01', 0, '07', 'Nota de credito',       '0000', TRUE),
+    ('nota_credito_boleta',  'BC01', 0, '07', 'Nota de credito boleta','0000', TRUE),
+    ('nota_credito_factura', 'FC01', 0, '07', 'Nota de credito factura','0000', TRUE)
+ON CONFLICT (tipo) DO NOTHING;
