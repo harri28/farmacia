@@ -529,7 +529,7 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
             <div class="form-row" style="margin-top:6px">
                 <div class="form-group">
                     <label>Notas <span style="text-transform:none;font-weight:400;color:#94a3b8">(solo visibles para superadmin)</span></label>
-                    <textarea id="sInfoNotas" rows="4" style="width:100%;padding:9px 11px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.88rem;color:#1e293b;outline:none;resize:vertical;font-family:inherit"></textarea>
+                    <textarea id="sInfoNotas" rows="10" style="width:100%;padding:9px 11px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.88rem;color:#1e293b;outline:none;resize:vertical;font-family:inherit"></textarea>
                 </div>
             </div>
         </div>
