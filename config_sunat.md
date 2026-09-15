@@ -1,12 +1,32 @@
 # Configuración SUNAT — Notas de implementación
 
-## Estado actual de los tenants configurados con SUNAT (actualizado 2026-09-11)
+## ✅ CAUSA RAÍZ ENCONTRADA Y RESUELTA (2026-09-14) — leer esto primero
+
+Después de días descartando hipótesis (RUC mal guardado, afiliación SEE, permisos idénticos byte a byte, certificados, endpoints alternativos, correo registrado, `anexo_sucursal`), la causa real del rechazo `0111 "No tiene el perfil para enviar comprobantes electronicos - Detalle: Rejected by policy"` en Producción para cuentas nuevas fue:
+
+**Un Usuario SOL secundario al que se le modificó el mismo permiso varias veces en distintas sesiones (crear → asignar → volver a confirmar días después → agregarle más permisos encima) queda en un estado inconsistente del lado de SUNAT que no se arregla volviendo a marcar las mismas casillas.** La solución fue crear un **Usuario SOL secundario nuevo, nunca antes tocado**, y asignarle **todos los permisos necesarios de una sola vez, en una sola sesión** — no en pasos separados a lo largo de varios días.
+
+**Receta confirmada que funciona** (validada con Grupo Tapullima & Manayalle SAC, usuario `HARRILUZ`, 2026-09-14):
+
+1. En el portal SOL (con la Clave SOL del RUC **principal**), crear un **usuario secundario nuevo** — no reusar uno que ya se haya tocado antes. Usuario en **mayúsculas** (dato de la comunidad Greenter, no confirmado como obligatorio pero es gratis cumplirlo).
+2. En una sola pasada de "Modificar/Asignar Programas", marcar **ambos** grupos de permisos (no solo uno):
+   - **TRIBUTARIOS → Comprobantes de pago → SEE - Del Contribuyente y Envío de Documentos**: Servicio de Envío de Documentos Electrónicos, Certificado Digital, Consultar Envíos de CPE.
+   - **TRIBUTARIOS → Comprobantes de pago → SEE - SOL**: Factura Electrónica → Emitir Factura (+ Nota de Crédito/Débito, Consultar), Boleta de Venta Electrónica → Emitir Boleta de Venta (+ Nota de Crédito/Débito, Consultar). **Este segundo grupo es el que faltaba** — la documentación previa de este mismo archivo decía que "SEE - SOL" no aplicaba para envío por servicio web (ver nota de corrección más abajo), y eso era incompleto: aunque el envío en sí es por servicio web, SUNAT parece exigir también el perfil base de emisión de SEE-SOL como prerequisito.
+3. Completar el asistente hasta el final y confirmar que aparece el mensaje explícito **"El Usuario Secundario y sus Opciones han sido registrados satisfactoriamente."** — no basta con ver las casillas marcadas en el árbol, hay que llegar a esa confirmación.
+4. Configurar ese usuario/clave nuevo en Admin → Configuración → SUNAT y certificado de FarmaSystem (el RUC y el certificado **no cambian**, siguen siendo los mismos ya validados).
+5. Esperar **algunas horas** (no necesariamente 24-48h completas) antes de que la aceptación sea consistente — es normal ver 1-2 rechazos `0111` intermitentes en las primeras horas mientras SUNAT termina de propagar el nuevo usuario en todos sus servidores; después de eso, aceptación estable. Confirmado con el Reporte de Ventas de Grupo Tapullima: todos los envíos desde las ~2 horas después de crear `HARRILUZ` en adelante salieron "Aceptado" (con 2 rechazos sueltos intermedios, coherente con propagación desigual, no con un problema real).
+
+**Corrección a una nota anterior de este archivo**: en la sección "Error: No tiene el perfil..." más abajo se decía que "SEE - SOL" era irrelevante para un sistema que envía por servicio web como este. Esa afirmación **era incompleta** — SUNAT sí parece requerir (al menos en la práctica, sin que quede claro en su documentación pública) que el usuario tenga también el perfil de emisión de SEE-SOL, aunque el canal real de envío sea el servicio web de "SEE del Contribuyente". Dejar el punto 2 de la receta de arriba como la guía correcta a seguir de ahora en adelante.
+
+**Pendiente de aplicar la misma receta** (usuario nuevo + ambos grupos de permisos en una sola sesión) a: `generycpharma` (RUC `20611023457`, actualmente con `User1237`, tocado varias veces — crear un usuario nuevo en vez de seguir insistiendo con ese) y al RUC natural de prueba (`10734630549`, `PETRAM73`, mismo caso).
+
+## Estado actual de los tenants configurados con SUNAT (actualizado 2026-09-14)
 
 | Tenant | RUC | Usuario SOL | Rol | Estado actual |
 |---|---|---|---|---|
 | **PETRAM CO SAC** | `20616086465` | `HARRIS28` | Empresa propia del usuario del sistema — **la usa para hacer pruebas**, no es cliente. | ✅ Envío a SUNAT **Aceptado consistente** desde 2026-07-12 (Producción). Es el caso de referencia "funcionando" que se usa para comparar cuando otro tenant falla. |
-| **generycpharma** (razón social real: GRUPO OLAZABAL MUÑOZ S.A.C.) | `20611023457` | `User1237` | Cliente real. | 🔴 **Bloqueado, escalado a SUNAT.** Se corrigió el `ruc` (tenía un placeholder), se confirmó afiliación al SEE (emite bien manual), y se comparó permiso por permiso contra PETRAM (idénticos) — nada de esto resolvió el rechazo `0111` en Producción. No queda nada diagnosticable desde el sistema. Pendiente de respuesta de Mesa de Ayuda SUNAT — ver "Conclusión (2026-09-11)" más abajo. |
-| **Generic Pharma** (razón social real: Grupo Tapullima & Manayalle SAC) | `20616306139` | `petram26` | Cliente real. | ⚠️ **Pendiente, no iniciado.** Certificado y firma ya probados y funcionando correctamente en local (ver "Bugs de entorno resueltos" más abajo — el `.pfx` local tuvo que re-exportarse por incompatibilidad con OpenSSL 3.x, pero el de producción no debería tener ese problema). El usuario SOL `petram26` **todavía no tiene asignado** el permiso "Servicio de Envío de Documentos Electrónicos" en el portal SUNAT de este RUC — queda pendiente de hacerlo, se revisará en otro momento. |
+| **Generic Pharma** (razón social real: Grupo Tapullima & Manayalle SAC) | `20616306139` | ~~`petram26`~~ → **`HARRILUZ`** (usuario nuevo, 2026-09-14) | Cliente real. | ✅ **Resuelto 2026-09-14.** El usuario original `petram26` nunca llegó a funcionar; se creó `HARRILUZ` desde cero con ambos grupos de permisos (SEE-Del Contribuyente + SEE-SOL) en una sola sesión — Aceptado consistente unas horas después. Ver "Causa raíz" arriba. |
+| **generycpharma** (razón social real: GRUPO OLAZABAL MUÑOZ S.A.C.) | `20611023457` | `User1237` | Cliente real. | 🔴 **Sigue bloqueado.** Se corrigió el `ruc` (tenía un placeholder) y se confirmó afiliación al SEE, pero `User1237` fue tocado/re-guardado varias veces en distintas sesiones — candidato principal a estar en el mismo estado inconsistente que tenía `petram26`. **Siguiente paso: aplicar la receta de la sección "Causa raíz" (usuario nuevo, no reusar `User1237`).** |
 
 ## Estado: EN PROGRESO — se pasó el error 0111, ahora falla por credenciales SOL (2026-07-12)
 Avance real: después de asignar los permisos del Usuario SOL y corregir el sobre SOAP, el error `0111 "Rejected by policy"` **dejó de aparecer** — la boleta `B001-00000006` avanzó a un error distinto:
