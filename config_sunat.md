@@ -6,7 +6,7 @@ Después de días descartando hipótesis (RUC mal guardado, afiliación SEE, per
 
 **Un Usuario SOL secundario al que se le modificó el mismo permiso varias veces en distintas sesiones (crear → asignar → volver a confirmar días después → agregarle más permisos encima) queda en un estado inconsistente del lado de SUNAT que no se arregla volviendo a marcar las mismas casillas.** La solución fue crear un **Usuario SOL secundario nuevo, nunca antes tocado**, y asignarle **todos los permisos necesarios de una sola vez, en una sola sesión** — no en pasos separados a lo largo de varios días.
 
-**Receta confirmada que funciona** (validada con Grupo Tapullima & Manayalle SAC, usuario `HARRILUZ`, 2026-09-14):
+**Receta confirmada dos veces, en dos empresas independientes** (Grupo Tapullima & Manayalle SAC con `HARRILUZ` el 2026-09-14, y GRUPO OLAZABAL MUÑOZ S.A.C. / Generyc Pharma con `HARRIGEN` el 2026-09-15) — ya no es coincidencia, es la causa raíz confirmada:
 
 1. En el portal SOL (con la Clave SOL del RUC **principal**), crear un **usuario secundario nuevo** — no reusar uno que ya se haya tocado antes. Usuario en **mayúsculas** (dato de la comunidad Greenter, no confirmado como obligatorio pero es gratis cumplirlo).
 2. En una sola pasada de "Modificar/Asignar Programas", marcar **ambos** grupos de permisos (no solo uno):
@@ -18,15 +18,15 @@ Después de días descartando hipótesis (RUC mal guardado, afiliación SEE, per
 
 **Corrección a una nota anterior de este archivo**: en la sección "Error: No tiene el perfil..." más abajo se decía que "SEE - SOL" era irrelevante para un sistema que envía por servicio web como este. Esa afirmación **era incompleta** — SUNAT sí parece requerir (al menos en la práctica, sin que quede claro en su documentación pública) que el usuario tenga también el perfil de emisión de SEE-SOL, aunque el canal real de envío sea el servicio web de "SEE del Contribuyente". Dejar el punto 2 de la receta de arriba como la guía correcta a seguir de ahora en adelante.
 
-**Pendiente de aplicar la misma receta** (usuario nuevo + ambos grupos de permisos en una sola sesión) a: `generycpharma` (RUC `20611023457`, actualmente con `User1237`, tocado varias veces — crear un usuario nuevo en vez de seguir insistiendo con ese) y al RUC natural de prueba (`10734630549`, `PETRAM73`, mismo caso).
+**Pendiente de aplicar la misma receta** (usuario nuevo + ambos grupos de permisos en una sola sesión), solo si hace falta: al RUC natural de prueba (`10734630549`, `PETRAM73`) — es un tenant de pruebas (sandbox), no un cliente real, así que no es urgente.
 
-## Estado actual de los tenants configurados con SUNAT (actualizado 2026-09-14)
+## Estado actual de los tenants configurados con SUNAT (actualizado 2026-09-15)
 
 | Tenant | RUC | Usuario SOL | Rol | Estado actual |
 |---|---|---|---|---|
 | **PETRAM CO SAC** | `20616086465` | `HARRIS28` | Empresa propia del usuario del sistema — **la usa para hacer pruebas**, no es cliente. | ✅ Envío a SUNAT **Aceptado consistente** desde 2026-07-12 (Producción). Es el caso de referencia "funcionando" que se usa para comparar cuando otro tenant falla. |
 | **Generic Pharma** (razón social real: Grupo Tapullima & Manayalle SAC) | `20616306139` | ~~`petram26`~~ → **`HARRILUZ`** (usuario nuevo, 2026-09-14) | Cliente real. | ✅ **Resuelto 2026-09-14.** El usuario original `petram26` nunca llegó a funcionar; se creó `HARRILUZ` desde cero con ambos grupos de permisos (SEE-Del Contribuyente + SEE-SOL) en una sola sesión — Aceptado consistente unas horas después. Ver "Causa raíz" arriba. |
-| **generycpharma** (razón social real: GRUPO OLAZABAL MUÑOZ S.A.C.) | `20611023457` | `User1237` | Cliente real. | 🔴 **Sigue bloqueado.** Se corrigió el `ruc` (tenía un placeholder) y se confirmó afiliación al SEE, pero `User1237` fue tocado/re-guardado varias veces en distintas sesiones — candidato principal a estar en el mismo estado inconsistente que tenía `petram26`. **Siguiente paso: aplicar la receta de la sección "Causa raíz" (usuario nuevo, no reusar `User1237`).** |
+| **generycpharma** (razón social real: GRUPO OLAZABAL MUÑOZ S.A.C.) | `20611023457` | ~~`User1237`~~ → **`HARRIGEN`** (usuario nuevo, 2026-09-15) | Cliente real. | ✅ **Resuelto 2026-09-15.** Mismo patrón que Grupo Tapullima: `User1237` había sido tocado en varias sesiones y nunca llegó a funcionar; se creó `HARRIGEN` desde cero con ambos grupos de permisos en una sola sesión — confirmado Aceptado en Producción tras algunas horas. **Segunda confirmación independiente de la causa raíz** — ver arriba. |
 
 ## Estado: EN PROGRESO — se pasó el error 0111, ahora falla por credenciales SOL (2026-07-12)
 Avance real: después de asignar los permisos del Usuario SOL y corregir el sobre SOAP, el error `0111 "Rejected by policy"` **dejó de aparecer** — la boleta `B001-00000006` avanzó a un error distinto:
