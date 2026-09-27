@@ -58,8 +58,24 @@ switch ($action) {
     case 'ordenes_listar':
         try {
             $estado = $_GET['estado'] ?? '';
-            $where  = $estado ? "WHERE oc.estado = :estado" : '';
-            $params = $estado ? [':estado' => $estado] : [];
+            $q      = trim($_GET['q'] ?? '');
+            $conds  = [];
+            $params = [];
+            if ($estado) {
+                $conds[] = "oc.estado = :estado";
+                $params[':estado'] = $estado;
+            }
+            if ($q !== '') {
+                $conds[] = "(oc.numero_orden ILIKE :q1 OR p.razon_social ILIKE :q2 OR p.ruc ILIKE :q3
+                             OR oc.observaciones ILIKE :q4
+                             OR EXISTS (SELECT 1 FROM orden_compra_detalles dq
+                                        JOIN productos pq ON pq.id = dq.producto_id
+                                        WHERE dq.orden_id = oc.id
+                                          AND (pq.nombre ILIKE :q5 OR pq.codigo ILIKE :q6)))";
+                $like = '%' . $q . '%';
+                foreach (['q1','q2','q3','q4','q5','q6'] as $k) $params[':' . $k] = $like;
+            }
+            $where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
             $stmt   = $db->prepare("
                 SELECT oc.id, oc.numero_orden, oc.estado, oc.tipo_pago, oc.dias_credito,
                        oc.subtotal, oc.igv, oc.costo_envio, oc.total, oc.fecha_entrega, oc.observaciones, oc.created_at,

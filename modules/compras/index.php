@@ -40,6 +40,11 @@ require_once '../../includes/header.php';
               font-size:.78rem; font-weight:600; color:var(--text-muted); cursor:pointer; transition:.15s; }
 .filter-btn:hover  { border-color:var(--primary); color:var(--primary); }
 .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+.toolbar-search { position:relative; flex:1; min-width:220px; max-width:340px; }
+.toolbar-search i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:.8rem; }
+.toolbar-search input { width:100%; padding:7px 12px 7px 34px; border:1.5px solid var(--border); border-radius:20px;
+                        font-size:.82rem; background:var(--surface, #fff); color:var(--text-primary); outline:none; transition:.15s; }
+.toolbar-search input:focus { border-color:var(--primary); }
 
 /* ---- Table ---- */
 .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow-x:auto; overflow-y:hidden; }
@@ -199,6 +204,11 @@ require_once '../../includes/header.php';
             <button class="filter-btn" onclick="filtrarOrdenes('aprobada')">Aprobada</button>
             <button class="filter-btn" onclick="filtrarOrdenes('recibida')">Recibida</button>
             <button class="filter-btn" onclick="filtrarOrdenes('cancelada')">Cancelada</button>
+        </div>
+        <div class="toolbar-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscarOrden" placeholder="Buscar por Nº orden, proveedor, RUC o producto..."
+                   autocomplete="off" oninput="buscarOrdenes(this.value)">
         </div>
     </div>
     <div class="table-wrap">
@@ -569,6 +579,8 @@ require_once '../../includes/header.php';
 const API   = '<?= $base_path ?>modules/compras/api.php';
 const BASE  = '<?= $base_path ?>';
 let _filtroOrden = '';
+let _busquedaOrden = '';
+let _busquedaTimer = null;
 
 // ----------------------------------------------------------------
 // Tabs
@@ -610,6 +622,14 @@ function filtrarOrdenes(estado) {
     cargarOrdenes();
 }
 
+function buscarOrdenes(valor) {
+    clearTimeout(_busquedaTimer);
+    _busquedaTimer = setTimeout(() => {
+        _busquedaOrden = valor.trim();
+        cargarOrdenes();
+    }, 300);
+}
+
 const ESTADO_LABEL = {
     borrador:'Borrador', pendiente:'Pendiente', aprobada:'Aprobada',
     recibida:'Recibida', cancelada:'Cancelada'
@@ -620,8 +640,10 @@ async function cargarOrdenes() {
     const tbody = document.getElementById('tbodyOrdenes');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     try {
-        const url = _filtroOrden ? `${API}?action=ordenes_listar&estado=${_filtroOrden}` : `${API}?action=ordenes_listar`;
-        const r = await fetch(url);
+        const params = new URLSearchParams({ action: 'ordenes_listar' });
+        if (_filtroOrden)    params.set('estado', _filtroOrden);
+        if (_busquedaOrden)  params.set('q', _busquedaOrden);
+        const r = await fetch(`${API}?${params}`);
         const data = await r.json();
         if (data.error) {
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:36px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${esc(data.message)}</td></tr>`;
@@ -629,8 +651,8 @@ async function cargarOrdenes() {
         }
         const lista = data;
         if (!lista.length) {
-            tbody.innerHTML = _filtroOrden
-                ? `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron órdenes con ese filtro</div></td></tr>`
+            tbody.innerHTML = (_filtroOrden || _busquedaOrden)
+                ? `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-search"></i>No se encontraron órdenes con ese filtro o búsqueda</div></td></tr>`
                 : `<tr><td colspan="8">
                     <div class="empty-state">
                         <i class="fas fa-file-alt"></i>
