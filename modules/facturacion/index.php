@@ -386,6 +386,80 @@ include '../../includes/header.php';
                 <i class="fas fa-search"></i> Calcular
             </button>
         </div>
+        <div style="padding:0 20px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Comprobante</label>
+                <select class="form-control" id="rent-tipo-comp">
+                    <option value="">Todos</option>
+                    <option value="ticket">Ticket</option>
+                    <option value="boleta">Boleta</option>
+                    <option value="factura">Factura</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Método de pago</label>
+                <select class="form-control" id="rent-tipo-pago">
+                    <option value="">Todos</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="yape">Yape</option>
+                    <option value="plin">Plin</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="credito">Crédito</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:130px">
+                <label class="form-label">Tipo</label>
+                <select class="form-control" id="rent-product-type">
+                    <option value="">Productos y servicios</option>
+                    <option value="product">Solo productos</option>
+                    <option value="service">Solo servicios</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Laboratorio</label>
+                <input type="text" id="rent-laboratorio" class="form-control" placeholder="Contiene...">
+            </div>
+            <div class="form-group" style="margin:0;width:100px">
+                <label class="form-label">Margen mín %</label>
+                <input type="number" step="0.1" id="rent-margen-min" class="form-control" placeholder="—">
+            </div>
+            <div class="form-group" style="margin:0;width:100px">
+                <label class="form-label">Margen máx %</label>
+                <input type="number" step="0.1" id="rent-margen-max" class="form-control" placeholder="—">
+            </div>
+        </div>
+        <div style="padding:0 20px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:150px">
+                <label class="form-label">Ordenar por</label>
+                <select class="form-control" id="rent-orden-col" onchange="rentAplicarOrden()">
+                    <option value="ganancia">Ganancia</option>
+                    <option value="unidades">Unidades vendidas</option>
+                    <option value="ingresos">Ingresos</option>
+                    <option value="margen_pct">Margen %</option>
+                    <option value="roi_pct">ROI %</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:150px">
+                <label class="form-label">Mostrar</label>
+                <select class="form-control" id="rent-orden-dir" onchange="rentAplicarOrden()">
+                    <option value="-1">Los que más (mayor a menor)</option>
+                    <option value="1">Los que menos (menor a mayor)</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;width:120px">
+                <label class="form-label">Top</label>
+                <select class="form-control" id="rent-top-n" onchange="rentAplicarOrden()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="0">Todos</option>
+                </select>
+            </div>
+            <button class="btn btn-secondary" onclick="rentExportarCSV()">
+                <i class="fas fa-file-csv"></i> Exportar CSV
+            </button>
+        </div>
         <div style="padding:0 20px 16px;display:flex;gap:8px;flex-wrap:wrap">
             <span style="font-size:.78rem;color:var(--text-muted);align-self:center">Período:</span>
             <button class="btn btn-ghost btn-sm" onclick="rentSetPeriodo('hoy')">Hoy</button>
@@ -421,7 +495,7 @@ include '../../includes/header.php';
         <div class="col-12 col-lg-5">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title"><i class="fas fa-trophy" style="color:#f59e0b"></i> Top 10 más rentables</div>
+                    <div class="card-title"><i class="fas fa-trophy" style="color:#f59e0b"></i> <span id="rent-top-titulo">Top 10 más rentables</span></div>
                 </div>
                 <div id="rent-tabla-top">
                     <div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>
@@ -466,10 +540,11 @@ include '../../includes/header.php';
                     <th class="sortable text-right" data-col="costo" onclick="rentSort('costo')">Costo <i class="fas fa-sort" style="font-size:.7rem;color:var(--text-muted)"></i></th>
                     <th class="sortable text-right" data-col="ganancia" onclick="rentSort('ganancia')">Ganancia <i class="fas fa-sort" style="font-size:.7rem;color:var(--text-muted)"></i></th>
                     <th class="sortable text-right" data-col="margen_pct" onclick="rentSort('margen_pct')">Margen % <i class="fas fa-sort" style="font-size:.7rem;color:var(--text-muted)"></i></th>
+                    <th class="sortable text-right" data-col="roi_pct" onclick="rentSort('roi_pct')">ROI % <i class="fas fa-sort" style="font-size:.7rem;color:var(--text-muted)"></i></th>
                     <th style="min-width:100px">Indicador</th>
                 </tr></thead>
                 <tbody id="rent-prod-body">
-                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
             </table>
         </div>
@@ -1183,8 +1258,11 @@ function ncCrear() {
 let rentAllProductos=[], rentSortCol='ganancia', rentSortDir=-1;
 
 function rentGetParams() {
-    return { desde:document.getElementById('rent-desde').value, hasta:document.getElementById('rent-hasta').value,
-             categoria_id:document.getElementById('rent-categoria').value, vendedor:document.getElementById('rent-vendedor').value };
+    const v=id=>document.getElementById(id).value;
+    return { desde:v('rent-desde'), hasta:v('rent-hasta'),
+             categoria_id:v('rent-categoria'), vendedor:v('rent-vendedor'),
+             tipo_comp:v('rent-tipo-comp'), tipo_pago:v('rent-tipo-pago'), product_type:v('rent-product-type'),
+             laboratorio:v('rent-laboratorio').trim(), margen_min:v('rent-margen-min'), margen_max:v('rent-margen-max') };
 }
 function rentBuildQuery(extra={}) { return new URLSearchParams({...rentGetParams(),...extra}).toString(); }
 
@@ -1210,6 +1288,11 @@ function rentResetFiltros() {
     document.getElementById('rent-categoria').value='0';
     document.getElementById('rent-vendedor').value='';
     document.getElementById('rent-prod-q').value='';
+    ['rent-tipo-comp','rent-tipo-pago','rent-product-type','rent-laboratorio','rent-margen-min','rent-margen-max'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('rent-orden-col').value='ganancia';
+    document.getElementById('rent-orden-dir').value='-1';
+    document.getElementById('rent-top-n').value='10';
+    rentSortCol='ganancia'; rentSortDir=-1;
     rentBuscar();
 }
 
@@ -1290,26 +1373,82 @@ function rentLoadCategorias() {
 
 function rentLoadTop() {
     document.getElementById('rent-tabla-top').innerHTML='<div style="padding:24px;text-align:center;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
-    document.getElementById('rent-prod-body').innerHTML='<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    document.getElementById('rent-prod-body').innerHTML='<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     document.getElementById('rent-prod-count').textContent='—';
     fetch(BASE+'modules/facturacion/api.php?'+rentBuildQuery({action:'rentabilidad_productos'}))
         .then(r=>r.json())
         .then(data=>{
             rentAllProductos=Array.isArray(data)&&!data.error?data:[];
             rentRenderTabla();
-            if(!rentAllProductos.length){document.getElementById('rent-tabla-top').innerHTML='<p style="padding:16px;text-align:center;color:var(--text-muted);font-size:.85rem">Sin datos</p>';return;}
-            const top10=rentAllProductos.slice(0,10), maxGan=parseFloat(top10[0]?.ganancia||0);
-            const medals=['🥇','🥈','🥉'];
-            document.getElementById('rent-tabla-top').innerHTML=top10.map((p,i)=>{
-                const gan=parseFloat(p.ganancia);
-                return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border)">
-                    <span style="width:20px;text-align:center;font-size:.9rem;flex-shrink:0">${medals[i]||`<span style="font-size:.75rem;color:var(--text-muted);font-weight:700">${i+1}</span>`}</span>
-                    <div style="flex:1;min-width:0"><div style="font-size:.84rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.producto)}</div><div style="font-size:.72rem;color:var(--text-muted)">${esc(p.categoria)} · ${p.unidades} uds</div></div>
-                    <div style="text-align:right;flex-shrink:0"><div style="font-size:.88rem;font-weight:700;color:${gan>=0?'var(--success)':'var(--danger)'}">S/ ${gan.toFixed(2)}</div><div style="font-size:.72rem;color:var(--text-muted)">${parseFloat(p.margen_pct).toFixed(1)}% margen</div></div>
-                </div>`;
-            }).join('');
+            rentRenderTop();
         })
         .catch(()=>showToast('Error al cargar productos','error'));
+}
+
+const RENT_TITULO = {
+    ganancia:  ['más rentables','menos rentables'],
+    unidades:  ['más vendidos','menos vendidos'],
+    ingresos:  ['con más ingresos','con menos ingresos'],
+    margen_pct:['con mayor margen','con menor margen'],
+    roi_pct:   ['con mayor ROI','con menor ROI'],
+};
+
+function rentOrdenar(arr) {
+    return arr.slice().sort((a,b)=>{
+        const av=isNaN(a[rentSortCol])?(a[rentSortCol]||'').toLowerCase():parseFloat(a[rentSortCol]);
+        const bv=isNaN(b[rentSortCol])?(b[rentSortCol]||'').toLowerCase():parseFloat(b[rentSortCol]);
+        return av<bv?rentSortDir:av>bv?-rentSortDir:0;
+    });
+}
+
+function rentTopN() { return parseInt(document.getElementById('rent-top-n').value,10)||0; }
+
+function rentRenderTop() {
+    const box=document.getElementById('rent-tabla-top');
+    const n=rentTopN()||rentAllProductos.length;
+    const esMenos=rentSortDir===1;
+    const titulo=RENT_TITULO[rentSortCol];
+    document.getElementById('rent-top-titulo').textContent=titulo
+        ? `Top ${rentTopN()||'todos'} ${titulo[esMenos?1:0]}`
+        : 'Top productos';
+    if(!rentAllProductos.length){box.innerHTML='<p style="padding:16px;text-align:center;color:var(--text-muted);font-size:.85rem">Sin datos</p>';return;}
+    const lista=rentOrdenar(rentAllProductos).slice(0,Math.min(n,50));
+    const medals=['🥇','🥈','🥉'];
+    const fmtVal=p=>{
+        if(rentSortCol==='unidades') return `<div style="font-size:.88rem;font-weight:700">${p.unidades} uds</div><div style="font-size:.72rem;color:var(--text-muted)">S/ ${parseFloat(p.ingresos).toFixed(2)}</div>`;
+        if(rentSortCol==='ingresos') return `<div style="font-size:.88rem;font-weight:700">S/ ${parseFloat(p.ingresos).toFixed(2)}</div><div style="font-size:.72rem;color:var(--text-muted)">${p.unidades} uds</div>`;
+        if(rentSortCol==='margen_pct') return `<div style="font-size:.88rem;font-weight:700">${parseFloat(p.margen_pct).toFixed(1)}%</div><div style="font-size:.72rem;color:var(--text-muted)">S/ ${parseFloat(p.ganancia).toFixed(2)}</div>`;
+        if(rentSortCol==='roi_pct') return `<div style="font-size:.88rem;font-weight:700">${parseFloat(p.roi_pct).toFixed(1)}%</div><div style="font-size:.72rem;color:var(--text-muted)">S/ ${parseFloat(p.ganancia).toFixed(2)}</div>`;
+        const gan=parseFloat(p.ganancia);
+        return `<div style="font-size:.88rem;font-weight:700;color:${gan>=0?'var(--success)':'var(--danger)'}">S/ ${gan.toFixed(2)}</div><div style="font-size:.72rem;color:var(--text-muted)">${parseFloat(p.margen_pct).toFixed(1)}% margen</div>`;
+    };
+    box.innerHTML=`<div style="max-height:420px;overflow-y:auto">`+lista.map((p,i)=>
+        `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border)">
+            <span style="width:20px;text-align:center;font-size:.9rem;flex-shrink:0">${(!esMenos&&medals[i])||`<span style="font-size:.75rem;color:var(--text-muted);font-weight:700">${i+1}</span>`}</span>
+            <div style="flex:1;min-width:0"><div style="font-size:.84rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.producto)}</div><div style="font-size:.72rem;color:var(--text-muted)">${esc(p.categoria)}</div></div>
+            <div style="text-align:right;flex-shrink:0">${fmtVal(p)}</div>
+        </div>`).join('')+`</div>`;
+}
+
+// Sincroniza los selectores "Ordenar por / Mostrar / Top" con la tabla y el Top.
+function rentAplicarOrden() {
+    rentSortCol=document.getElementById('rent-orden-col').value;
+    rentSortDir=parseInt(document.getElementById('rent-orden-dir').value,10);
+    rentRenderTabla(); rentRenderTop();
+}
+
+function rentExportarCSV() {
+    const q=document.getElementById('rent-prod-q').value.toLowerCase();
+    const data=rentOrdenar(rentAllProductos.filter(p=>!q||p.producto.toLowerCase().includes(q)||p.categoria.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q)));
+    if(!data.length){showToast('No hay datos para exportar','error');return;}
+    const c=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+    const filas=[['Código','Producto','Categoría','Laboratorio','Unidades','Ingresos','Costo','Ganancia','Margen %','ROI %']];
+    data.forEach(p=>filas.push([p.codigo,p.producto,p.categoria,p.laboratorio||'',p.unidades,p.ingresos,p.costo,p.ganancia,p.margen_pct,p.roi_pct]));
+    const csv='﻿'+filas.map(f=>f.map(c).join(',')).join('\r\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    a.download=`rentabilidad_${document.getElementById('rent-desde').value}_${document.getElementById('rent-hasta').value}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
 }
 
 function rentLoadTendencia() {
@@ -1355,19 +1494,16 @@ function rentRenderTendencia(data) {
 
 function rentRenderTabla() {
     const q=document.getElementById('rent-prod-q').value.toLowerCase();
-    let data=rentAllProductos.filter(p=>!q||p.producto.toLowerCase().includes(q)||p.categoria.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q));
-    data.sort((a,b)=>{
-        const av=isNaN(a[rentSortCol])?(a[rentSortCol]||'').toLowerCase():parseFloat(a[rentSortCol]);
-        const bv=isNaN(b[rentSortCol])?(b[rentSortCol]||'').toLowerCase():parseFloat(b[rentSortCol]);
-        return av<bv?rentSortDir:av>bv?-rentSortDir:0;
-    });
-    document.getElementById('rent-prod-count').textContent=data.length+' producto(s)';
+    let data=rentOrdenar(rentAllProductos.filter(p=>!q||p.producto.toLowerCase().includes(q)||p.categoria.toLowerCase().includes(q)||p.codigo.toLowerCase().includes(q)));
+    const total=data.length, n=rentTopN();
+    if(n>0) data=data.slice(0,n);
+    document.getElementById('rent-prod-count').textContent=(n>0&&total>n?`${data.length} de ${total}`:total)+' producto(s)';
     document.querySelectorAll('#rent-tabla-productos .sortable').forEach(th=>{
         const col=th.dataset.col, ico=th.querySelector('i');
         if(ico) ico.className=col===rentSortCol?(rentSortDir===-1?'fas fa-sort-down':'fas fa-sort-up'):'fas fa-sort';
         if(ico) ico.style.color=col===rentSortCol?'var(--primary)':'var(--text-muted)';
     });
-    if(!data.length){document.getElementById('rent-prod-body').innerHTML='<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-box-open" style="font-size:1.3rem"></i><br><br>Sin productos para los filtros</td></tr>';return;}
+    if(!data.length){document.getElementById('rent-prod-body').innerHTML='<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-box-open" style="font-size:1.3rem"></i><br><br>Sin productos para los filtros</td></tr>';return;}
     const maxGan=Math.max(...data.map(d=>Math.abs(parseFloat(d.ganancia))));
     document.getElementById('rent-prod-body').innerHTML=data.map((p,i)=>{
         const gan=parseFloat(p.ganancia), mar=parseFloat(p.margen_pct);
@@ -1383,13 +1519,20 @@ function rentRenderTabla() {
             <td class="text-right" style="font-size:.85rem;color:var(--text-muted)">S/ ${parseFloat(p.costo).toFixed(2)}</td>
             <td class="text-right" style="font-size:.9rem;font-weight:700;color:${ganClr}">S/ ${gan.toFixed(2)}</td>
             <td class="text-right" style="font-size:.85rem;font-weight:600;${marClr}">${mar.toFixed(1)}%</td>
+            <td class="text-right" style="font-size:.85rem;color:var(--text-muted)">${parseFloat(p.roi_pct).toFixed(1)}%</td>
             <td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:#f1f5f9;border-radius:3px;height:7px;overflow:hidden"><div style="width:${pct.toFixed(1)}%;height:100%;background:${gan>=0?'#16a34a':'#dc2626'};border-radius:3px;transition:.3s"></div></div></div></td>
         </tr>`;
     }).join('');
 }
 
 function rentFiltrar() { rentRenderTabla(); }
-function rentSort(col) { if(rentSortCol===col)rentSortDir*=-1;else{rentSortCol=col;rentSortDir=-1;} rentRenderTabla(); }
+function rentSort(col) {
+    if(rentSortCol===col)rentSortDir*=-1;else{rentSortCol=col;rentSortDir=-1;}
+    const sel=document.getElementById('rent-orden-col');
+    if([...sel.options].some(o=>o.value===col)) sel.value=col;
+    document.getElementById('rent-orden-dir').value=String(rentSortDir);
+    rentRenderTabla(); rentRenderTop();
+}
 
 // ================================================================
 // INIT

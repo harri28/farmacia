@@ -329,6 +329,23 @@ $q           = '%' . trim($_GET['q'] ?? '') . '%';
 
 $hasta_dt = $hasta . ' 23:59:59';
 
+// Filtros extra de Rentabilidad (tipo de comprobante, metodo de pago,
+// laboratorio, tipo de producto). Se agregan al WHERE de las 4 consultas
+// rentabilidad_* para que stats, categorias, productos y tendencia
+// siempre reflejen el mismo conjunto de ventas.
+function rentFiltrosExtra(array &$params): string {
+    $sql = '';
+    $tc = trim($_GET['tipo_comp'] ?? '');
+    if ($tc !== '')  { $sql .= " AND v.tipo_comprobante = :f_tc";  $params[':f_tc'] = $tc; }
+    $tp = trim($_GET['tipo_pago'] ?? '');
+    if ($tp !== '')  { $sql .= " AND v.tipo_pago = :f_tp";         $params[':f_tp'] = $tp; }
+    $lab = trim($_GET['laboratorio'] ?? '');
+    if ($lab !== '') { $sql .= " AND p.laboratorio ILIKE :f_lab";  $params[':f_lab'] = '%' . $lab . '%'; }
+    $pt = trim($_GET['product_type'] ?? '');
+    if ($pt === 'product' || $pt === 'service') { $sql .= " AND p.product_type = :f_pt"; $params[':f_pt'] = $pt; }
+    return $sql;
+}
+
 switch ($action) {
 
     // ---- GET: Estadísticas del período ----
@@ -938,6 +955,7 @@ switch ($action) {
         $where  = '';
         if ($vendedor)     { $where .= " AND v.vendedor = :vendedor";       $params[':vendedor']     = $vendedor; }
         if ($categoria_id) { $where .= " AND p.categoria_id = :cat_id";    $params[':cat_id']       = $categoria_id; }
+        $where .= rentFiltrosExtra($params);
 
         try {
             $stmt = $db->prepare("
@@ -975,6 +993,7 @@ switch ($action) {
         $where  = '';
         if ($vendedor)     { $where .= " AND v.vendedor = :vendedor";    $params[':vendedor'] = $vendedor; }
         if ($categoria_id) { $where .= " AND p.categoria_id = :cat_id"; $params[':cat_id']   = $categoria_id; }
+        $where .= rentFiltrosExtra($params);
 
         try {
             $stmt = $db->prepare("
@@ -1013,6 +1032,18 @@ switch ($action) {
         $where  = '';
         if ($vendedor)     { $where .= " AND v.vendedor = :vendedor";    $params[':vendedor'] = $vendedor; }
         if ($categoria_id) { $where .= " AND p.categoria_id = :cat_id"; $params[':cat_id']   = $categoria_id; }
+        $where .= rentFiltrosExtra($params);
+
+        // Margen minimo/maximo: se evalua sobre el margen agregado del producto.
+        $having = [];
+        $margenExpr = "COALESCE(SUM(vd.subtotal - vd.cantidad * p.precio_compra) / NULLIF(SUM(vd.subtotal), 0) * 100, 0)";
+        if (isset($_GET['margen_min']) && is_numeric($_GET['margen_min'])) {
+            $having[] = "$margenExpr >= :m_min"; $params[':m_min'] = floatval($_GET['margen_min']);
+        }
+        if (isset($_GET['margen_max']) && is_numeric($_GET['margen_max'])) {
+            $having[] = "$margenExpr <= :m_max"; $params[':m_max'] = floatval($_GET['margen_max']);
+        }
+        $having = $having ? 'HAVING ' . implode(' AND ', $having) : '';
 
         try {
             $stmt = $db->prepare("
@@ -1028,7 +1059,11 @@ switch ($action) {
                     ROUND(COALESCE(SUM(vd.subtotal - vd.cantidad * p.precio_compra), 0)::numeric, 2)    AS ganancia,
                     ROUND(COALESCE(
                         SUM(vd.subtotal - vd.cantidad * p.precio_compra) / NULLIF(SUM(vd.subtotal), 0) * 100
-                    , 0)::numeric, 2)                                                                   AS margen_pct
+                    , 0)::numeric, 2)                                                                   AS margen_pct,
+                    ROUND(COALESCE(
+                        SUM(vd.subtotal - vd.cantidad * p.precio_compra) / NULLIF(SUM(vd.cantidad * p.precio_compra), 0) * 100
+                    , 0)::numeric, 2)                                                                   AS roi_pct,
+                    p.laboratorio
                 FROM ventas v
                 JOIN venta_detalles vd ON vd.venta_id = v.id
                 JOIN productos p       ON p.id = vd.producto_id
@@ -1036,9 +1071,10 @@ switch ($action) {
                 WHERE v.estado = 'completada'
                   AND v.created_at BETWEEN :desde AND :hasta
                 $where
-                GROUP BY p.id, p.nombre, p.codigo, p.precio_compra, cat.nombre
+                GROUP BY p.id, p.nombre, p.codigo, p.precio_compra, p.laboratorio, cat.nombre
+                $having
                 ORDER BY ganancia DESC
-                LIMIT 500
+                LIMIT 2000
             ");
             $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
@@ -1055,6 +1091,7 @@ switch ($action) {
         $where  = '';
         if ($vendedor)     { $where .= " AND v.vendedor = :vendedor";    $params[':vendedor'] = $vendedor; }
         if ($categoria_id) { $where .= " AND p.categoria_id = :cat_id"; $params[':cat_id']   = $categoria_id; }
+        $where .= rentFiltrosExtra($params);
 
         // Agrupar por día o semana según el rango
         $dias = max(1, (strtotime($hasta) - strtotime($desde)) / 86400);
