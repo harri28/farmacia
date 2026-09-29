@@ -271,6 +271,68 @@ switch ($action) {
         jsonResponse(['error' => false, 'message' => 'Estado actualizado']);
         break;
 
+    case 'orden_actualizar_envio':
+        requireApiAuth(['admin', 'gerente']);
+        $d  = json_decode(file_get_contents('php://input'), true);
+        $id = intval($d['id'] ?? 0);
+        if (!$id || !isset($d['costo_envio']) || !is_numeric($d['costo_envio']) || floatval($d['costo_envio']) < 0) {
+            jsonResponse(['error' => true, 'message' => 'Costo de envío no válido'], 400);
+        }
+        $nuevoEnvio = round(floatval($d['costo_envio']), 2);
+
+        $db->beginTransaction();
+        try {
+            $s = $db->prepare("SELECT numero_orden, estado, subtotal, igv, costo_envio FROM ordenes_compra WHERE id = :id FOR UPDATE");
+            $s->execute([':id' => $id]);
+            $oc = $s->fetch();
+            if (!$oc) {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'Orden no encontrada'], 404);
+            }
+            if ($oc['estado'] === 'cancelada') {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'No se puede editar una orden cancelada'], 400);
+            }
+
+            $nuevoTotal = floatval($oc['subtotal']) + floatval($oc['igv']) + $nuevoEnvio;
+
+            // Cuenta por pagar vinculada (solo existe si la orden es a credito):
+            // el nuevo total no puede quedar por debajo de lo ya pagado.
+            $c = $db->prepare("SELECT id, monto_pagado FROM cuentas_por_pagar WHERE orden_compra_id = :id FOR UPDATE");
+            $c->execute([':id' => $id]);
+            $cuenta = $c->fetch();
+            if ($cuenta && $nuevoTotal + 0.001 < floatval($cuenta['monto_pagado'])) {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'El nuevo total (S/ ' . number_format($nuevoTotal, 2) . ') es menor a lo ya pagado (S/ ' . number_format(floatval($cuenta['monto_pagado']), 2) . ')'], 400);
+            }
+
+            $db->prepare("UPDATE ordenes_compra SET costo_envio = :env, total = :tot WHERE id = :id")
+               ->execute([':env' => $nuevoEnvio, ':tot' => $nuevoTotal, ':id' => $id]);
+            $db->prepare("UPDATE ingresos SET total = :tot WHERE orden_compra_id = :id")
+               ->execute([':tot' => $nuevoTotal, ':id' => $id]);
+
+            if ($cuenta) {
+                $pendiente = max(0, $nuevoTotal - floatval($cuenta['monto_pagado']));
+                $estadoCpp = $pendiente <= 0.001 ? 'pagado' : (floatval($cuenta['monto_pagado']) > 0 ? 'parcial' : 'pendiente');
+                $db->prepare("
+                    UPDATE cuentas_por_pagar
+                    SET monto_total = :mt, monto_pendiente = :mp, estado = :est
+                    WHERE id = :cid
+                ")->execute([':mt' => $nuevoTotal, ':mp' => $pendiente, ':est' => $estadoCpp, ':cid' => $cuenta['id']]);
+            }
+
+            $db->commit();
+            registrarAuditoria(
+                'editar_envio_orden_compra', 'compras',
+                "Orden {$oc['numero_orden']}: envío S/ " . number_format(floatval($oc['costo_envio']), 2) . " → S/ " . number_format($nuevoEnvio, 2)
+            );
+            jsonResponse(['error' => false, 'message' => 'Costo de envío actualizado']);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+        break;
+
     // ----------------------------------------------------------------
     // CUENTAS POR PAGAR
     // ----------------------------------------------------------------

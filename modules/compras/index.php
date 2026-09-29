@@ -577,6 +577,7 @@ require_once '../../includes/header.php';
 
 <script>
 const API   = '<?= $base_path ?>modules/compras/api.php';
+const ROL_PUEDE_EDITAR_ENVIO = <?= isAdmin() ? 'true' : 'false' ?>;
 const BASE  = '<?= $base_path ?>';
 let _filtroOrden = '';
 let _busquedaOrden = '';
@@ -751,12 +752,33 @@ async function verOrden(id) {
             btns += `<button class="btn btn-secondary" style="color:#dc2626" onclick="cerrarModal('modalDetalleOverlay');cambiarEstado(${o.id},'cancelada')"><i class="fas fa-ban"></i> Cancelar</button>`;
         }
 
+        if (o.estado !== 'cancelada' && ROL_PUEDE_EDITAR_ENVIO) {
+            btns += `<button class="btn btn-secondary" onclick="editarEnvio(${o.id}, ${parseFloat(o.costo_envio||0)})"><i class="fas fa-truck"></i> Editar envío</button>`;
+        }
+
         // PDF + Compartir siempre disponibles
         btns += `<button class="btn btn-primary" style="background:#6366f1" onclick="abrirPDF()"><i class="fas fa-file-pdf"></i> Ver PDF</button>`;
         btns += `<button class="btn btn-primary" style="background:#25d366" onclick="cerrarModal('modalDetalleOverlay');document.getElementById('compartirNumOrden').textContent='${esc(o.numero_orden)}';document.getElementById('modalCompartirOverlay').classList.add('active')"><i class="fas fa-share-alt"></i> Compartir</button>`;
 
         footer.innerHTML = btns;
     } catch { document.getElementById('detalleBody').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px">Error al cargar</p>'; }
+}
+
+async function editarEnvio(id, actual) {
+    const v = prompt('Nuevo costo de envío (S/):', actual.toFixed(2));
+    if (v === null) return;
+    const monto = parseFloat(v.replace(',', '.'));
+    if (isNaN(monto) || monto < 0) { toast('Monto no válido','err'); return; }
+    try {
+        const r = await fetch(`${API}?action=orden_actualizar_envio`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({id, costo_envio: monto}),
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.message,'err'); return; }
+        toast(d.message);
+        verOrden(id); cargarOrdenes(); cargarStats();
+    } catch { toast('Error de conexión','err'); }
 }
 
 async function cambiarEstado(id, estado) {
