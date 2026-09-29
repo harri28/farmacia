@@ -11,6 +11,105 @@ requireApiAuth(['admin', 'gerente', 'cajero']);
 $action = $_GET['action'] ?? '';
 $db     = getDB();
 
+// ---- Rango de fechas del filtro global (periodo=hoy|semana|mes|mes_ant|rango) ----
+// Devuelve el rango pedido y el "periodo anterior" de igual duracion que lo
+// precede inmediatamente (para los comparativos de las tarjetas).
+function dashRango(): array {
+    $p   = $_GET['periodo'] ?? 'hoy';
+    $hoy = new DateTime('today');
+    $d   = clone $hoy;
+    $h   = clone $hoy;
+
+    switch ($p) {
+        case 'semana':
+            $d = (clone $hoy)->modify('monday this week');
+            break;
+        case 'mes':
+            $d = new DateTime('first day of this month 00:00:00');
+            break;
+        case 'mes_ant':
+            $d = new DateTime('first day of last month 00:00:00');
+            $h = new DateTime('last day of last month 00:00:00');
+            break;
+        case 'rango':
+            $re = '/^\d{4}-\d{2}-\d{2}$/';
+            $gd = $_GET['desde'] ?? '';
+            $gh = $_GET['hasta'] ?? '';
+            if (preg_match($re, $gd) && preg_match($re, $gh)) {
+                $d = new DateTime($gd);
+                $h = new DateTime($gh);
+                if ($d > $h) { $t = $d; $d = $h; $h = $t; }
+                // Tope de 366 dias para no armar series enormes
+                $minD = (clone $h)->modify('-365 days');
+                if ($d < $minD) $d = $minD;
+            } else {
+                $p = 'hoy';
+            }
+            break;
+        default:
+            $p = 'hoy';
+    }
+
+    $dias = (int) $d->diff($h)->days + 1;
+    $hp   = (clone $d)->modify('-1 day');
+    $dp   = (clone $hp)->modify('-' . ($dias - 1) . ' days');
+
+    return [
+        'periodo'   => $p,
+        'dias'      => $dias,
+        'desde'     => $d->format('Y-m-d'),
+        'hasta'     => $h->format('Y-m-d'),
+        'ini'       => $d->format('Y-m-d') . ' 00:00:00',
+        'fin'       => $h->format('Y-m-d') . ' 23:59:59',
+        'ini_prev'  => $dp->format('Y-m-d') . ' 00:00:00',
+        'fin_prev'  => $hp->format('Y-m-d') . ' 23:59:59',
+    ];
+}
+
+function dashKpisPeriodo(PDO $db, string $ini, string $fin, bool $admin): array {
+    $s = $db->prepare("
+        SELECT
+            COUNT(*) FILTER (WHERE estado = 'completada') AS total_ventas,
+            COALESCE(SUM(total) FILTER (WHERE estado = 'completada'), 0) AS ingresos,
+            COALESCE(AVG(total) FILTER (WHERE estado = 'completada'), 0) AS ticket_promedio,
+            COUNT(*) FILTER (WHERE estado = 'anulada') AS anuladas
+        FROM ventas
+        WHERE created_at BETWEEN :ini AND :fin
+    ");
+    $s->execute([':ini' => $ini, ':fin' => $fin]);
+    $r = $s->fetch();
+    $out = [
+        'total_ventas'    => (int) $r['total_ventas'],
+        'ingresos'        => (float) $r['ingresos'],
+        'ticket_promedio' => (float) $r['ticket_promedio'],
+        'anuladas'        => (int) $r['anuladas'],
+    ];
+
+    if ($admin) {
+        // Mismo calculo de costo que Rentabilidad (precio_compra actual).
+        $g = $db->prepare("
+            SELECT COALESCE(SUM(vd.subtotal - vd.cantidad * p.precio_compra), 0) AS ganancia
+            FROM ventas v
+            JOIN venta_detalles vd ON vd.venta_id = v.id
+            JOIN productos p       ON p.id = vd.producto_id
+            WHERE v.estado = 'completada' AND v.created_at BETWEEN :ini AND :fin
+        ");
+        $g->execute([':ini' => $ini, ':fin' => $fin]);
+        $out['ganancia'] = (float) $g->fetchColumn();
+
+        $c = $db->prepare("
+            SELECT COALESCE(SUM(total), 0) AS monto, COUNT(*) AS n
+            FROM ordenes_compra
+            WHERE estado <> 'cancelada' AND created_at BETWEEN :ini AND :fin
+        ");
+        $c->execute([':ini' => $ini, ':fin' => $fin]);
+        $cr = $c->fetch();
+        $out['compras']   = (float) $cr['monto'];
+        $out['compras_n'] = (int) $cr['n'];
+    }
+    return $out;
+}
+
 switch ($action) {
 
     // ---- GET: Resumen general del día ----
@@ -169,6 +268,147 @@ switch ($action) {
             LIMIT 8
         ")->fetchAll();
         echo json_encode($rows);
+        break;
+
+    // ---- GET: KPIs del periodo elegido + periodo anterior (comparativo) ----
+    case 'kpis':
+        $r     = dashRango();
+        $admin = isAdmin();
+        echo json_encode([
+            'rango'    => $r,
+            'actual'   => dashKpisPeriodo($db, $r['ini'], $r['fin'], $admin),
+            'anterior' => dashKpisPeriodo($db, $r['ini_prev'], $r['fin_prev'], $admin),
+        ]);
+        break;
+
+    // ---- GET: Serie diaria (ingresos, ventas y ganancia si es admin) ----
+    case 'serie':
+        $r = dashRango();
+        $s = $db->prepare("
+            SELECT DATE(created_at) AS fecha,
+                   COUNT(*) FILTER (WHERE estado = 'completada') AS total_ventas,
+                   COALESCE(SUM(total) FILTER (WHERE estado = 'completada'), 0) AS ingresos
+            FROM ventas
+            WHERE created_at BETWEEN :ini AND :fin
+            GROUP BY DATE(created_at)
+        ");
+        $s->execute([':ini' => $r['ini'], ':fin' => $r['fin']]);
+        $map = [];
+        foreach ($s->fetchAll() as $row) $map[$row['fecha']] = $row;
+
+        $gan = [];
+        if (isAdmin()) {
+            $g = $db->prepare("
+                SELECT DATE(v.created_at) AS fecha,
+                       COALESCE(SUM(vd.subtotal - vd.cantidad * p.precio_compra), 0) AS ganancia
+                FROM ventas v
+                JOIN venta_detalles vd ON vd.venta_id = v.id
+                JOIN productos p       ON p.id = vd.producto_id
+                WHERE v.estado = 'completada' AND v.created_at BETWEEN :ini AND :fin
+                GROUP BY DATE(v.created_at)
+            ");
+            $g->execute([':ini' => $r['ini'], ':fin' => $r['fin']]);
+            foreach ($g->fetchAll() as $row) $gan[$row['fecha']] = (float) $row['ganancia'];
+        }
+
+        $serie = [];
+        $cur   = new DateTime($r['desde']);
+        for ($i = 0; $i < $r['dias']; $i++) {
+            $f = $cur->format('Y-m-d');
+            $item = [
+                'fecha'        => $f,
+                'total_ventas' => (int) ($map[$f]['total_ventas'] ?? 0),
+                'ingresos'     => (float) ($map[$f]['ingresos'] ?? 0),
+            ];
+            if (isAdmin()) $item['ganancia'] = $gan[$f] ?? 0;
+            $serie[] = $item;
+            $cur->modify('+1 day');
+        }
+        echo json_encode($serie);
+        break;
+
+    // ---- GET: Metodos de pago del periodo ----
+    case 'metodos_periodo':
+        $r = dashRango();
+        $s = $db->prepare("
+            SELECT tipo_pago, COUNT(*) AS total_ventas, COALESCE(SUM(total), 0) AS monto
+            FROM ventas
+            WHERE estado = 'completada' AND created_at BETWEEN :ini AND :fin
+            GROUP BY tipo_pago
+            ORDER BY monto DESC
+        ");
+        $s->execute([':ini' => $r['ini'], ':fin' => $r['fin']]);
+        echo json_encode($s->fetchAll());
+        break;
+
+    // ---- GET: Top 5 productos del periodo (metrica: unidades|ingresos|ganancia) ----
+    case 'top_periodo':
+        $r       = dashRango();
+        $metrica = $_GET['metrica'] ?? 'unidades';
+        if (!in_array($metrica, ['unidades', 'ingresos', 'ganancia'], true)) $metrica = 'unidades';
+        if ($metrica === 'ganancia' && !isAdmin()) $metrica = 'unidades';
+        $s = $db->prepare("
+            SELECT p.id, p.nombre, p.laboratorio, c.nombre AS categoria,
+                   SUM(vd.cantidad) AS unidades,
+                   SUM(vd.subtotal) AS ingresos,
+                   SUM(vd.subtotal - vd.cantidad * p.precio_compra) AS ganancia
+            FROM ventas v
+            JOIN venta_detalles vd ON vd.venta_id = v.id
+            JOIN productos p       ON p.id = vd.producto_id
+            LEFT JOIN public.categorias c ON c.id = p.categoria_id
+            WHERE v.estado = 'completada' AND v.created_at BETWEEN :ini AND :fin
+            GROUP BY p.id, p.nombre, p.laboratorio, c.nombre
+            ORDER BY $metrica DESC
+            LIMIT 5
+        ");
+        $s->execute([':ini' => $r['ini'], ':fin' => $r['fin']]);
+        $rows = $s->fetchAll();
+        if (!isAdmin()) foreach ($rows as &$row) unset($row['ganancia']);
+        unset($row);
+        echo json_encode(['metrica' => $metrica, 'items' => $rows]);
+        break;
+
+    // ---- GET: Detalle de ventas (drill-down al hacer clic en un dia / metodo) ----
+    case 'ventas_lista':
+        $r      = dashRango();
+        $params = [':ini' => $r['ini'], ':fin' => $r['fin']];
+        $where  = '';
+        $tp = trim($_GET['tipo_pago'] ?? '');
+        if ($tp !== '') { $where = ' AND v.tipo_pago = :tp'; $params[':tp'] = $tp; }
+        $s = $db->prepare("
+            SELECT v.numero_venta, v.total, v.tipo_pago, v.tipo_comprobante, v.estado, v.created_at,
+                   COALESCE(c.nombres || ' ' || COALESCE(c.apellidos,''), 'Cliente General') AS cliente
+            FROM ventas v
+            LEFT JOIN clientes c ON c.id = v.cliente_id
+            WHERE v.created_at BETWEEN :ini AND :fin $where
+            ORDER BY v.created_at DESC
+            LIMIT 200
+        ");
+        $s->execute($params);
+        echo json_encode($s->fetchAll());
+        break;
+
+    // ---- GET: Productos por vencer (solo admin/gerente) ----
+    case 'por_vencer':
+        requireApiAuth(['admin', 'gerente']);
+        $rows = $db->query("
+            SELECT p.id, p.nombre, p.laboratorio, p.stock, p.fecha_vencimiento,
+                   (p.fecha_vencimiento - CURRENT_DATE) AS dias
+            FROM productos p
+            WHERE p.activo = TRUE AND p.stock > 0
+              AND p.fecha_vencimiento IS NOT NULL
+              AND p.fecha_vencimiento <= CURRENT_DATE + 90
+            ORDER BY p.fecha_vencimiento ASC, p.nombre ASC
+        ")->fetchAll();
+        $cnt = ['vencidos' => 0, 'd30' => 0, 'd60' => 0, 'd90' => 0];
+        foreach ($rows as $row) {
+            $d = (int) $row['dias'];
+            if ($d < 0)       $cnt['vencidos']++;
+            elseif ($d <= 30) $cnt['d30']++;
+            elseif ($d <= 60) $cnt['d60']++;
+            else              $cnt['d90']++;
+        }
+        echo json_encode(['conteo' => $cnt, 'lista' => array_slice($rows, 0, 20)]);
         break;
 
     default:

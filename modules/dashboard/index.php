@@ -131,15 +131,88 @@ include '../../includes/header.php';
 
 /* ---- Chart container ---- */
 .chart-wrap { position: relative; height: 220px; }
+
+/* ---- Filtro de periodo ---- */
+.per-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 10px 14px; box-shadow: var(--shadow);
+}
+.per-bar .per-lbl { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
+.per-btn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 99px; padding: 5px 14px; font-size: .8rem; font-weight: 500; cursor: pointer;
+    transition: all var(--transition);
+}
+.per-btn:hover  { background: var(--surface-2); }
+.per-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.per-rango { display: none; align-items: center; gap: 6px; font-size: .8rem; }
+.per-rango.show { display: inline-flex; }
+.per-rango input { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; background: var(--surface); color: var(--text); font-size: .8rem; }
+.per-auto { margin-left: auto; font-size: .72rem; color: var(--text-light); display: flex; align-items: center; gap: 6px; }
+.per-refresh { border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 4px; }
+.per-refresh:hover { color: var(--primary); }
+
+/* ---- Comparativo ---- */
+.kpi-cmp { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 700; margin-top: 5px; }
+.kpi-cmp.up   { color: var(--success); }
+.kpi-cmp.down { color: var(--danger); }
+.kpi-cmp.flat { color: var(--text-light); }
+.kpi-cmp small { font-weight: 400; color: var(--text-light); }
+
+/* ---- Filas clicables ---- */
+.clickable { cursor: pointer; }
+.clickable:hover { background: var(--surface-2); }
+
+/* ---- Toggle pequeno ---- */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { border: none; background: var(--surface); color: var(--text-muted); padding: 4px 10px; font-size: .72rem; font-weight: 600; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button.active { background: var(--primary); color: #fff; }
+
+/* ---- Por vencer ---- */
+.venc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 20px 4px; }
+.venc-box  { border-radius: var(--radius); padding: 10px 12px; text-align: center; }
+.venc-box .n { font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+.venc-box .t { font-size: .7rem; font-weight: 600; margin-top: 2px; }
+@media (max-width: 680px) { .venc-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ---- Modal detalle ---- */
+.dm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; z-index: 1200; padding: 16px; }
+.dm-overlay.show { display: flex; }
+.dm-box { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); width: 100%; max-width: 760px; max-height: 84vh; display: flex; flex-direction: column; }
+.dm-head { padding: 14px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dm-head h3 { font-size: .95rem; font-weight: 600; }
+.dm-close { border: none; background: transparent; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; }
+.dm-body { overflow: auto; }
 </style>
 
+<?php $esAdmin = isAdmin(); ?>
 <div class="dash-wrap">
+
+    <!-- Filtro global de periodo -->
+    <div class="per-bar">
+        <span class="per-lbl"><i class="fas fa-calendar-alt"></i> Período</span>
+        <button class="per-btn" data-per="hoy"     onclick="setPeriodo('hoy')">Hoy</button>
+        <button class="per-btn" data-per="semana"  onclick="setPeriodo('semana')">Esta semana</button>
+        <button class="per-btn" data-per="mes"     onclick="setPeriodo('mes')">Este mes</button>
+        <button class="per-btn" data-per="mes_ant" onclick="setPeriodo('mes_ant')">Mes anterior</button>
+        <button class="per-btn" data-per="rango"   onclick="setPeriodo('rango')">Rango…</button>
+        <span class="per-rango" id="per-rango">
+            <input type="date" id="per-desde" onchange="aplicarRango()">
+            <span>a</span>
+            <input type="date" id="per-hasta" onchange="aplicarRango()">
+        </span>
+        <span class="per-auto">
+            <span id="per-actualizado"></span>
+            <button class="per-refresh" onclick="refreshAll()" title="Actualizar ahora"><i class="fas fa-sync-alt" id="per-spin"></i></button>
+        </span>
+    </div>
 
     <!-- KPI Row -->
     <div>
-        <p class="section-title">Resumen del día · <span id="fecha-hoy"></span></p>
+        <p class="section-title">Resumen · <span id="per-titulo"></span></p>
         <div class="row g-3" id="kpi-grid">
-            <!-- Skeleton placeholders -->
             <?php for ($i = 0; $i < 6; $i++): ?>
             <div class="col-6 col-md-4 col-xl-2">
                 <div class="kpi-card">
@@ -153,18 +226,13 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Charts + Caja row -->
+    <!-- Chart + Caja -->
     <div class="row g-4">
-        <!-- Ventas últimos 7 días -->
         <div class="col-12 col-lg-8">
             <div class="d-card">
                 <div class="d-card-head">
-                    <h3><i class="fas fa-chart-line" style="color:var(--primary)"></i> Ventas últimos 7 días</h3>
-                    <select id="sel-periodo" onchange="loadChart()" style="font-size:.78rem;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;background:var(--surface);color:var(--text)">
-                        <option value="7">7 días</option>
-                        <option value="14">14 días</option>
-                        <option value="30">30 días</option>
-                    </select>
+                    <h3><i class="fas fa-chart-line" style="color:var(--primary)"></i> Ventas del período</h3>
+                    <span style="font-size:.72rem;color:var(--text-light)">Clic en una barra para ver las ventas del día</span>
                 </div>
                 <div class="d-card-body">
                     <div class="chart-wrap"><canvas id="chart-ventas"></canvas></div>
@@ -172,7 +240,6 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <!-- Caja actual -->
         <div class="col-12 col-lg-4">
             <div class="d-card">
                 <div class="d-card-head">
@@ -186,15 +253,13 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Métodos de pago + Top vendidos + Alertas stock -->
+    <!-- Métodos de pago + Top + Alertas stock -->
     <div class="row g-4">
-
-        <!-- Métodos de pago -->
         <div class="col-12 col-md-6 col-lg-4">
             <div class="d-card">
                 <div class="d-card-head">
                     <h3><i class="fas fa-wallet" style="color:var(--info)"></i> Métodos de Pago</h3>
-                    <span style="font-size:.72rem;color:var(--text-muted)">Hoy</span>
+                    <span style="font-size:.72rem;color:var(--text-muted)" id="metodo-per"></span>
                 </div>
                 <div class="d-card-body" id="metodo-body">
                     <div class="skel" style="height:140px"></div>
@@ -202,12 +267,15 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <!-- Top 5 vendidos -->
         <div class="col-12 col-md-6 col-lg-4">
             <div class="d-card">
                 <div class="d-card-head">
                     <h3><i class="fas fa-fire" style="color:var(--warning)"></i> Top 5 Productos</h3>
-                    <span style="font-size:.72rem;color:var(--text-muted)">Por unidades</span>
+                    <div class="seg" id="top-seg">
+                        <button data-m="unidades" class="active" onclick="setTopMetrica('unidades')">Uds.</button>
+                        <button data-m="ingresos" onclick="setTopMetrica('ingresos')">Ingresos</button>
+                        <?php if ($esAdmin): ?><button data-m="ganancia" onclick="setTopMetrica('ganancia')">Ganancia</button><?php endif; ?>
+                    </div>
                 </div>
                 <div class="d-card-body" id="top-body" style="padding:0">
                     <div class="skel" style="height:200px;margin:20px"></div>
@@ -215,7 +283,6 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <!-- Alertas de stock -->
         <div class="col-12 col-md-6 col-lg-4">
             <div class="d-card">
                 <div class="d-card-head">
@@ -228,6 +295,19 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>
+
+    <?php if ($esAdmin): ?>
+    <!-- Productos por vencer -->
+    <div class="d-card">
+        <div class="d-card-head">
+            <h3><i class="fas fa-hourglass-half" style="color:var(--warning)"></i> Productos por vencer</h3>
+            <a href="<?= $base_path ?>modules/inventario/index.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
+                Ir a inventario <i class="fas fa-arrow-right" style="font-size:.68rem"></i>
+            </a>
+        </div>
+        <div id="venc-body"><div class="skel" style="height:120px;margin:20px"></div></div>
+    </div>
+    <?php endif; ?>
 
     <!-- Últimas ventas del día -->
     <div class="d-card">
@@ -261,100 +341,161 @@ include '../../includes/header.php';
 
 </div>
 
+<!-- Modal detalle de ventas -->
+<div class="dm-overlay" id="dm-overlay" onclick="if(event.target===this)cerrarDetalle()">
+    <div class="dm-box">
+        <div class="dm-head">
+            <h3 id="dm-titulo">Ventas</h3>
+            <button class="dm-close" onclick="cerrarDetalle()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="dm-body" id="dm-body"></div>
+    </div>
+</div>
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
-const API = '../../modules/dashboard/api.php';
+const API      = '../../modules/dashboard/api.php';
+const ES_ADMIN = <?= $esAdmin ? 'true' : 'false' ?>;
+const AUTO_REFRESH_MS = 120000;
 let chartVentas = null;
+let serieActual = [];
 
 // ---- Helpers ----
-const fmt = (n) => 'S/ ' + parseFloat(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmt  = (n) => 'S/ ' + parseFloat(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtN = (n) => parseFloat(n).toLocaleString('es-PE');
+const esc  = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const METODO_LABEL = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia' };
-const METODO_COLOR = { efectivo:'var(--success)', yape:'#8b5cf6', plin:'#06b6d4', tarjeta:'var(--primary)', transferencia:'var(--warning)' };
+const METODO_LABEL = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia', credito:'Crédito' };
+const METODO_COLOR = { efectivo:'var(--success)', yape:'#8b5cf6', plin:'#06b6d4', tarjeta:'var(--primary)', transferencia:'var(--warning)', credito:'var(--danger)' };
+const COMP_LABEL   = { ticket:'Ticket', boleta:'Boleta', factura:'Factura' };
+const PAGO_ICONS   = { efectivo:'💵', yape:'📱', plin:'📱', tarjeta:'💳', transferencia:'🏦' };
 
-function setDate() {
-    const d = new Date();
-    const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
-    document.getElementById('fecha-hoy').textContent = d.toLocaleDateString('es-PE', opts);
+// ---- Estado del filtro (se recuerda en el navegador) ----
+const PERIODOS = ['hoy','semana','mes','mes_ant','rango'];
+const filtro = { periodo:'hoy', desde:'', hasta:'', topMetrica:'unidades' };
+
+function guardarFiltro() { try { localStorage.setItem('dash_filtro', JSON.stringify(filtro)); } catch (e) {} }
+function cargarFiltro() {
+    try {
+        const s = JSON.parse(localStorage.getItem('dash_filtro') || 'null');
+        if (s && PERIODOS.includes(s.periodo)) {
+            filtro.periodo = s.periodo;
+            filtro.desde   = /^\d{4}-\d{2}-\d{2}$/.test(s.desde || '') ? s.desde : '';
+            filtro.hasta   = /^\d{4}-\d{2}-\d{2}$/.test(s.hasta || '') ? s.hasta : '';
+            if (['unidades','ingresos'].includes(s.topMetrica) || (ES_ADMIN && s.topMetrica === 'ganancia')) filtro.topMetrica = s.topMetrica;
+        }
+    } catch (e) {}
+    if (filtro.periodo === 'rango' && !(filtro.desde && filtro.hasta)) filtro.periodo = 'hoy';
 }
 
-// ---- Load KPI resumen ----
-async function loadResumen() {
-    const res = await fetch(API + '?action=resumen');
-    const d   = await res.json();
+function qsPeriodo(extra) {
+    const p = new URLSearchParams({ periodo: filtro.periodo });
+    if (filtro.periodo === 'rango') { p.set('desde', filtro.desde); p.set('hasta', filtro.hasta); }
+    if (extra) Object.keys(extra).forEach(k => p.set(k, extra[k]));
+    return p.toString();
+}
 
-    const v   = d.ventas;
-    const inv = d.inventario;
-    const alm = d.almacen;
-    const caja = d.caja;
+const fmtCorta = (iso) => { const p = iso.split('-'); return p[2] + '/' + p[1]; };
+function etiquetaPeriodo() {
+    switch (filtro.periodo) {
+        case 'hoy':     return 'Hoy · ' + new Date().toLocaleDateString('es-PE', {weekday:'long', day:'numeric', month:'long'});
+        case 'semana':  return 'Esta semana';
+        case 'mes':     return 'Este mes';
+        case 'mes_ant': return 'Mes anterior';
+        default:        return fmtCorta(filtro.desde) + ' al ' + fmtCorta(filtro.hasta);
+    }
+}
+const etiquetaCorta = () => ({hoy:'Hoy', semana:'Semana', mes:'Mes', mes_ant:'Mes anterior'}[filtro.periodo] || 'Rango');
 
-    const kpiData = [
-        {
-            label: 'Ingresos del día',
-            value: fmt(v.ingresos),
-            sub:   v.total_ventas + ' ventas realizadas',
-            icon:  'fas fa-coins', iconBg: 'var(--primary-light)', iconColor: 'var(--primary)',
-            accent: 'var(--primary)',
-        },
-        {
-            label: 'Ticket Promedio',
-            value: fmt(v.ticket_promedio),
-            sub:   v.anuladas + ' venta(s) anulada(s)',
-            icon:  'fas fa-receipt', iconBg: 'var(--success-light)', iconColor: 'var(--success)',
-            accent: 'var(--success)',
-        },
-        {
-            label: 'Valor de Inventario',
-            value: fmt(inv.valor_inventario),
-            sub:   inv.total_activos + ' productos activos',
-            icon:  'fas fa-boxes', iconBg: 'var(--info-light)', iconColor: 'var(--info)',
-            accent: 'var(--info)',
-        },
-        {
-            label: 'Stock Bajo',
-            value: inv.stock_bajo,
-            sub:   inv.agotados + ' producto(s) agotado(s)',
-            icon:  'fas fa-exclamation-circle',
-            iconBg: inv.stock_bajo > 0 ? 'var(--danger-light)' : 'var(--success-light)',
-            iconColor: inv.stock_bajo > 0 ? 'var(--danger)' : 'var(--success)',
-            accent: inv.stock_bajo > 0 ? 'var(--danger)' : 'var(--success)',
-        },
-        {
-            label: 'Ingresos al Almacén',
-            value: alm.ingresos_mes,
-            sub:   'Este mes · ' + fmt(alm.valor_mes),
-            icon:  'fas fa-truck-loading', iconBg: 'var(--warning-light)', iconColor: 'var(--warning)',
-            accent: 'var(--warning)',
-        },
-        {
-            label: 'Proveedores Activos',
-            value: alm.proveedores_activos,
-            sub:   'Proveedores habilitados',
-            icon:  'fas fa-truck', iconBg: '#f5f3ff', iconColor: '#7c3aed',
-            accent: '#7c3aed',
-        },
+function pintarFiltro() {
+    document.querySelectorAll('.per-btn').forEach(b => b.classList.toggle('active', b.dataset.per === filtro.periodo));
+    document.getElementById('per-rango').classList.toggle('show', filtro.periodo === 'rango');
+    document.getElementById('per-desde').value = filtro.desde;
+    document.getElementById('per-hasta').value = filtro.hasta;
+    document.getElementById('per-titulo').textContent = etiquetaPeriodo();
+    document.getElementById('metodo-per').textContent = etiquetaCorta();
+    document.querySelectorAll('#top-seg button').forEach(b => b.classList.toggle('active', b.dataset.m === filtro.topMetrica));
+}
+
+function setPeriodo(p) {
+    filtro.periodo = p;
+    if (p === 'rango' && !(filtro.desde && filtro.hasta)) {
+        const hoy = new Date().toISOString().slice(0, 10);
+        filtro.desde = filtro.hasta = hoy;
+    }
+    guardarFiltro(); pintarFiltro();
+    refreshPeriodo();
+}
+function aplicarRango() {
+    const d = document.getElementById('per-desde').value, h = document.getElementById('per-hasta').value;
+    if (!d || !h) return;
+    filtro.desde = d; filtro.hasta = h;
+    guardarFiltro(); pintarFiltro();
+    refreshPeriodo();
+}
+function setTopMetrica(m) {
+    filtro.topMetrica = m; guardarFiltro(); pintarFiltro(); loadTop();
+}
+
+// ---- Comparativo vs periodo anterior ----
+function cmpHtml(act, ant, opts) {
+    opts = opts || {};
+    act = parseFloat(act || 0); ant = parseFloat(ant || 0);
+    if (ant === 0 && act === 0) return '<div class="kpi-cmp flat">— <small>sin movimiento</small></div>';
+    if (ant === 0) return '<div class="kpi-cmp flat">nuevo <small>vs. período anterior</small></div>';
+    const pct = (act - ant) / Math.abs(ant) * 100;
+    if (Math.abs(pct) < 0.05) return '<div class="kpi-cmp flat">= <small>igual que antes</small></div>';
+    const sube = pct > 0;
+    const cls  = opts.neutral ? 'flat' : ((sube !== !!opts.inverso) ? 'up' : 'down');
+    return `<div class="kpi-cmp ${cls}"><i class="fas fa-arrow-${sube ? 'up' : 'down'}"></i> ${Math.abs(pct).toFixed(1)}% <small>vs. período anterior</small></div>`;
+}
+
+// ---- KPIs (periodo + inventario) ----
+let _inv = null;
+async function loadKpis() {
+    const [rk, rr] = await Promise.all([
+        fetch(API + '?action=kpis&' + qsPeriodo()),
+        _inv ? Promise.resolve(null) : fetch(API + '?action=resumen'),
+    ]);
+    const k = await rk.json();
+    if (rr) { const r = await rr.json(); _inv = r.inventario; renderCaja(r.caja); }
+    const a = k.actual, p = k.anterior, inv = _inv;
+
+    const cards = [
+        { label:'Ingresos', value:fmt(a.ingresos), sub:a.anuladas + ' venta(s) anulada(s)', cmp:cmpHtml(a.ingresos, p.ingresos),
+          icon:'fas fa-coins', iconBg:'var(--primary-light)', iconColor:'var(--primary)', accent:'var(--primary)' },
+        { label:'Ventas realizadas', value:fmtN(a.total_ventas), sub:'Ticket promedio ' + fmt(a.ticket_promedio), cmp:cmpHtml(a.total_ventas, p.total_ventas),
+          icon:'fas fa-receipt', iconBg:'var(--success-light)', iconColor:'var(--success)', accent:'var(--success)' },
     ];
+    if (ES_ADMIN) {
+        cards.push(
+            { label:'Ganancia bruta', value:fmt(a.ganancia), sub:'Costo estimado (precio de compra actual)', cmp:cmpHtml(a.ganancia, p.ganancia),
+              icon:'fas fa-chart-line', iconBg:'#ecfdf5', iconColor:'#059669', accent:'#059669' },
+            { label:'Compras', value:fmt(a.compras), sub:a.compras_n + ' orden(es) de compra', cmp:cmpHtml(a.compras, p.compras, {neutral:true}),
+              icon:'fas fa-truck-loading', iconBg:'var(--warning-light)', iconColor:'var(--warning)', accent:'var(--warning)' },
+            { label:'Valor de Inventario', value:fmt(inv.valor_inventario), sub:inv.total_activos + ' productos activos', cmp:'',
+              icon:'fas fa-boxes', iconBg:'var(--info-light)', iconColor:'var(--info)', accent:'var(--info)' }
+        );
+    }
+    cards.push({ label:'Stock Bajo', value:inv.stock_bajo, sub:inv.agotados + ' producto(s) agotado(s)', cmp:'',
+        icon:'fas fa-exclamation-circle',
+        iconBg: inv.stock_bajo > 0 ? 'var(--danger-light)' : 'var(--success-light)',
+        iconColor: inv.stock_bajo > 0 ? 'var(--danger)' : 'var(--success)',
+        accent: inv.stock_bajo > 0 ? 'var(--danger)' : 'var(--success)' });
 
-    const grid = document.getElementById('kpi-grid');
-    grid.innerHTML = kpiData.map(k => `
+    document.getElementById('kpi-grid').innerHTML = cards.map(c => `
         <div class="col-6 col-md-4 col-xl-2">
             <div class="kpi-card">
-                <div class="accent" style="background:${k.accent}"></div>
-                <div class="kpi-icon" style="background:${k.iconBg};color:${k.iconColor}">
-                    <i class="${k.icon}"></i>
-                </div>
-                <div class="kpi-label">${k.label}</div>
-                <div class="kpi-value">${k.value}</div>
-                <div class="kpi-sub">${k.sub}</div>
+                <div class="accent" style="background:${c.accent}"></div>
+                <div class="kpi-icon" style="background:${c.iconBg};color:${c.iconColor}"><i class="${c.icon}"></i></div>
+                <div class="kpi-label">${c.label}</div>
+                <div class="kpi-value">${c.value}</div>
+                <div class="kpi-sub">${c.sub}</div>
+                ${c.cmp}
             </div>
-        </div>
-    `).join('');
-
-    // Caja
-    renderCaja(caja);
+        </div>`).join('');
 }
 
 function renderCaja(caja) {
@@ -377,94 +518,70 @@ function renderCaja(caja) {
 
     body.innerHTML = `
         <div class="caja-status">
-            <div class="caja-row">
-                <span class="label">Responsable</span>
-                <span class="val">${caja.responsable || '—'}</span>
-            </div>
-            <div class="caja-row">
-                <span class="label">Apertura</span>
-                <span class="val">${hora}</span>
-            </div>
-            <div class="caja-row">
-                <span class="label">Saldo inicial</span>
-                <span class="val">${fmt(caja.saldo_inicial)}</span>
-            </div>
-            <div class="caja-row">
-                <span class="label">Ventas del turno</span>
-                <span class="val">${caja.ventas_count} · ${fmt(caja.ventas_total)}</span>
-            </div>
+            <div class="caja-row"><span class="label">Responsable</span><span class="val">${esc(caja.responsable) || '—'}</span></div>
+            <div class="caja-row"><span class="label">Apertura</span><span class="val">${hora}</span></div>
+            <div class="caja-row"><span class="label">Saldo inicial</span><span class="val">${fmt(caja.saldo_inicial)}</span></div>
+            <div class="caja-row"><span class="label">Ventas del turno</span><span class="val">${caja.ventas_count} · ${fmt(caja.ventas_total)}</span></div>
             <hr style="border:none;border-top:1px solid var(--border-light);margin:4px 0">
             <div class="caja-row">
                 <span class="label" style="font-weight:600">Saldo esperado</span>
                 <span class="val" style="color:var(--success);font-size:1.05rem">${fmt(caja.saldo_esperado)}</span>
             </div>
-        </div>
-    `;
+        </div>`;
 }
 
 // ---- Ventas chart ----
 async function loadChart() {
-    const dias = document.getElementById('sel-periodo').value;
-    const res  = await fetch(API + '?action=ventas_semana&dias=' + dias);
+    const res  = await fetch(API + '?action=serie&' + qsPeriodo());
     const data = await res.json();
+    serieActual = data;
 
-    const labels  = data.map(d => {
-        const parts = d.fecha.split('-');
-        return parts[2] + '/' + parts[1];
-    });
+    const labels   = data.map(d => fmtCorta(d.fecha));
     const ingresos = data.map(d => parseFloat(d.ingresos));
     const ventas   = data.map(d => parseInt(d.total_ventas));
+    const ganancia = data.map(d => parseFloat(d.ganancia || 0));
 
-    const ctx = document.getElementById('chart-ventas').getContext('2d');
+    if (chartVentas) {
+        chartVentas.data.labels = labels;
+        chartVentas.data.datasets[0].data = ingresos;
+        chartVentas.data.datasets[1].data = ventas;
+        if (ES_ADMIN) chartVentas.data.datasets[2].data = ganancia;
+        chartVentas.update();
+        return;
+    }
 
-    if (chartVentas) chartVentas.destroy();
+    const datasets = [
+        { label:'Ingresos (S/)', data:ingresos, backgroundColor:'rgba(37,99,235,.15)', borderColor:'rgba(37,99,235,.8)',
+          borderWidth:2, borderRadius:6, yAxisID:'y' },
+        { label:'N° Ventas', data:ventas, type:'line', borderColor:'#16a34a', backgroundColor:'transparent',
+          borderWidth:2, pointBackgroundColor:'#16a34a', pointRadius:3, tension:.3, yAxisID:'y2' },
+    ];
+    if (ES_ADMIN) {
+        datasets.push({ label:'Ganancia (S/)', data:ganancia, type:'line', borderColor:'#f59e0b', backgroundColor:'transparent',
+            borderWidth:2, pointBackgroundColor:'#f59e0b', pointRadius:3, tension:.3, yAxisID:'y' });
+    }
 
-    chartVentas = new Chart(ctx, {
+    chartVentas = new Chart(document.getElementById('chart-ventas').getContext('2d'), {
         type: 'bar',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'Ingresos (S/)',
-                    data: ingresos,
-                    backgroundColor: 'rgba(37,99,235,.15)',
-                    borderColor: 'rgba(37,99,235,.8)',
-                    borderWidth: 2,
-                    borderRadius: 6,
-                    yAxisID: 'y',
-                },
-                {
-                    label: 'N° Ventas',
-                    data: ventas,
-                    type: 'line',
-                    borderColor: '#16a34a',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#16a34a',
-                    pointRadius: 4,
-                    tension: 0.3,
-                    yAxisID: 'y2',
-                }
-            ]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            onClick: (evt, els) => {
+                if (!els.length) return;
+                const d = serieActual[els[0].index];
+                if (d) abrirDetalle({ periodo:'rango', desde:d.fecha, hasta:d.fecha }, 'Ventas del ' + fmtCorta(d.fecha));
+            },
+            onHover: (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
             plugins: {
                 legend: { position: 'top', labels: { font: { size: 11 }, padding: 12 } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ctx.datasetIndex === 0
-                            ? ' ' + fmt(ctx.parsed.y)
-                            : ' ' + ctx.parsed.y + ' ventas'
-                    }
-                }
+                tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y2' ? ' ' + c.parsed.y + ' ventas' : ' ' + c.dataset.label.split(' (')[0] + ': ' + fmt(c.parsed.y) } }
             },
             scales: {
-                y:  { position: 'left',  ticks: { callback: v => 'S/ ' + v, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.04)' } },
-                y2: { position: 'right', ticks: { stepSize: 1, font: { size: 11 } }, grid: { display: false } },
-                x:  { ticks: { font: { size: 11 } }, grid: { display: false } },
+                y:  { position:'left',  ticks:{ callback: v => 'S/ ' + v, font:{ size:11 } }, grid:{ color:'rgba(0,0,0,.04)' } },
+                y2: { position:'right', ticks:{ stepSize:1, font:{ size:11 } }, grid:{ display:false }, beginAtZero:true },
+                x:  { ticks:{ font:{ size:11 }, maxTicksLimit:16 }, grid:{ display:false } },
             }
         }
     });
@@ -472,56 +589,63 @@ async function loadChart() {
 
 // ---- Métodos de pago ----
 async function loadMetodos() {
-    const res  = await fetch(API + '?action=ventas_metodo_pago&periodo=hoy');
+    const res  = await fetch(API + '?action=metodos_periodo&' + qsPeriodo());
     const data = await res.json();
     const body = document.getElementById('metodo-body');
 
     if (!data.length) {
-        body.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px 0">Sin ventas hoy</p>';
+        body.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px 0">Sin ventas en el período</p>';
         return;
     }
 
     const max = Math.max(...data.map(d => parseFloat(d.monto)));
     body.innerHTML = `<div class="metodo-list">${
         data.map(d => {
-            const pct  = max > 0 ? (parseFloat(d.monto) / max * 100).toFixed(1) : 0;
-            const lbl  = METODO_LABEL[d.tipo_pago] ?? d.tipo_pago;
-            const col  = METODO_COLOR[d.tipo_pago]  ?? 'var(--primary)';
-            return `<div class="metodo-row">
-                <span class="metodo-label">${lbl}</span>
+            const pct = max > 0 ? (parseFloat(d.monto) / max * 100).toFixed(1) : 0;
+            const lbl = METODO_LABEL[d.tipo_pago] ?? d.tipo_pago;
+            const col = METODO_COLOR[d.tipo_pago]  ?? 'var(--primary)';
+            return `<div class="metodo-row clickable" title="Ver las ventas con ${esc(lbl)}" onclick="abrirDetalleMetodo('${esc(d.tipo_pago)}')">
+                <span class="metodo-label">${esc(lbl)}</span>
                 <div class="metodo-bar-bg"><div class="metodo-bar" style="width:${pct}%;background:${col}"></div></div>
                 <span class="metodo-val">${fmt(d.monto)}</span>
             </div>`;
         }).join('')
     }</div>`;
 }
+function abrirDetalleMetodo(tp) {
+    const o = { periodo: filtro.periodo, desde: filtro.desde, hasta: filtro.hasta };
+    abrirDetalle(o, 'Ventas · ' + (METODO_LABEL[tp] ?? tp) + ' · ' + etiquetaCorta(), tp);
+}
 
-// ---- Top vendidos ----
+// ---- Top productos del período ----
 async function loadTop() {
-    const res  = await fetch(API + '?action=top_vendidos');
-    const data = await res.json();
+    const res  = await fetch(API + '?action=top_periodo&' + qsPeriodo({ metrica: filtro.topMetrica }));
+    const r    = await res.json();
+    const data = r.items || [];
+    const m    = r.metrica || 'unidades';
     const body = document.getElementById('top-body');
 
     if (!data.length) {
-        body.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:30px">Sin datos</p>';
+        body.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:30px">Sin ventas en el período</p>';
         return;
     }
 
-    const max = data[0].total_vendido;
+    const val = (p) => m === 'unidades' ? fmtN(p.unidades) : fmt(p[m]);
+    const max = Math.max(...data.map(p => Math.abs(parseFloat(p[m]))), 0);
     body.innerHTML = `<table class="dash-table">
-        <thead><tr><th>#</th><th>Producto</th><th style="text-align:right">Uds.</th></tr></thead>
+        <thead><tr><th>#</th><th>Producto</th><th style="text-align:right">${m === 'unidades' ? 'Uds.' : (m === 'ingresos' ? 'Ingresos' : 'Ganancia')}</th></tr></thead>
         <tbody>${data.map((p, i) => {
-            const pct = max > 0 ? (p.total_vendido / max * 100).toFixed(0) : 0;
+            const pct = max > 0 ? (Math.abs(parseFloat(p[m])) / max * 100).toFixed(0) : 0;
             return `<tr>
                 <td style="color:var(--text-muted);font-weight:700">${i+1}</td>
                 <td>
-                    <div style="font-weight:500;font-size:.83rem">${p.nombre}</div>
-                    <div style="font-size:.72rem;color:var(--text-light)">${p.laboratorio ?? '—'} · ${p.categoria ?? '—'}</div>
+                    <div style="font-weight:500;font-size:.83rem">${esc(p.nombre)}</div>
+                    <div style="font-size:.72rem;color:var(--text-light)">${esc(p.laboratorio || '—')} · ${esc(p.categoria || '—')}</div>
                     <div style="margin-top:4px;height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden">
                         <div style="height:100%;width:${pct}%;background:var(--warning);border-radius:99px"></div>
                     </div>
                 </td>
-                <td style="text-align:right;font-weight:700">${fmtN(p.total_vendido)}</td>
+                <td style="text-align:right;font-weight:700">${val(p)}</td>
             </tr>`;
         }).join('')}</tbody>
     </table>`;
@@ -537,33 +661,66 @@ async function loadAlertas() {
     if (!data.length) {
         cnt.style.display = 'none';
         body.innerHTML = `<p style="color:var(--success);font-size:.83rem;text-align:center;padding:30px">
-            <i class="fas fa-check-circle" style="display:block;font-size:1.6rem;margin-bottom:8px"></i>
-            Stock en orden
-        </p>`;
+            <i class="fas fa-check-circle" style="display:block;font-size:1.6rem;margin-bottom:8px"></i>Stock en orden</p>`;
         return;
     }
 
     cnt.style.display = 'inline-flex';
     cnt.textContent   = data.length + ' alerta' + (data.length > 1 ? 's' : '');
 
-    body.innerHTML = `<table class="dash-table">
+    body.innerHTML = `<div style="max-height:320px;overflow-y:auto"><table class="dash-table">
         <thead><tr><th>Producto</th><th style="text-align:right">Stock</th><th style="text-align:right">Mín</th></tr></thead>
         <tbody>${data.map(p => {
-            const es = p.alerta === 'agotado';
-            const cls = es ? 'badge-danger' : 'badge-warning';
-            const lbl = es ? 'Agotado' : 'Bajo';
-            return `<tr>
+            const cls = p.alerta === 'agotado' ? 'badge-danger' : 'badge-warning';
+            return `<tr class="clickable" onclick="location.href='../inventario/index.php'" title="Ver en inventario">
                 <td>
-                    <div style="font-weight:500;font-size:.82rem">${p.nombre}</div>
-                    <div style="font-size:.7rem;color:var(--text-light)">${p.categoria ?? '—'}</div>
+                    <div style="font-weight:500;font-size:.82rem">${esc(p.nombre)}</div>
+                    <div style="font-size:.7rem;color:var(--text-light)">${esc(p.categoria || '—')}</div>
                 </td>
-                <td style="text-align:right">
-                    <span class="kpi-badge ${cls}">${p.stock}</span>
-                </td>
+                <td style="text-align:right"><span class="kpi-badge ${cls}">${p.stock}</span></td>
                 <td style="text-align:right;color:var(--text-muted)">${p.stock_minimo}</td>
             </tr>`;
         }).join('')}</tbody>
-    </table>`;
+    </table></div>`;
+}
+
+// ---- Productos por vencer (admin/gerente) ----
+async function loadVencer() {
+    if (!ES_ADMIN) return;
+    const res = await fetch(API + '?action=por_vencer');
+    const r   = await res.json();
+    const body = document.getElementById('venc-body');
+    if (!r || r.error) { body.innerHTML = ''; return; }
+    const c = r.conteo;
+
+    const box = (n, t, bg, col) => `<div class="venc-box" style="background:${bg};color:${col}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
+    let html = `<div class="venc-grid">
+        ${box(c.vencidos, 'Vencidos', 'var(--danger-light)', 'var(--danger)')}
+        ${box(c.d30, 'Vencen en 30 días', 'var(--warning-light)', 'var(--warning)')}
+        ${box(c.d60, 'En 31 a 60 días', 'var(--info-light)', 'var(--info)')}
+        ${box(c.d90, 'En 61 a 90 días', 'var(--surface-2)', 'var(--text-muted)')}
+    </div>`;
+
+    if (!r.lista.length) {
+        html += `<p style="color:var(--success);font-size:.83rem;text-align:center;padding:20px">
+            <i class="fas fa-check-circle"></i> No hay productos con stock que venzan en los próximos 90 días</p>`;
+    } else {
+        html += `<div style="overflow-x:auto;max-height:300px;overflow-y:auto"><table class="dash-table">
+            <thead><tr><th>Producto</th><th>Laboratorio</th><th style="text-align:right">Stock</th><th>Vence</th><th>Estado</th></tr></thead>
+            <tbody>${r.lista.map(p => {
+                const d = parseInt(p.dias, 10);
+                const cls = d < 0 ? 'badge-danger' : (d <= 30 ? 'badge-warning' : 'badge-info');
+                const txt = d < 0 ? 'Vencido hace ' + Math.abs(d) + ' d' : (d === 0 ? 'Vence hoy' : 'En ' + d + ' días');
+                return `<tr class="clickable" onclick="location.href='../inventario/index.php'">
+                    <td style="font-weight:500">${esc(p.nombre)}</td>
+                    <td style="color:var(--text-muted)">${esc(p.laboratorio || '—')}</td>
+                    <td style="text-align:right">${fmtN(p.stock)}</td>
+                    <td>${p.fecha_vencimiento.split('-').reverse().join('/')}</td>
+                    <td><span class="kpi-badge ${cls}">${txt}</span></td>
+                </tr>`;
+            }).join('')}</tbody></table></div>`;
+    }
+    body.innerHTML = html;
 }
 
 // ---- Últimas ventas ----
@@ -576,40 +733,75 @@ async function loadUltimasVentas() {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Sin ventas registradas hoy</td></tr>';
         return;
     }
+    tbody.innerHTML = data.map(filaVenta).join('');
+}
 
-    const COMP_LABEL = { ticket:'Ticket', boleta:'Boleta', factura:'Factura' };
-    const PAGO_ICONS = { efectivo:'💵', yape:'📱', plin:'📱', tarjeta:'💳', transferencia:'🏦' };
+function filaVenta(v) {
+    const hora  = new Date(v.created_at).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+    const icon  = PAGO_ICONS[v.tipo_pago] ?? '';
+    const comp  = COMP_LABEL[v.tipo_comprobante] ?? v.tipo_comprobante;
+    const esCan = v.estado === 'anulada';
+    const badge = esCan ? '<span class="kpi-badge badge-danger">Anulada</span>' : '<span class="kpi-badge badge-success">Completada</span>';
+    return `<tr style="${esCan ? 'opacity:.55' : ''}">
+        <td><span style="font-family:monospace;font-size:.8rem">${esc(v.numero_venta)}</span></td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.cliente)}</td>
+        <td>${icon} ${esc(METODO_LABEL[v.tipo_pago] ?? v.tipo_pago)}</td>
+        <td>${esc(comp)}</td>
+        <td style="color:var(--text-muted)">${hora}</td>
+        <td style="font-weight:600">${fmt(v.total)}</td>
+        <td>${badge}</td>
+    </tr>`;
+}
 
-    tbody.innerHTML = data.map(v => {
-        const hora  = new Date(v.created_at).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-        const icon  = PAGO_ICONS[v.tipo_pago] ?? '';
-        const comp  = COMP_LABEL[v.tipo_comprobante] ?? v.tipo_comprobante;
-        const esCan = v.estado === 'anulada';
-        const badge = esCan
-            ? '<span class="kpi-badge badge-danger">Anulada</span>'
-            : '<span class="kpi-badge badge-success">Completada</span>';
-        return `<tr style="${esCan ? 'opacity:.55' : ''}">
-            <td><span style="font-family:monospace;font-size:.8rem">${v.numero_venta}</span></td>
-            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.cliente}</td>
-            <td>${icon} ${METODO_LABEL[v.tipo_pago] ?? v.tipo_pago}</td>
-            <td>${comp}</td>
-            <td style="color:var(--text-muted)">${hora}</td>
-            <td style="font-weight:600">${fmt(v.total)}</td>
-            <td>${badge}</td>
-        </tr>`;
-    }).join('');
+// ---- Modal de detalle (drill-down) ----
+async function abrirDetalle(rango, titulo, tipoPago) {
+    document.getElementById('dm-titulo').textContent = titulo;
+    document.getElementById('dm-body').innerHTML = '<p style="text-align:center;padding:30px;color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i> Cargando…</p>';
+    document.getElementById('dm-overlay').classList.add('show');
+
+    const p = new URLSearchParams({ action:'ventas_lista', periodo:rango.periodo });
+    if (rango.periodo === 'rango') { p.set('desde', rango.desde); p.set('hasta', rango.hasta); }
+    if (tipoPago) p.set('tipo_pago', tipoPago);
+    try {
+        const data = await (await fetch(API + '?' + p.toString())).json();
+        if (!data.length) {
+            document.getElementById('dm-body').innerHTML = '<p style="text-align:center;padding:30px;color:var(--text-muted)">Sin ventas</p>';
+            return;
+        }
+        const total = data.filter(v => v.estado === 'completada').reduce((s, v) => s + parseFloat(v.total), 0);
+        document.getElementById('dm-body').innerHTML = `
+            <div style="padding:10px 20px;font-size:.8rem;color:var(--text-muted);border-bottom:1px solid var(--border-light)">
+                ${data.length} venta(s)${data.length >= 200 ? ' (se muestran las 200 más recientes)' : ''} · Total completadas: <strong style="color:var(--text)">${fmt(total)}</strong>
+            </div>
+            <table class="dash-table"><thead><tr><th>N° Venta</th><th>Cliente</th><th>Método</th><th>Comprobante</th><th>Hora</th><th>Total</th><th>Estado</th></tr></thead>
+            <tbody>${data.map(filaVenta).join('')}</tbody></table>`;
+    } catch (e) {
+        document.getElementById('dm-body').innerHTML = '<p style="text-align:center;padding:30px;color:var(--danger)">Error al cargar</p>';
+    }
+}
+function cerrarDetalle() { document.getElementById('dm-overlay').classList.remove('show'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarDetalle(); });
+
+// ---- Carga ----
+// Widgets que dependen del periodo
+function refreshPeriodo() {
+    return Promise.all([loadKpis(), loadChart(), loadMetodos(), loadTop()]).catch(() => {});
+}
+// Todo (incluye caja, alertas, por vencer, ultimas ventas)
+async function refreshAll() {
+    const spin = document.getElementById('per-spin');
+    spin.classList.add('fa-spin');
+    _inv = null;   // fuerza a recargar inventario y caja
+    await Promise.all([refreshPeriodo(), loadAlertas(), loadVencer(), loadUltimasVentas()]).catch(() => {});
+    spin.classList.remove('fa-spin');
+    document.getElementById('per-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
 }
 
 // ---- Init ----
-setDate();
-Promise.all([
-    loadResumen(),
-    loadChart(),
-    loadMetodos(),
-    loadTop(),
-    loadAlertas(),
-    loadUltimasVentas(),
-]);
+cargarFiltro();
+pintarFiltro();
+refreshAll();
+setInterval(() => { if (!document.hidden) refreshAll(); }, AUTO_REFRESH_MS);
 </script>
 
 <?php include '../../includes/footer.php'; ?>
