@@ -495,9 +495,9 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
                         Opcional. Si el aviso está activado, el cliente lo ve en su panel cuando falten 7 días o menos.
                     </p>
                 </div>
-                <div class="form-group">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                        <input type="checkbox" id="eBannerActivo" <?= in_array($tenant['plan_banner_activo'] ?? false, [true, 't', 1, '1'], true) ? 'checked' : '' ?>>
+                <div class="form-group" style="grid-column:1/-1">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:.88rem;font-weight:500;width:auto">
+                        <input type="checkbox" id="eBannerActivo" style="width:auto;margin:0" <?= in_array($tenant['plan_banner_activo'] ?? false, [true, 't', 1, '1'], true) ? 'checked' : '' ?>>
                         Mostrar aviso de vencimiento al cliente
                     </label>
                     <p style="font-size:.74rem;color:var(--sa-text-light);margin-top:5px">

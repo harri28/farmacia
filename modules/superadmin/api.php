@@ -88,18 +88,27 @@ switch ($action) {
         if (!$id || empty($d['nombre'])) {
             jsonResponse(['error' => true, 'message' => 'Datos incompletos'], 400);
         }
-        $db->prepare("UPDATE public.tenants SET nombre = :n, plan = :p, plan_vence_at = :pv, plan_banner_activo = :pb, url = :url, ruc = :ruc, telefono = :tel, direccion = :dir WHERE id = :id")
-           ->execute([
-               ':n'   => trim($d['nombre']),
-               ':p'   => $d['plan'] ?? 'basico',
-               ':pv'  => !empty($d['plan_vence_at']) ? trim($d['plan_vence_at']) : null,
-               ':pb'  => !empty($d['plan_banner_activo']) ? 'true' : 'false',
-               ':url' => trim($d['url']       ?? ''),
-               ':ruc' => trim($d['ruc']       ?? ''),
-               ':tel' => trim($d['telefono']  ?? ''),
-               ':dir' => trim($d['direccion'] ?? ''),
-               ':id'  => $id,
-           ]);
+        // Este endpoint lo llaman 3 pantallas con campos distintos (lista de
+        // empresas, pantalla Empresa y "subir de plan"): solo se actualizan los
+        // campos que vienen en la peticion. Antes los ausentes se guardaban
+        // como vacio y se borraban RUC, telefono, direccion y url.
+        $sets   = ['nombre = :n', 'plan = :p'];
+        $params = [':n' => trim($d['nombre']), ':p' => $d['plan'] ?? 'basico', ':id' => $id];
+        foreach (['url', 'ruc', 'telefono', 'direccion'] as $campo) {
+            if (array_key_exists($campo, $d)) {
+                $sets[] = "$campo = :$campo";
+                $params[":$campo"] = trim((string) $d[$campo]);
+            }
+        }
+        if (array_key_exists('plan_vence_at', $d)) {
+            $sets[] = 'plan_vence_at = :pv';
+            $params[':pv'] = !empty($d['plan_vence_at']) ? trim($d['plan_vence_at']) : null;
+        }
+        if (array_key_exists('plan_banner_activo', $d)) {
+            $sets[] = 'plan_banner_activo = :pb';
+            $params[':pb'] = !empty($d['plan_banner_activo']) ? 'true' : 'false';
+        }
+        $db->prepare('UPDATE public.tenants SET ' . implode(', ', $sets) . ' WHERE id = :id')->execute($params);
         jsonResponse(['error' => false, 'message' => 'Empresa actualizada']);
 
     // ---- GET: Datos SUNAT (solo lectura) + notas internas de superadmin ----

@@ -166,7 +166,10 @@ include '../../includes/header.php';
 
 /* ---- Toggle pequeno ---- */
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-.seg button { border: none; background: var(--surface); color: var(--text-muted); padding: 4px 10px; font-size: .72rem; font-weight: 600; cursor: pointer; }
+.seg button { border: none; background: var(--surface); color: var(--text-muted); padding: 4px 8px; font-size: .7rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.d-card-head { gap: 8px; flex-wrap: wrap; }
+.d-card-head h3 { white-space: nowrap; }
+.kpi-cmp { white-space: nowrap; }
 .seg button + button { border-left: 1px solid var(--border); }
 .seg button.active { background: var(--primary); color: #fff; }
 
@@ -407,7 +410,7 @@ function etiquetaPeriodo() {
         default:        return fmtCorta(filtro.desde) + ' al ' + fmtCorta(filtro.hasta);
     }
 }
-const etiquetaCorta = () => ({hoy:'Hoy', semana:'Semana', mes:'Mes', mes_ant:'Mes anterior'}[filtro.periodo] || 'Rango');
+const etiquetaCorta = () => ({hoy:'Hoy', semana:'Semana', mes:'Mes', mes_ant:'Mes anterior'}[filtro.periodo] || (fmtCorta(filtro.desde) + ' al ' + fmtCorta(filtro.hasta)));
 
 function pintarFiltro() {
     document.querySelectorAll('.per-btn').forEach(b => b.classList.toggle('active', b.dataset.per === filtro.periodo));
@@ -444,23 +447,29 @@ function cmpHtml(act, ant, opts) {
     opts = opts || {};
     act = parseFloat(act || 0); ant = parseFloat(ant || 0);
     if (ant === 0 && act === 0) return '<div class="kpi-cmp flat">— <small>sin movimiento</small></div>';
-    if (ant === 0) return '<div class="kpi-cmp flat">nuevo <small>vs. período anterior</small></div>';
+    if (ant === 0) return '<div class="kpi-cmp flat">nuevo <small>vs. anterior</small></div>';
     const pct = (act - ant) / Math.abs(ant) * 100;
     if (Math.abs(pct) < 0.05) return '<div class="kpi-cmp flat">= <small>igual que antes</small></div>';
     const sube = pct > 0;
     const cls  = opts.neutral ? 'flat' : ((sube !== !!opts.inverso) ? 'up' : 'down');
-    return `<div class="kpi-cmp ${cls}"><i class="fas fa-arrow-${sube ? 'up' : 'down'}"></i> ${Math.abs(pct).toFixed(1)}% <small>vs. período anterior</small></div>`;
+    return `<div class="kpi-cmp ${cls}"><i class="fas fa-arrow-${sube ? 'up' : 'down'}"></i> ${Math.abs(pct).toFixed(1)}% <small>vs. anterior</small></div>`;
 }
 
 // ---- KPIs (periodo + inventario) ----
 let _inv = null;
+// Contadores para descartar respuestas viejas: al cambiar de periodo varias
+// veces seguidas, una respuesta lenta del periodo anterior no debe pisar la actual.
+const _seq = { kpis: 0, chart: 0, metodos: 0, top: 0 };
+
 async function loadKpis() {
+    const seq = ++_seq.kpis;
     const [rk, rr] = await Promise.all([
         fetch(API + '?action=kpis&' + qsPeriodo()),
         _inv ? Promise.resolve(null) : fetch(API + '?action=resumen'),
     ]);
     const k = await rk.json();
     if (rr) { const r = await rr.json(); _inv = r.inventario; renderCaja(r.caja); }
+    if (seq !== _seq.kpis) return;
     const a = k.actual, p = k.anterior, inv = _inv;
 
     const cards = [
@@ -532,8 +541,10 @@ function renderCaja(caja) {
 
 // ---- Ventas chart ----
 async function loadChart() {
+    const seq  = ++_seq.chart;
     const res  = await fetch(API + '?action=serie&' + qsPeriodo());
     const data = await res.json();
+    if (seq !== _seq.chart) return;
     serieActual = data;
 
     const labels   = data.map(d => fmtCorta(d.fecha));
@@ -589,8 +600,10 @@ async function loadChart() {
 
 // ---- Métodos de pago ----
 async function loadMetodos() {
+    const seq  = ++_seq.metodos;
     const res  = await fetch(API + '?action=metodos_periodo&' + qsPeriodo());
     const data = await res.json();
+    if (seq !== _seq.metodos) return;
     const body = document.getElementById('metodo-body');
 
     if (!data.length) {
@@ -619,8 +632,10 @@ function abrirDetalleMetodo(tp) {
 
 // ---- Top productos del período ----
 async function loadTop() {
+    const seq  = ++_seq.top;
     const res  = await fetch(API + '?action=top_periodo&' + qsPeriodo({ metrica: filtro.topMetrica }));
     const r    = await res.json();
+    if (seq !== _seq.top) return;
     const data = r.items || [];
     const m    = r.metrica || 'unidades';
     const body = document.getElementById('top-body');
