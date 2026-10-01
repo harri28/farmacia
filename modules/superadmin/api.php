@@ -88,10 +88,12 @@ switch ($action) {
         if (!$id || empty($d['nombre'])) {
             jsonResponse(['error' => true, 'message' => 'Datos incompletos'], 400);
         }
-        $db->prepare("UPDATE public.tenants SET nombre = :n, plan = :p, url = :url, ruc = :ruc, telefono = :tel, direccion = :dir WHERE id = :id")
+        $db->prepare("UPDATE public.tenants SET nombre = :n, plan = :p, plan_vence_at = :pv, plan_banner_activo = :pb, url = :url, ruc = :ruc, telefono = :tel, direccion = :dir WHERE id = :id")
            ->execute([
                ':n'   => trim($d['nombre']),
                ':p'   => $d['plan'] ?? 'basico',
+               ':pv'  => !empty($d['plan_vence_at']) ? trim($d['plan_vence_at']) : null,
+               ':pb'  => !empty($d['plan_banner_activo']) ? 'true' : 'false',
                ':url' => trim($d['url']       ?? ''),
                ':ruc' => trim($d['ruc']       ?? ''),
                ':tel' => trim($d['telefono']  ?? ''),

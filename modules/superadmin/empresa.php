@@ -488,6 +488,22 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
                         <option value="enterprise" <?= $tenant['plan']==='enterprise' ? 'selected':'' ?>>Enterprise</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Plan vence el</label>
+                    <input type="date" id="eVenceAt" value="<?= htmlspecialchars($tenant['plan_vence_at'] ?? '') ?>">
+                    <p style="font-size:.74rem;color:var(--sa-text-light);margin-top:5px">
+                        Opcional. Si el aviso está activado, el cliente lo ve en su panel cuando falten 7 días o menos.
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                        <input type="checkbox" id="eBannerActivo" <?= in_array($tenant['plan_banner_activo'] ?? false, [true, 't', 1, '1'], true) ? 'checked' : '' ?>>
+                        Mostrar aviso de vencimiento al cliente
+                    </label>
+                    <p style="font-size:.74rem;color:var(--sa-text-light);margin-top:5px">
+                        Apagado por defecto. Desactívalo para clientes con plan anual que no deben ver el aviso; la fecha se conserva.
+                    </p>
+                </div>
             </div>
         </div>
         <div class="modal-footer">
@@ -1000,13 +1016,15 @@ function abrirEditEmpresa() {
 }
 
 async function guardarEmpresa() {
-    const nombre = document.getElementById('eNombre').value.trim();
-    const plan   = document.getElementById('ePlan').value;
+    const nombre       = document.getElementById('eNombre').value.trim();
+    const plan         = document.getElementById('ePlan').value;
+    const plan_vence_at = document.getElementById('eVenceAt').value;
+    const plan_banner_activo = document.getElementById('eBannerActivo').checked;
     if (!nombre) { toast('El nombre es requerido','err'); return; }
 
     const r = await fetch(`${API}?action=tenant_actualizar`,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id:TENANT_ID,nombre,plan}),
+        body:JSON.stringify({id:TENANT_ID,nombre,plan,plan_vence_at,plan_banner_activo}),
     });
     const d = await r.json();
     if(d.error){toast(d.message,'err');return;}
