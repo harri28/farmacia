@@ -319,3 +319,16 @@ ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS certificate_expires_at DA
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS sunat_server         VARCHAR(10);
 ALTER TABLE public.tenants    ADD COLUMN IF NOT EXISTS notas_superadmin     TEXT;
 ALTER TABLE public.usuarios   ADD COLUMN IF NOT EXISTS email     VARCHAR(150);
+
+-- Historial de pagos del plan por tenant (migration_53)
+CREATE TABLE IF NOT EXISTS public.tenant_pagos (
+    id               SERIAL PRIMARY KEY,
+    tenant_id        INTEGER NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    fecha_pago       DATE NOT NULL DEFAULT CURRENT_DATE,
+    monto            NUMERIC(10,2),
+    vence_anterior   DATE,
+    vence_nuevo      DATE NOT NULL,
+    registrado_por   VARCHAR(100),
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tenant_pagos_tenant ON public.tenant_pagos (tenant_id, created_at DESC);

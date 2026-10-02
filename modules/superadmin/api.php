@@ -111,6 +111,70 @@ switch ($action) {
         $db->prepare('UPDATE public.tenants SET ' . implode(', ', $sets) . ' WHERE id = :id')->execute($params);
         jsonResponse(['error' => false, 'message' => 'Empresa actualizada']);
 
+    // ---- POST: Marcar el plan como pagado (registra el pago y corre el vencimiento) ----
+    case 'tenant_marcar_pagado':
+        $d  = json_decode(file_get_contents('php://input'), true);
+        $id = intval($d['tenant_id'] ?? 0);
+        $nuevo = trim((string) ($d['vence_nuevo'] ?? ''));
+        if (!$id) jsonResponse(['error' => true, 'message' => 'Empresa inválida'], 400);
+        $dt = DateTime::createFromFormat('Y-m-d', $nuevo);
+        if (!$dt || $dt->format('Y-m-d') !== $nuevo) {
+            jsonResponse(['error' => true, 'message' => 'Fecha de vencimiento no válida'], 400);
+        }
+        if ($nuevo <= date('Y-m-d')) {
+            jsonResponse(['error' => true, 'message' => 'La nueva fecha de vencimiento debe ser posterior a hoy'], 400);
+        }
+        $monto = null;
+        if (isset($d['monto']) && $d['monto'] !== '' && $d['monto'] !== null) {
+            if (!is_numeric($d['monto']) || floatval($d['monto']) < 0) {
+                jsonResponse(['error' => true, 'message' => 'Monto no válido'], 400);
+            }
+            $monto = round(floatval($d['monto']), 2);
+        }
+
+        $db->beginTransaction();
+        try {
+            $s = $db->prepare("SELECT plan_vence_at FROM public.tenants WHERE id = :id FOR UPDATE");
+            $s->execute([':id' => $id]);
+            $t = $s->fetch();
+            if (!$t) {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'Empresa no encontrada'], 404);
+            }
+            $db->prepare("
+                INSERT INTO public.tenant_pagos (tenant_id, monto, vence_anterior, vence_nuevo, registrado_por)
+                VALUES (:tid, :monto, :ant, :nuevo, :por)
+            ")->execute([
+                ':tid'   => $id,
+                ':monto' => $monto,
+                ':ant'   => $t['plan_vence_at'] ?: null,
+                ':nuevo' => $nuevo,
+                ':por'   => sesionUsername() ?: sesionNombre(),
+            ]);
+            $db->prepare("UPDATE public.tenants SET plan_vence_at = :nuevo WHERE id = :id")
+               ->execute([':nuevo' => $nuevo, ':id' => $id]);
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+        jsonResponse(['error' => false, 'message' => 'Pago registrado', 'vence_nuevo' => $nuevo]);
+
+    // ---- GET: Historial de pagos del plan ----
+    case 'tenant_pagos_listar':
+        $id = intval($_GET['tenant_id'] ?? 0);
+        if (!$id) jsonResponse(['error' => true, 'message' => 'Empresa inválida'], 400);
+        $s = $db->prepare("
+            SELECT id, fecha_pago, monto, vence_anterior, vence_nuevo, registrado_por, created_at
+            FROM public.tenant_pagos
+            WHERE tenant_id = :id
+            ORDER BY created_at DESC, id DESC
+            LIMIT 50
+        ");
+        $s->execute([':id' => $id]);
+        echo json_encode($s->fetchAll());
+        break;
+
     // ---- GET: Datos SUNAT (solo lectura) + notas internas de superadmin ----
     case 'tenant_sunat_info':
         $id = intval($_GET['tenant_id'] ?? 0);

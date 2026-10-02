@@ -86,6 +86,12 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         .badge-basico     { background: #e2e8f0; color: #475569; }
         .badge-pro        { background: #fef3c7; color: #b45309; }
         .badge-enterprise { background: #ede9fe; color: #6d28d9; }
+        .badge-vence-ok   { background: var(--sa-border); color: var(--sa-text-secondary); }
+        .badge-vence-warn { background: #ffedd5; color: #c2410c; }
+        .badge-vence-late { background: #fee2e2; color: #dc2626; }
+        .btn-pagado { background: #16a34a; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: .86rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+        .btn-pagado:hover { opacity: .88; }
+        .pago-hint { font-size: .74rem; color: var(--sa-text-light); margin-top: 5px; }
         .hero-slug { font-size: .8rem; color: #94a3b8; font-family: monospace; }
         .hero-actions { display: flex; gap: 10px; }
 
@@ -351,9 +357,13 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
                 <button class="btn-primary" onclick="toggleForm('formSucursal')">
                     <i class="fas fa-plus"></i> Nueva
                 </button>
+                <span class="badge" id="heroVence" data-fecha="<?= htmlspecialchars($tenant['plan_vence_at'] ?? '') ?>"></span>
             </div>
 
             <!-- Form nueva sucursal -->
+            <button class="btn-pagado" onclick="abrirPagado()">
+                <i class="fas fa-check-circle"></i> Marcar como pagado
+            </button>
             <div class="form-panel" id="formSucursal">
                 <div class="form-panel-title"><i class="fas fa-plus-circle" style="color:#6366f1;margin-right:6px"></i>Nueva sucursal</div>
                 <div class="form-row cols2">
@@ -494,6 +504,16 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
                     <p style="font-size:.74rem;color:var(--sa-text-light);margin-top:5px">
                         Opcional. Si el aviso está activado, el cliente lo ve en su panel cuando falten 7 días o menos.
                     </p>
+        <!-- PAGOS DEL PLAN -->
+        <div class="section-card" style="grid-column:1/-1">
+            <div class="section-head">
+                <div class="section-head-title">
+                    <i class="fas fa-receipt"></i> Pagos del plan
+                </div>
+            </div>
+            <div id="listaPagos" style="overflow-x:auto"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>
+        </div>
+
                 </div>
                 <div class="form-group" style="grid-column:1/-1">
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:.88rem;font-weight:500;width:auto">
@@ -565,6 +585,37 @@ $planes = ['basico' => 'Básico', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
         </div>
         <div class="modal-body" style="text-align:center;padding:28px 24px 16px">
             <div style="width:64px;height:64px;background:#eef2ff;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem">🏪</div>
+<!-- Modal marcar como pagado -->
+<div class="modal-overlay" id="modalPagadoOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-check-circle" style="color:#16a34a;margin-right:8px"></i>Marcar como pagado</span>
+            <button class="modal-close" onclick="cerrarPagado()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p id="pagadoResumen" style="font-size:.84rem;color:var(--sa-text-secondary);margin-bottom:14px"></p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nueva fecha de vencimiento *</label>
+                    <input type="date" id="pVenceNuevo">
+                    <p class="pago-hint">Propuesta: 30 días desde el vencimiento actual (o desde hoy si ya venció o no hay fecha). Puedes cambiarla.</p>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Monto pagado (S/) <span style="text-transform:none;font-weight:400;color:var(--sa-text-light)">(opcional)</span></label>
+                    <input type="number" id="pMonto" min="0" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            <p class="pago-hint">El banner de aviso desaparece y vuelve a salir 7 días antes de la nueva fecha (si está activado para esta empresa).</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="cerrarPagado()">Cancelar</button>
+            <button class="btn-pagado" id="btnConfirmarPagado" onclick="confirmarPagado()"><i class="fas fa-check"></i> Confirmar pago</button>
+        </div>
+    </div>
+</div>
+
             <p id="upgradeMsg" style="font-size:.93rem;color:#475569;line-height:1.6;margin-bottom:18px"></p>
             <div id="upgradePlanes" style="display:flex;gap:12px;justify-content:center;margin-bottom:6px"></div>
         </div>
@@ -1123,6 +1174,7 @@ function mostrarUpgrade(data) {
     document.getElementById('upgradePlanes').innerHTML = `
         <div style="flex:1;border:2px solid #e2e8f0;border-radius:12px;padding:14px 10px;text-align:center;opacity:.6">
             <div style="font-size:1.4rem">${PLAN_ICONS[data.plan_actual]||'📦'}</div>
+    pintarVence(plan_vence_at);
             <div style="font-weight:700;font-size:.85rem;color:${PLAN_COLORS[data.plan_actual]||'#64748b'};margin-top:4px">${labelActual}</div>
             <div style="font-size:.72rem;color:#94a3b8;margin-top:2px">Máx. ${data.limite} sucursal(es)</div>
         </div>
@@ -1176,3 +1228,83 @@ cargarUsuarios();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+// ---- Pagos del plan / vencimiento ----
+const fmtFechaLocal = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const fmtFechaVista = iso => iso ? iso.split('-').reverse().join('/') : '—';
+
+// Etiqueta "Vence dd/mm/aaaa" de la cabecera (verde/naranja/rojo segun cercania)
+function pintarVence(iso) {
+    const el = document.getElementById('heroVence');
+    el.dataset.fecha = iso || '';
+    if (!iso) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const hoy  = new Date(); hoy.setHours(0,0,0,0);
+    const dias = Math.round((new Date(iso + 'T00:00:00') - hoy) / 86400000);
+    el.className = 'badge ' + (dias < 0 ? 'badge-vence-late' : (dias <= 7 ? 'badge-vence-warn' : 'badge-vence-ok'));
+    el.innerHTML = '<i class="fas fa-calendar-check" style="margin-right:5px"></i>' +
+        (dias < 0 ? 'Venció ' : 'Vence ') + fmtFechaVista(iso);
+}
+
+function abrirPagado() {
+    const actual = document.getElementById('heroVence').dataset.fecha || '';
+    const hoy = fmtFechaLocal(new Date());
+    const base = (actual && actual >= hoy) ? actual : hoy;
+    const d = new Date(base + 'T00:00:00'); d.setDate(d.getDate() + 30);
+    document.getElementById('pVenceNuevo').value = fmtFechaLocal(d);
+    document.getElementById('pMonto').value = '';
+    document.getElementById('pagadoResumen').textContent = actual
+        ? 'Vencimiento actual: ' + fmtFechaVista(actual) + '.'
+        : 'Esta empresa no tiene fecha de vencimiento registrada.';
+    document.getElementById('modalPagadoOverlay').classList.add('active');
+}
+function cerrarPagado() { document.getElementById('modalPagadoOverlay').classList.remove('active'); }
+
+async function confirmarPagado() {
+    const vence_nuevo = document.getElementById('pVenceNuevo').value;
+    const monto = document.getElementById('pMonto').value;
+    if (!vence_nuevo) { toast('Indica la nueva fecha de vencimiento', 'err'); return; }
+    const btn = document.getElementById('btnConfirmarPagado');
+    btn.disabled = true;
+    try {
+        const r = await fetch(`${API}?action=tenant_marcar_pagado`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ tenant_id: TENANT_ID, vence_nuevo, monto }),
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.message, 'err'); return; }
+        toast('Pago registrado. Nuevo vencimiento: ' + fmtFechaVista(d.vence_nuevo));
+        cerrarPagado();
+        pintarVence(d.vence_nuevo);
+        const inp = document.getElementById('eVenceAt');
+        if (inp) inp.value = d.vence_nuevo;
+        cargarPagos();
+    } catch { toast('Error de conexión', 'err'); }
+    finally { btn.disabled = false; }
+}
+
+async function cargarPagos() {
+    const box = document.getElementById('listaPagos');
+    try {
+        const data = await (await fetch(`${API}?action=tenant_pagos_listar&tenant_id=${TENANT_ID}`)).json();
+        if (!Array.isArray(data) || !data.length) {
+            box.innerHTML = '<div class="empty"><i class="fas fa-receipt"></i>Aún no hay pagos registrados</div>';
+            return;
+        }
+        box.innerHTML = `<table class="sec-table"><thead><tr>
+            <th>Fecha de pago</th><th>Monto</th><th>Vencía</th><th>Nuevo vencimiento</th><th>Registrado por</th>
+            </tr></thead><tbody>${data.map(p => `<tr>
+                <td class="td-name">${fmtFechaVista(p.fecha_pago)}</td>
+                <td>${p.monto !== null ? 'S/ ' + parseFloat(p.monto).toFixed(2) : '—'}</td>
+                <td>${fmtFechaVista(p.vence_anterior)}</td>
+                <td>${fmtFechaVista(p.vence_nuevo)}</td>
+                <td>${esc(p.registrado_por || '—')}</td>
+            </tr>`).join('')}</tbody></table>`;
+    } catch { box.innerHTML = '<div class="empty" style="color:#dc2626">Error al cargar</div>'; }
+}
+
+document.getElementById('modalPagadoOverlay').addEventListener('click', e => {
+    if (e.target.id === 'modalPagadoOverlay') cerrarPagado();
+});
+
+pintarVence(document.getElementById('heroVence').dataset.fecha);
+cargarPagos();
