@@ -48,6 +48,39 @@ include '../../includes/header.php';
 @media (max-width: 640px) {
     .rep-tabs { width: 100%; }
 }
+
+/* Paginación (Stock Paralizado) -- mismo patrón que modules/inventario/index.php,
+   no es un estilo global compartido. */
+#pz-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.pg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .13s, color .13s, border-color .13s;
+    line-height: 1;
+}
+.pg-btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--primary); color: var(--primary); }
+.pg-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.pg-btn:disabled { opacity: .4; cursor: default; }
+.pg-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 34px; color: var(--text-muted); font-size: .82rem; }
 </style>
 
 <div class="page-header">
@@ -603,6 +636,7 @@ include '../../includes/header.php';
                 </tbody>
             </table>
         </div>
+        <div id="pz-pagination"></div>
     </div>
 
 </div><!-- /rep-pane-paralizado -->
@@ -1179,6 +1213,10 @@ function pzActualizarBotonPromo() {
     document.getElementById('pz-btn-crear-promo').disabled = pzSeleccionados.size === 0;
 }
 
+// La seleccion (pzSeleccionados) persiste entre paginas -- "check all" solo
+// marca/desmarca las filas de la pagina actual, igual que el resto de la
+// seleccion visible; el contador y el boton de crear promocion reflejan el
+// total acumulado, no solo lo que se ve en pantalla.
 function pzToggleAll(checkboxTodos) {
     document.querySelectorAll('.pz-check-item').forEach(cb => {
         cb.checked = checkboxTodos.checked;
@@ -1197,12 +1235,16 @@ function pzToggleUno(cb) {
     pzActualizarBotonPromo();
 }
 
+const PZ_PAGE_SIZE = 50;
+let pzPage = 1;
+
 function pzBuscar() {
     pzSeleccionados = new Set();
     pzActualizarBotonPromo();
-    document.getElementById('pz-check-all').checked = false;
+    pzPage = 1;
     document.getElementById('pz-tabla-body').innerHTML =
         '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    document.getElementById('pz-pagination').innerHTML = '';
 
     fetch(API + '?action=stock_paralizado_stats&' + pzParams())
         .then(r => r.json())
@@ -1222,17 +1264,60 @@ function pzBuscar() {
                     '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-circle-check"></i>No hay productos paralizados en este periodo</div></td></tr>';
                 return;
             }
-            document.getElementById('pz-tabla-body').innerHTML = pzUltimaLista.map(p => `<tr>
-                <td><input type="checkbox" class="pz-check-item" data-id="${p.id}" onchange="pzToggleUno(this)"></td>
-                <td style="font-size:.82rem;color:var(--text-muted)">${esc(p.codigo)}</td>
-                <td>${esc(p.nombre)}</td>
-                <td>${esc(p.categoria)}</td>
-                <td class="text-right">${p.stock}</td>
-                <td class="text-right"><strong>${money(p.valor_inventario)}</strong></td>
-                <td style="font-size:.85rem;color:var(--text-muted)">${p.ultima_venta ? new Date(p.ultima_venta).toLocaleDateString('es-PE') : 'Nunca'}</td>
-            </tr>`).join('');
+            pzRenderPage(1);
         })
         .catch(() => showToast('Error al cargar el stock paralizado', 'error'));
+}
+
+function pzRenderPage(page) {
+    pzPage = page;
+    const start = (page - 1) * PZ_PAGE_SIZE;
+    const slice = pzUltimaLista.slice(start, start + PZ_PAGE_SIZE);
+
+    document.getElementById('pz-tabla-body').innerHTML = slice.map(p => `<tr>
+        <td><input type="checkbox" class="pz-check-item" data-id="${p.id}" ${pzSeleccionados.has(p.id) ? 'checked' : ''} onchange="pzToggleUno(this)"></td>
+        <td style="font-size:.82rem;color:var(--text-muted)">${esc(p.codigo)}</td>
+        <td>${esc(p.nombre)}</td>
+        <td>${esc(p.categoria)}</td>
+        <td class="text-right">${p.stock}</td>
+        <td class="text-right"><strong>${money(p.valor_inventario)}</strong></td>
+        <td style="font-size:.85rem;color:var(--text-muted)">${p.ultima_venta ? new Date(p.ultima_venta).toLocaleDateString('es-PE') : 'Nunca'}</td>
+    </tr>`).join('');
+
+    document.getElementById('pz-check-all').checked =
+        slice.length > 0 && slice.every(p => pzSeleccionados.has(p.id));
+
+    pzRenderPagination(pzUltimaLista.length, page);
+}
+
+function pzRenderPagination(total, page) {
+    const pages = Math.ceil(total / PZ_PAGE_SIZE);
+    const el = document.getElementById('pz-pagination');
+    if (pages <= 1) { el.innerHTML = ''; return; }
+
+    const shown = new Set([1, pages]);
+    for (let i = Math.max(1, page - 1); i <= Math.min(pages, page + 1); i++) shown.add(i);
+    const sorted = [...shown].sort((a, b) => a - b);
+
+    const items = [];
+    let prev = 0;
+    sorted.forEach(n => {
+        if (n - prev > 1) items.push('...');
+        items.push(n);
+        prev = n;
+    });
+
+    let html = `<button class="pg-btn" onclick="pzRenderPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&#8249;</button>`;
+    items.forEach(item => {
+        if (item === '...') {
+            html += `<span class="pg-ellipsis">…</span>`;
+        } else {
+            html += `<button class="pg-btn${item === page ? ' active' : ''}" onclick="pzRenderPage(${item})">${item}</button>`;
+        }
+    });
+    html += `<button class="pg-btn" onclick="pzRenderPage(${page + 1})" ${page === pages ? 'disabled' : ''}>&#8250;</button>`;
+
+    el.innerHTML = html;
 }
 
 function pzExportar() { repDownload(API + '?action=stock_paralizado_exportar&' + pzParams()); }
