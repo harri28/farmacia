@@ -1336,7 +1336,16 @@ function agregarAlCarritoConUnidad(product, presentacion, factor) {
         }
         existing.qty++;
     } else {
-        const productClone = presentacion ? { ...product, precio_venta: presentacion.precio_venta } : product;
+        // Promociones (Reportes, Bloque 2): solo aplica a la unidad base (sin
+        // presentacion), igual que el servidor en registrar_venta -- asi el
+        // carrito muestra el mismo precio que realmente se va a cobrar, en
+        // vez de la tarjeta de busqueda mostrando el descuento y el carrito
+        // ignorandolo.
+        const tienePromo = !presentacion && product.precio_promocional_base != null
+            && parseFloat(product.precio_promocional_base) < parseFloat(product.precio_venta);
+        const productClone = presentacion
+            ? { ...product, precio_venta: presentacion.precio_venta }
+            : (tienePromo ? { ...product, precio_venta: product.precio_promocional_base } : product);
         cart.push({
             id: productId,
             key,
