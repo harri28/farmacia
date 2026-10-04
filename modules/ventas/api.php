@@ -61,6 +61,34 @@ function ventasPrecioUnitarioFinal(array $producto): float
     return $precio;
 }
 
+// Promociones (Reportes, Bloque 2, migration_56). Devuelve el precio base
+// (sin IGV, misma escala que productos.precio_venta) mas barato entre todas
+// las promociones vigentes para este producto, o null si no hay ninguna.
+// Solo se llama cuando se vende a la unidad base del producto (ver el punto
+// de uso en 'registrar_venta') -- una promocion se define sobre precio_venta
+// base, no sobre el precio independiente de una presentacion (ej. CAJA x10),
+// asi que mezclarlas arriesgaria un calculo incorrecto; en ese caso la
+// promocion simplemente no se aplica.
+function ventasPromoPrecioMinimo(PDO $db, int $productoId, float $precioBase): ?float
+{
+    $stmt = $db->prepare("
+        SELECT MIN(
+            CASE pr.tipo_descuento
+                WHEN 'porcentaje' THEN :precio1::numeric * (1 - pr.valor_descuento / 100.0)
+                ELSE GREATEST(:precio2::numeric - pr.valor_descuento, 0.01)
+            END
+        ) AS precio_promo
+        FROM promocion_productos pp
+        JOIN promociones pr ON pr.id = pp.promocion_id
+        WHERE pp.producto_id = :pid AND pr.activo = TRUE
+          AND CURRENT_DATE BETWEEN pr.fecha_inicio AND pr.fecha_fin
+    ");
+    $stmt->execute([':precio1' => $precioBase, ':precio2' => $precioBase, ':pid' => $productoId]);
+    $precioPromo = $stmt->fetch()['precio_promo'] ?? null;
+
+    return $precioPromo !== null ? round((float) $precioPromo, 2) : null;
+}
+
 function ventasCalcularDetalleTributario(array $producto, float $cantidad): array
 {
     $cantidad = round(max(0.01, $cantidad), 2);
@@ -256,7 +284,24 @@ switch ($action) {
                 EXISTS (
                     SELECT 1 FROM toma_inventario_sesiones s
                     WHERE s.estado = 'activa' AND p.categoria_id = ANY(s.categorias_ids)
-                ) AS en_conteo_inventario
+                ) AS en_conteo_inventario,
+                -- Promociones (Reportes, Bloque 2, migration_56): precio base (sin IGV
+                -- aplicado todavia, misma semantica que p.precio_venta) resultante de la
+                -- promocion mas barata vigente para este producto, o NULL si no hay
+                -- ninguna. El front recalcula el IGV con getProductUnitSalePrice() igual
+                -- que con el precio normal -- no se duplica esa logica aqui.
+                (
+                    SELECT MIN(
+                        CASE pr.tipo_descuento
+                            WHEN 'porcentaje' THEN p.precio_venta * (1 - pr.valor_descuento / 100.0)
+                            ELSE GREATEST(p.precio_venta - pr.valor_descuento, 0.01)
+                        END
+                    )
+                    FROM promocion_productos pp
+                    JOIN promociones pr ON pr.id = pp.promocion_id
+                    WHERE pp.producto_id = p.id AND pr.activo = TRUE
+                      AND CURRENT_DATE BETWEEN pr.fecha_inicio AND pr.fecha_fin
+                ) AS precio_promocional_base
             FROM productos p
             LEFT JOIN public.categorias c ON c.id = p.categoria_id
             LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = p.afectacion_igv_id
@@ -513,6 +558,11 @@ switch ($action) {
                     $producto['precio_venta'] = $presentacion['precio_venta'];
                 } else {
                     $unidadVendida = null;
+                    // Promociones: nunca sube el precio, solo lo baja si conviene.
+                    $precioPromo = ventasPromoPrecioMinimo($db, $productoId, (float) $producto['precio_venta']);
+                    if ($precioPromo !== null && $precioPromo < (float) $producto['precio_venta']) {
+                        $producto['precio_venta'] = $precioPromo;
+                    }
                 }
 
                 $cantidadBase = round($cantidad * $factorEquivalencia, 2);

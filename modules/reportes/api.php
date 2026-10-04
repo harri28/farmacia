@@ -62,6 +62,51 @@ function reportesAnulacionesCTE(string $where): string
     ";
 }
 
+// Dias hacia atras sin ninguna venta para considerar un producto "paralizado".
+// Parametro ?dias_sin_venta=, acotado a un rango razonable (idea gemela de
+// reportesInventarioDiasVenta, pero aqui busca ausencia de venta, no velocidad).
+function reportesStockParalizadoDias(): int
+{
+    $dias = intval($_GET['dias_sin_venta'] ?? 60);
+    if ($dias < 7)   { $dias = 7; }
+    if ($dias > 365) { $dias = 365; }
+    return $dias;
+}
+
+// Productos con stock > 0 que no tuvieron NINGUNA venta completada en los
+// ultimos N dias -- capital "dormido" en estanteria. Distinto de "dias de
+// cobertura" (Bloque 3): ese mide que tan rapido se agota lo que SI se
+// vende; esto detecta lo que directamente dejo de venderse.
+function reportesStockParalizadoFiltro(): array
+{
+    $categoriaId = intval($_GET['categoria_id'] ?? 0);
+    $dias = reportesStockParalizadoDias();
+
+    $where = "
+        WHERE p.activo = TRUE AND p.eliminado = FALSE AND p.stock > 0
+          AND NOT EXISTS (
+              SELECT 1 FROM venta_detalles vd
+              JOIN ventas v ON v.id = vd.venta_id
+              WHERE vd.producto_id = p.id AND v.estado = 'completada'
+                AND v.created_at >= NOW() - make_interval(days => :dias_sin_venta::int)
+          )
+    ";
+    $params = [':dias_sin_venta' => $dias];
+    if ($categoriaId) { $where .= " AND p.categoria_id = :categoria_id"; $params[':categoria_id'] = $categoriaId; }
+
+    return [$where, $params];
+}
+
+// Estado visible de una promocion segun sus fechas y su flag 'activo'.
+function reportesPromoEstado(string $fechaInicio, string $fechaFin, bool $activo): string
+{
+    if (!$activo) { return 'inactiva'; }
+    $hoy = date('Y-m-d');
+    if ($hoy < $fechaInicio) { return 'proxima'; }
+    if ($hoy > $fechaFin)    { return 'vencida'; }
+    return 'vigente';
+}
+
 function reportesCajaMovimientosFiltro(): array
 {
     [$desde, $hastaDt] = reportesRangoFechas();
@@ -697,6 +742,202 @@ switch ($action) {
         $stmt->execute($params);
         reportesCsvOutput('anulaciones', $stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
+
+    // ----------------------------------------------------------------
+    // STOCK PARALIZADO (capital inmovilizado)
+    // ----------------------------------------------------------------
+    case 'stock_paralizado':
+        try {
+            [$where, $params] = reportesStockParalizadoFiltro();
+            $stmt = $db->prepare("
+                SELECT
+                    p.id, p.codigo, p.codigo_interno, p.nombre,
+                    COALESCE(cat.nombre, 'Sin categoría') AS categoria,
+                    p.stock, COALESCE(p.precio_compra, 0) AS precio_compra, p.precio_venta,
+                    ROUND((p.stock * COALESCE(p.precio_compra, 0))::numeric, 2) AS valor_inventario,
+                    (
+                        SELECT MAX(v2.created_at)
+                        FROM venta_detalles vd2
+                        JOIN ventas v2 ON v2.id = vd2.venta_id
+                        WHERE vd2.producto_id = p.id AND v2.estado = 'completada'
+                    ) AS ultima_venta
+                FROM productos p
+                LEFT JOIN categorias cat ON cat.id = p.categoria_id
+                $where
+                ORDER BY valor_inventario DESC
+            ");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'stock_paralizado_stats':
+        try {
+            [$where, $params] = reportesStockParalizadoFiltro();
+            $stmt = $db->prepare("
+                SELECT
+                    COUNT(*)                                                        AS total_productos,
+                    COALESCE(SUM(p.stock * COALESCE(p.precio_compra, 0)), 0)        AS valor_inmovilizado
+                FROM productos p
+                $where
+            ");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetch());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'stock_paralizado_exportar':
+        [$where, $params] = reportesStockParalizadoFiltro();
+        $stmt = $db->prepare("
+            SELECT
+                p.codigo                                                          AS \"Código\",
+                p.nombre                                                          AS \"Producto\",
+                COALESCE(cat.nombre, 'Sin categoría')                             AS \"Categoría\",
+                p.stock                                                           AS \"Stock\",
+                ROUND(COALESCE(p.precio_compra, 0)::numeric, 2)                   AS \"Precio Compra\",
+                ROUND((p.stock * COALESCE(p.precio_compra, 0))::numeric, 2)       AS \"Valor Inmovilizado\",
+                COALESCE(TO_CHAR((
+                    SELECT MAX(v2.created_at)
+                    FROM venta_detalles vd2
+                    JOIN ventas v2 ON v2.id = vd2.venta_id
+                    WHERE vd2.producto_id = p.id AND v2.estado = 'completada'
+                ), 'DD/MM/YYYY'), 'Nunca')                                        AS \"Última Venta\"
+            FROM productos p
+            LEFT JOIN categorias cat ON cat.id = p.categoria_id
+            $where
+            ORDER BY \"Valor Inmovilizado\" DESC
+        ");
+        $stmt->execute($params);
+        reportesCsvOutput('stock_paralizado', $stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    // ----------------------------------------------------------------
+    // PROMOCIONES (descuentos temporales -- ver modules/ventas/api.php
+    // para donde se aplica el precio en el POS)
+    // ----------------------------------------------------------------
+    case 'promociones_listar':
+        try {
+            $rows = $db->query("
+                SELECT
+                    pr.id, pr.nombre, pr.descripcion, pr.tipo_descuento, pr.valor_descuento,
+                    pr.fecha_inicio, pr.fecha_fin, pr.activo, pr.created_at,
+                    u.nombre AS creado_por_nombre,
+                    (SELECT COUNT(*) FROM promocion_productos pp WHERE pp.promocion_id = pr.id) AS total_productos,
+                    (
+                        SELECT STRING_AGG(p2.nombre, ', ')
+                        FROM promocion_productos pp2
+                        JOIN productos p2 ON p2.id = pp2.producto_id
+                        WHERE pp2.promocion_id = pr.id
+                    ) AS productos_nombres
+                FROM promociones pr
+                LEFT JOIN public.usuarios u ON u.id = pr.creado_por
+                ORDER BY pr.created_at DESC
+            ")->fetchAll();
+
+            foreach ($rows as &$row) {
+                $row['estado'] = reportesPromoEstado($row['fecha_inicio'], $row['fecha_fin'], $row['activo'] === true || $row['activo'] === 't');
+            }
+            unset($row);
+            echo json_encode($rows);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'promocion_crear':
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        $nombre = trim((string) ($data['nombre'] ?? ''));
+        $tipoDescuento = trim((string) ($data['tipo_descuento'] ?? ''));
+        $valorDescuento = floatval($data['valor_descuento'] ?? 0);
+        $fechaInicio = trim((string) ($data['fecha_inicio'] ?? ''));
+        $fechaFin = trim((string) ($data['fecha_fin'] ?? ''));
+        $productoIds = array_values(array_unique(array_filter(array_map('intval', $data['producto_ids'] ?? []))));
+
+        if ($nombre === '') {
+            jsonResponse(['error' => true, 'message' => 'El nombre de la promoción es requerido'], 400);
+        }
+        if (!in_array($tipoDescuento, ['porcentaje', 'monto_fijo'], true)) {
+            jsonResponse(['error' => true, 'message' => 'Tipo de descuento inválido'], 400);
+        }
+        if ($valorDescuento <= 0) {
+            jsonResponse(['error' => true, 'message' => 'El descuento debe ser mayor a 0'], 400);
+        }
+        if ($tipoDescuento === 'porcentaje' && $valorDescuento > 100) {
+            jsonResponse(['error' => true, 'message' => 'El descuento porcentual no puede superar 100%'], 400);
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            jsonResponse(['error' => true, 'message' => 'Fechas inválidas'], 400);
+        }
+        if ($fechaFin < $fechaInicio) {
+            jsonResponse(['error' => true, 'message' => 'La fecha de fin no puede ser anterior a la fecha de inicio'], 400);
+        }
+        if (empty($productoIds)) {
+            jsonResponse(['error' => true, 'message' => 'Selecciona al menos un producto'], 400);
+        }
+
+        // Filtra a solo productos que realmente existen en este schema -- nunca se
+        // confia en los ids que manda el navegador.
+        $placeholders = implode(',', array_fill(0, count($productoIds), '?'));
+        $checkProductos = $db->prepare("SELECT id FROM productos WHERE id IN ($placeholders)");
+        $checkProductos->execute($productoIds);
+        $productoIdsValidos = array_column($checkProductos->fetchAll(), 'id');
+        if (empty($productoIdsValidos)) {
+            jsonResponse(['error' => true, 'message' => 'Ninguno de los productos seleccionados es válido'], 400);
+        }
+
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO promociones (nombre, descripcion, tipo_descuento, valor_descuento, fecha_inicio, fecha_fin, creado_por)
+                VALUES (:nombre, :descripcion, :tipo, :valor, :finicio, :ffin, :uid)
+                RETURNING id
+            ");
+            $stmt->execute([
+                ':nombre' => $nombre,
+                ':descripcion' => trim((string) ($data['descripcion'] ?? '')) ?: null,
+                ':tipo' => $tipoDescuento,
+                ':valor' => $valorDescuento,
+                ':finicio' => $fechaInicio,
+                ':ffin' => $fechaFin,
+                ':uid' => sesionId(),
+            ]);
+            $promoId = $stmt->fetch()['id'];
+
+            $insertPp = $db->prepare("INSERT INTO promocion_productos (promocion_id, producto_id) VALUES (:pid, :prodid)");
+            foreach ($productoIdsValidos as $prodId) {
+                $insertPp->execute([':pid' => $promoId, ':prodid' => $prodId]);
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'No se pudo crear la promoción: ' . $e->getMessage()], 422);
+        }
+
+        registrarAuditoria('Creación de promoción', 'reportes', "Promoción: {$nombre} | {$tipoDescuento} {$valorDescuento} | {$fechaInicio} a {$fechaFin} | Productos: " . count($productoIdsValidos));
+        jsonResponse(['error' => false, 'message' => 'Promoción creada correctamente', 'id' => $promoId, 'productos_aplicados' => count($productoIdsValidos)]);
+
+    case 'promocion_toggle_activo':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = intval($data['id'] ?? 0);
+        if (!$id) {
+            jsonResponse(['error' => true, 'message' => 'ID inválido'], 400);
+        }
+
+        $stmt = $db->prepare("UPDATE promociones SET activo = NOT activo, updated_at = NOW() WHERE id = :id RETURNING activo, nombre");
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            jsonResponse(['error' => true, 'message' => 'Promoción no encontrada'], 404);
+        }
+
+        registrarAuditoria('Cambio de estado de promoción', 'reportes', "Promoción: {$row['nombre']} | Activa: " . ($row['activo'] ? 'si' : 'no'));
+        jsonResponse(['error' => false, 'activo' => $row['activo']]);
 
     default:
         jsonResponse(['error' => true, 'message' => 'Acción no válida'], 400);

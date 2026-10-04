@@ -1165,12 +1165,21 @@ function renderProducts(products, limit) {
                 : (isLow
                     ? `<span class="product-stock low">Stock: ${p.stock} ⚠</span>`
                     : `<span class="product-stock">Stock: ${p.stock}</span>`));
+        const precioNormal = getProductUnitSalePrice(p);
+        const tienePromo = p.precio_promocional_base != null && parseFloat(p.precio_promocional_base) < parseFloat(p.precio_venta);
+        const precioHtml = tienePromo
+            ? `<div class="product-price">
+                   <span style="text-decoration:line-through;color:var(--text-light);font-size:.8em;margin-right:5px">S/ ${precioNormal.toFixed(2)}</span>
+                   <span style="color:var(--danger)">S/ ${getProductUnitSalePrice({ ...p, precio_venta: p.precio_promocional_base }).toFixed(2)}</span>
+                   <i class="fas fa-tag" style="color:var(--danger);font-size:.8em;margin-left:3px" title="Promoción vigente"></i>
+               </div>`
+            : `<div class="product-price">S/ ${precioNormal.toFixed(2)}</div>`;
         return `
         <div class="product-card ${cls}" onclick="addToCart(${p.id})" data-id="${p.id}">
             ${p.favorito == 't' ? '<span class="fav-icon"><i class="fas fa-star"></i></span>' : ''}
             <div class="product-name">${p.nombre}</div>
             <div class="product-lab">${p.laboratorio || ''}</div>
-            <div class="product-price">S/ ${getProductUnitSalePrice(p).toFixed(2)}</div>
+            ${precioHtml}
             ${stockLabel}
         </div>`;
     };
