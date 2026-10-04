@@ -597,14 +597,6 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="card mb-4" style="background:var(--surface-2);border:1px dashed var(--border)">
-        <div style="display:flex;gap:10px;align-items:flex-start;font-size:.85rem;color:var(--text-muted)">
-            <i class="fas fa-circle-info" style="color:var(--primary);margin-top:2px"></i>
-            <div>Productos con stock que <strong>no</strong> se vendieron ni una vez en el periodo elegido -- capital
-            inmovilizado en estantería. Selecciona uno o varios y crea una promoción para sacarlos adelante.</div>
-        </div>
-    </div>
-
     <div class="row g-3 mb-4" id="pz-stats">
         <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-snowflake"></i></div><div><div class="stat-value" id="pz-st-productos">—</div><div class="stat-label">Productos paralizados</div></div></div></div>
         <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-coins"></i></div><div><div class="stat-value" id="pz-st-valor">—</div><div class="stat-label">Capital inmovilizado</div></div></div></div>
