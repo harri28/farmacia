@@ -580,26 +580,15 @@ include '../../includes/header.php';
 <div id="rep-pane-paralizado" class="rep-pane" style="display:none">
 
     <div class="card" style="margin-bottom:20px">
-        <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:1;min-width:190px">
-                <label class="form-label" title="Productos con stock que no tuvieron ninguna venta en esta cantidad de dias">Días sin venta a considerar</label>
-                <input type="number" id="pz-dias" class="form-control" value="60" min="7" max="365">
+        <div style="padding:10px 16px">
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="pz-q" class="form-control" placeholder="Nombre o código...">
+                </div>
             </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:160px">
-                <label class="form-label">Categoría</label>
-                <select id="pz-categoria" class="form-control">
-                    <option value="">Todas</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" onclick="pzBuscar()" style="margin-bottom:0">
-                <i class="fas fa-search"></i> Buscar
-            </button>
         </div>
-    </div>
-
-    <div class="row g-3 mb-4" id="pz-stats">
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-snowflake"></i></div><div><div class="stat-value" id="pz-st-productos">—</div><div class="stat-label">Productos paralizados</div></div></div></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-coins"></i></div><div><div class="stat-value" id="pz-st-valor">—</div><div class="stat-label">Capital inmovilizado</div></div></div></div>
     </div>
 
     <div class="card">
@@ -748,7 +737,7 @@ function repSwitchTab(tab) {
         if (tab === 'caja')        { cjBuscar(); }
         if (tab === 'productos')   { prCargarCategorias(); prBuscar(); }
         if (tab === 'anulaciones') { anBuscar(); }
-        if (tab === 'paralizado')  { pzCargarCategorias(); pzBuscar(); }
+        if (tab === 'paralizado')  { pzBuscar(); }
         if (tab === 'promociones') { pmListar(); }
     }
 }
@@ -1176,29 +1165,32 @@ function anExportar() { repDownload(API + '?action=anulaciones_exportar&' + anPa
 // ================================================================
 
 let pzSeleccionados = new Set();
-let pzUltimaLista = [];
+let pzUltimaLista = [];     // lo que devuelve el servidor, sin filtrar
+let pzListaFiltrada = [];   // lo que se muestra/pagina, tras aplicar el buscador
 
-function pzCargarCategorias() {
-    fetch(API + '?action=categorias_lista')
-        .then(r => r.json())
-        .then(data => {
-            const sel = document.getElementById('pz-categoria');
-            if (sel.options.length > 1) return; // ya cargadas
-            (data || []).forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id; opt.textContent = c.nombre;
-                sel.appendChild(opt);
-            });
-        })
-        .catch(() => {});
-}
-
+// dias_sin_venta queda fijo en 60 por ahora -- el filtro de dias/categoria se
+// quito de la UI a pedido del usuario (se reemplaza mas adelante por tarjetas
+// nuevas); el buscador de abajo filtra en el cliente sobre lo ya traido.
 function pzParams(extra = {}) {
     return new URLSearchParams({
-        dias_sin_venta: document.getElementById('pz-dias').value || 60,
-        categoria_id: document.getElementById('pz-categoria').value,
+        dias_sin_venta: 60,
         ...extra
     }).toString();
+}
+
+function pzFiltrar() {
+    const q = document.getElementById('pz-q').value.toLowerCase().trim();
+    pzListaFiltrada = !q ? pzUltimaLista : pzUltimaLista.filter(p =>
+        (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q)
+    );
+    document.getElementById('pz-result-count').textContent = pzListaFiltrada.length + ' producto(s)';
+    if (!pzListaFiltrada.length) {
+        document.getElementById('pz-tabla-body').innerHTML =
+            '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-circle-check"></i>No se encontraron productos</div></td></tr>';
+        document.getElementById('pz-pagination').innerHTML = '';
+        return;
+    }
+    pzRenderPage(1);
 }
 
 function pzActualizarBotonPromo() {
@@ -1234,29 +1226,22 @@ function pzBuscar() {
     pzSeleccionados = new Set();
     pzActualizarBotonPromo();
     pzPage = 1;
+    document.getElementById('pz-q').value = '';
     document.getElementById('pz-tabla-body').innerHTML =
         '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     document.getElementById('pz-pagination').innerHTML = '';
-
-    fetch(API + '?action=stock_paralizado_stats&' + pzParams())
-        .then(r => r.json())
-        .then(s => {
-            document.getElementById('pz-st-productos').textContent = s.total_productos ?? 0;
-            document.getElementById('pz-st-valor').textContent      = money(s.valor_inmovilizado);
-        })
-        .catch(() => {});
 
     fetch(API + '?action=stock_paralizado&' + pzParams())
         .then(r => r.json())
         .then(data => {
             pzUltimaLista = Array.isArray(data) ? data : [];
-            document.getElementById('pz-result-count').textContent = pzUltimaLista.length + ' producto(s)';
             if (!pzUltimaLista.length) {
+                document.getElementById('pz-result-count').textContent = '0 producto(s)';
                 document.getElementById('pz-tabla-body').innerHTML =
                     '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-circle-check"></i>No hay productos paralizados en este periodo</div></td></tr>';
                 return;
             }
-            pzRenderPage(1);
+            pzFiltrar();
         })
         .catch(() => showToast('Error al cargar el stock paralizado', 'error'));
 }
@@ -1264,7 +1249,7 @@ function pzBuscar() {
 function pzRenderPage(page) {
     pzPage = page;
     const start = (page - 1) * PZ_PAGE_SIZE;
-    const slice = pzUltimaLista.slice(start, start + PZ_PAGE_SIZE);
+    const slice = pzListaFiltrada.slice(start, start + PZ_PAGE_SIZE);
 
     document.getElementById('pz-tabla-body').innerHTML = slice.map(p => `<tr>
         <td><input type="checkbox" class="pz-check-item" data-id="${p.id}" ${pzSeleccionados.has(p.id) ? 'checked' : ''} onchange="pzToggleUno(this)"></td>
@@ -1279,7 +1264,7 @@ function pzRenderPage(page) {
     document.getElementById('pz-check-all').checked =
         slice.length > 0 && slice.every(p => pzSeleccionados.has(p.id));
 
-    pzRenderPagination(pzUltimaLista.length, page);
+    pzRenderPagination(pzListaFiltrada.length, page);
 }
 
 function pzRenderPagination(total, page) {
@@ -1511,6 +1496,12 @@ function pmGuardar() {
 
 document.getElementById('pm-tipo').addEventListener('change', pmActualizarLabelValor);
 document.getElementById('pm-productos-buscar').addEventListener('input', pmRenderSelectorProductos);
+
+let _pzBuscarTimer;
+document.getElementById('pz-q').addEventListener('input', () => {
+    clearTimeout(_pzBuscarTimer);
+    _pzBuscarTimer = setTimeout(pzFiltrar, 200);
+});
 
 // ================================================================
 // MODAL (Reportes nunca habia necesitado uno hasta el de Promociones --
