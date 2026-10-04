@@ -1426,6 +1426,13 @@ document.getElementById('pm-tipo').addEventListener('change', pmActualizarLabelV
 document.getElementById('pm-productos-buscar').addEventListener('input', pmRenderSelectorProductos);
 
 // ================================================================
+// MODAL (Reportes nunca habia necesitado uno hasta el de Promociones --
+// cada modulo define openModal/closeModal localmente, no es global)
+// ================================================================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ================================================================
 // TOASTS
 // ================================================================
 function showToast(msg, type = 'info') {
