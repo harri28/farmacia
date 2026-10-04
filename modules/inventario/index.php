@@ -109,6 +109,9 @@ include '../../includes/header.php';
     <button class="inv-tab" id="tab-btn-toma" onclick="switchTab('toma')">
         <i class="fas fa-clipboard-check"></i> Toma de Inventario
     </button>
+    <button class="inv-tab" id="tab-btn-eliminados" onclick="switchTab('eliminados')">
+        <i class="fas fa-trash"></i> Eliminados
+    </button>
     <?php endif; ?>
 </div>
 
@@ -309,6 +312,46 @@ include '../../includes/header.php';
         </div>
     </div>
 </div><!-- /tab-toma-detalle -->
+
+<!-- ===================== TAB: ELIMINADOS (papelera, 30 días) ===================== -->
+<div id="tab-eliminados" style="display:none">
+    <div class="card mb-4" style="background:var(--surface-2);border:1px dashed var(--border)">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:.85rem;color:var(--text-muted)">
+            <i class="fas fa-circle-info" style="color:var(--primary);margin-top:2px"></i>
+            <div>Los productos eliminados se guardan aquí durante <strong>30 días</strong> antes de borrarse
+            definitivamente. Un producto con ventas, ingresos, salidas u órdenes de compra registradas no se
+            borra nunca físicamente (se conserva el historial de comprobantes) — simplemente queda oculto.
+            Puedes restaurarlo en cualquier momento mientras esté en esta lista.</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Productos eliminados</div>
+            <span style="font-size:.82rem;color:var(--text-muted)" id="eliminados-count">Cargando...</span>
+        </div>
+        <div class="table-wrap table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th style="text-align:center">Stock</th>
+                        <th>Eliminado por</th>
+                        <th>Fecha</th>
+                        <th style="text-align:center">Vence en</th>
+                        <th style="width:110px"></th>
+                    </tr>
+                </thead>
+                <tbody id="eliminados-tabla-body">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-eliminados -->
 
 <!-- ===================== TAB: VER PRODUCTO (solo lectura) ===================== -->
 <div id="tab-producto-vista" style="display:none">
@@ -772,6 +815,33 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Confirmar Eliminación de Producto ===================== -->
+<div class="modal-overlay" id="modal-confirmar-eliminar-producto">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-trash" style="color:var(--danger);margin-right:8px"></i>Eliminar producto
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-confirmar-eliminar-producto')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.93rem;color:var(--text)">
+                ¿Estás seguro de que deseas eliminar
+                <strong id="confirmar-eliminar-producto-nombre" style="color:var(--danger)"></strong>?
+            </p>
+            <p style="font-size:.82rem;color:var(--text-muted);margin-top:8px">
+                Pasará a "Eliminados" y se borrará definitivamente en 30 días (antes puedes restaurarlo desde ahí).
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-confirmar-eliminar-producto')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-eliminar-producto" onclick="eliminarProductoConfirmado()">
+                <i class="fas fa-trash"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ===================== MODAL: Nueva Categoría ===================== -->
 <div class="modal-overlay" id="modal-nueva-categoria">
     <div class="modal" style="max-width:420px">
@@ -959,7 +1029,7 @@ let tomaRefreshInterval = null;
 
 // ---- Tabs ----
 function switchTab(tab) {
-    ['inventario', 'categorias', 'producto', 'producto-vista', 'toma', 'toma-detalle'].forEach(t => {
+    ['inventario', 'categorias', 'producto', 'producto-vista', 'toma', 'toma-detalle', 'eliminados'].forEach(t => {
         document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
         const btn = document.getElementById('tab-btn-' + t);
         if (btn) btn.classList.toggle('active', t === tab);
@@ -986,7 +1056,8 @@ function switchTab(tab) {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-eye" style="color:var(--primary);margin-right:8px"></i>Detalle de Producto';
         document.getElementById('inv-page-subtitle').textContent = 'Información del producto';
         document.getElementById('inv-page-actions').innerHTML   = esAdmin
-            ? '<button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>'
+            ? `<button class="btn btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="confirmarEliminarProducto()"><i class="fas fa-trash"></i> Eliminar</button>
+               <button class="btn btn-primary" onclick="openProductoModal(productoEnVista)"><i class="fas fa-edit"></i> Editar</button>`
             : '';
     } else if (tab === 'toma') {
         document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-clipboard-check" style="color:var(--primary);margin-right:8px"></i>Toma de Inventario';
@@ -995,6 +1066,11 @@ function switchTab(tab) {
         cargarTomaSesiones();
     } else if (tab === 'toma-detalle') {
         document.getElementById('inv-page-actions').innerHTML = '';
+    } else if (tab === 'eliminados') {
+        document.getElementById('inv-page-title').innerHTML     = '<i class="fas fa-trash" style="color:var(--primary);margin-right:8px"></i>Eliminados';
+        document.getElementById('inv-page-subtitle').textContent = 'Productos eliminados — se purgan automáticamente a los 30 días';
+        document.getElementById('inv-page-actions').innerHTML   = '';
+        cargarEliminados();
     }
 }
 
@@ -1716,6 +1792,112 @@ function toggleActivo(id) {
         loadStats();
     })
     .catch(() => showToast('Error al cambiar estado', 'error'));
+}
+
+// ---- Eliminar / restaurar producto (papelera "Eliminados") ----
+function confirmarEliminarProducto() {
+    if (!productoEnVista) return;
+    document.getElementById('confirmar-eliminar-producto-nombre').textContent = productoEnVista.nombre;
+    openModal('modal-confirmar-eliminar-producto');
+}
+
+function eliminarProductoConfirmado() {
+    if (!productoEnVista) return;
+    const btn = document.getElementById('btn-confirmar-eliminar-producto');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
+
+    fetch(BASE + 'modules/inventario/api.php?action=eliminar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: productoEnVista.id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+        if (data.error) { showToast(data.message, 'error'); return; }
+        closeModal('modal-confirmar-eliminar-producto');
+        showToast(data.message, 'success');
+        switchTab('inventario');
+        loadProductos();
+        loadStats();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+        showToast('Error al eliminar el producto', 'error');
+    });
+}
+
+function cargarEliminados() {
+    document.getElementById('eliminados-tabla-body').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(BASE + 'modules/inventario/api.php?action=eliminados_listar', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data)) throw new Error('unexpected');
+            document.getElementById('eliminados-count').textContent = data.length + ' producto(s)';
+
+            if (!data.length) {
+                document.getElementById('eliminados-tabla-body').innerHTML =
+                    `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-trash"></i>No hay productos eliminados</div></td></tr>`;
+                return;
+            }
+
+            document.getElementById('eliminados-tabla-body').innerHTML = data.map(p => {
+                const fecha = p.eliminado_at ? new Date(p.eliminado_at).toLocaleDateString('es-PE') : '—';
+                const dias  = parseInt(p.dias_restantes);
+                const diasCls = dias <= 3 ? 'color:var(--danger);font-weight:700' : 'color:var(--text-muted)';
+                return `<tr style="font-size:14px">
+                    <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || p.codigo || '—'}</td>
+                    <td style="font-weight:500">${p.nombre}</td>
+                    <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
+                    <td style="text-align:center">${p.stock}</td>
+                    <td>${p.eliminado_por_nombre || '<span style="color:var(--text-light)">—</span>'}</td>
+                    <td>${fecha}</td>
+                    <td style="text-align:center;${diasCls}">${dias} día${dias === 1 ? '' : 's'}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="restaurarProducto(${p.id}, this)">
+                            <i class="fas fa-rotate-left"></i> Restaurar
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => {
+            document.getElementById('eliminados-tabla-body').innerHTML =
+                '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-exclamation-circle" style="font-size:1.3rem;color:var(--danger)"></i><br><br>Error al cargar los productos eliminados.</td></tr>';
+        });
+}
+
+function restaurarProducto(id, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch(BASE + 'modules/inventario/api.php?action=restaurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restaurar';
+            showToast(data.message, 'error');
+            return;
+        }
+        showToast(data.message, 'success');
+        cargarEliminados();
+        loadStats();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restaurar';
+        showToast('Error al restaurar el producto', 'error');
+    });
 }
 
 // ---- Toma de Inventario ----

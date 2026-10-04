@@ -91,6 +91,30 @@ function guardarPreciosUnidadProducto(PDO $db, int $productoId, array $precios):
     }
 }
 
+function inventarioPurgarEliminados(PDO $db): void
+{
+    // Purga perezosa: se llama al abrir la pestaña "Eliminados". Borra
+    // definitivamente los productos con mas de 30 dias en la papelera,
+    // uno por uno (no en bloque) porque un producto con historial de
+    // ventas/ingresos/salidas/compras no se puede borrar fisicamente
+    // (venta_detalles.producto_id etc. no tienen ON DELETE CASCADE, a
+    // proposito, para no perder el detalle de comprobantes ya emitidos)
+    // -- ese producto simplemente se queda en la papelera indefinidamente.
+    $ids = $db->query("
+        SELECT id FROM productos
+        WHERE eliminado = TRUE AND eliminado_at < NOW() - INTERVAL '30 days'
+    ")->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach ($ids as $id) {
+        try {
+            $db->prepare("DELETE FROM productos WHERE id = :id")->execute([':id' => $id]);
+        } catch (PDOException $e) {
+            // Tiene historial -> se queda en la papelera. Seguimos con el resto.
+            continue;
+        }
+    }
+}
+
 function tomaInvGenerarCodigo(PDO $db): string
 {
     $prefijo = 'TI' . date('Ymd') . '-';
@@ -115,7 +139,8 @@ switch ($action) {
                 COUNT(*) FILTER (WHERE activo = TRUE) AS total_activos,
                 COUNT(*) FILTER (WHERE activo = TRUE AND stock = 0) AS agotados,
                 COUNT(*) FILTER (WHERE activo = TRUE AND stock > 0 AND stock <= stock_minimo) AS stock_bajo,
-                COUNT(*) FILTER (WHERE activo = FALSE) AS inactivos,
+                COUNT(*) FILTER (WHERE activo = FALSE AND eliminado = FALSE) AS inactivos,
+                COUNT(*) FILTER (WHERE eliminado = TRUE) AS eliminados,
                 COALESCE(SUM(stock * precio_compra) FILTER (WHERE activo = TRUE), 0) AS valor_inventario
             FROM productos
         ")->fetch();
@@ -127,7 +152,10 @@ switch ($action) {
         $categoria_id = intval($_GET['categoria_id'] ?? 0);
         $stock_status = $_GET['stock_status'] ?? '';
 
-        $where  = ['(p.nombre ILIKE :q OR p.codigo ILIKE :q OR COALESCE(p.laboratorio, \'\') ILIKE :q OR COALESCE(p.codigo_barras, \'\') ILIKE :q)'];
+        $where  = [
+            '(p.nombre ILIKE :q OR p.codigo ILIKE :q OR COALESCE(p.laboratorio, \'\') ILIKE :q OR COALESCE(p.codigo_barras, \'\') ILIKE :q)',
+            'p.eliminado = FALSE', // los eliminados solo se ven en la pestaña "Eliminados" (accion eliminados_listar)
+        ];
         $params = [':q' => $q];
 
         if ($categoria_id > 0) {
@@ -312,6 +340,15 @@ switch ($action) {
         $porcentajeIgv = round(floatval($data['porcentaje_igv'] ?? 18), 2);
         $incluyeIgv = !array_key_exists('incluye_igv', $data) || (bool) $data['incluye_igv'];
         $codigoBarras = trim($data['codigo_barras'] ?? '');
+        if ($codigoBarras !== '') {
+            // Pre-chequeo amigable; uq_productos_codigo_barras_activo (migration_55,
+            // experimental) es el respaldo real a nivel de BD si esto se saltara una carrera.
+            $checkCb = $db->prepare("SELECT id FROM productos WHERE codigo_barras = :cb AND eliminado = FALSE");
+            $checkCb->execute([':cb' => $codigoBarras]);
+            if ($checkCb->fetch()) {
+                jsonResponse(['error' => true, 'message' => 'Ya existe un producto con ese codigo de barras'], 409);
+            }
+        }
         $catalogos = resolverCatalogosProducto($db, $unidadCodigo, $afectacionCodigo);
         $esGravado = ($catalogos['afectacion_tipo'] ?? '') === 'GRAV';
 
@@ -381,6 +418,13 @@ switch ($action) {
         $porcentajeIgv = round(floatval($data['porcentaje_igv'] ?? 18), 2);
         $incluyeIgv = !array_key_exists('incluye_igv', $data) || (bool) $data['incluye_igv'];
         $codigoBarras = trim($data['codigo_barras'] ?? '');
+        if ($codigoBarras !== '') {
+            $checkCb = $db->prepare("SELECT id FROM productos WHERE codigo_barras = :cb AND eliminado = FALSE AND id != :id");
+            $checkCb->execute([':cb' => $codigoBarras, ':id' => $id]);
+            if ($checkCb->fetch()) {
+                jsonResponse(['error' => true, 'message' => 'Ya existe otro producto con ese codigo de barras'], 409);
+            }
+        }
         $catalogos = resolverCatalogosProducto($db, $unidadCodigo, $afectacionCodigo);
         $esGravado = ($catalogos['afectacion_tipo'] ?? '') === 'GRAV';
 
@@ -601,6 +645,82 @@ switch ($action) {
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch();
         jsonResponse(['error' => false, 'activo' => $row['activo']]);
+
+    case 'eliminar':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden eliminar productos'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id   = intval($data['id'] ?? 0);
+        if (!$id) {
+            jsonResponse(['error' => true, 'message' => 'ID invalido'], 400);
+        }
+
+        $stmt = $db->prepare("
+            UPDATE productos
+            SET activo = FALSE, eliminado = TRUE, eliminado_at = NOW(), eliminado_por = :uid, updated_at = NOW()
+            WHERE id = :id AND eliminado = FALSE
+            RETURNING nombre
+        ");
+        $stmt->execute([':id' => $id, ':uid' => sesionId()]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            jsonResponse(['error' => true, 'message' => 'Producto no encontrado o ya estaba eliminado'], 404);
+        }
+
+        registrarAuditoria('Eliminación de producto', 'inventario', "Producto: {$row['nombre']} (ID {$id}) | Pasa a Eliminados, se purga en 30 días si no tiene historial");
+        jsonResponse(['error' => false, 'message' => 'Producto eliminado. Quedará en "Eliminados" 30 días antes de borrarse definitivamente']);
+
+    case 'eliminados_listar':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden ver los productos eliminados'], 403);
+
+        inventarioPurgarEliminados($db);
+
+        $rows = $db->query("
+            SELECT
+                p.id, p.codigo, p.codigo_interno, p.codigo_barras, p.nombre, p.stock, p.precio_venta,
+                c.nombre AS categoria,
+                p.eliminado_at,
+                u.nombre AS eliminado_por_nombre,
+                GREATEST(0, 30 - FLOOR(EXTRACT(EPOCH FROM (NOW() - p.eliminado_at)) / 86400))::int AS dias_restantes
+            FROM productos p
+            LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN public.usuarios u ON u.id = p.eliminado_por
+            WHERE p.eliminado = TRUE
+            ORDER BY p.eliminado_at DESC
+        ")->fetchAll();
+        echo json_encode($rows);
+        break;
+
+    case 'restaurar':
+        if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden restaurar productos'], 403);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id   = intval($data['id'] ?? 0);
+        if (!$id) {
+            jsonResponse(['error' => true, 'message' => 'ID invalido'], 400);
+        }
+
+        try {
+            $stmt = $db->prepare("
+                UPDATE productos
+                SET eliminado = FALSE, eliminado_at = NULL, eliminado_por = NULL, activo = TRUE, updated_at = NOW()
+                WHERE id = :id AND eliminado = TRUE
+                RETURNING nombre
+            ");
+            $stmt->execute([':id' => $id]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23505') {
+                // Choca con uq_productos_codigo_barras_activo (migration_55, experimental):
+                // otro producto activo ya tomó ese codigo de barras mientras este estaba en la papelera.
+                jsonResponse(['error' => true, 'message' => 'No se puede restaurar: otro producto activo ya usa el mismo código de barras. Cambia el código de barras del otro producto primero.'], 409);
+            }
+            throw $e;
+        }
+        $row = $stmt->fetch();
+        if (!$row) {
+            jsonResponse(['error' => true, 'message' => 'Producto no encontrado en Eliminados'], 404);
+        }
+
+        registrarAuditoria('Restauración de producto eliminado', 'inventario', "Producto: {$row['nombre']} (ID {$id})");
+        jsonResponse(['error' => false, 'message' => 'Producto restaurado correctamente']);
 
     case 'toma_crear':
         if (!isAdmin()) jsonResponse(['error' => true, 'message' => 'Solo administradores pueden crear una toma de inventario'], 403);

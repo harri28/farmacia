@@ -49,10 +49,29 @@ CREATE TABLE IF NOT EXISTS productos (
     icbper_activo        BOOLEAN        DEFAULT FALSE,
     factor_icbper        DECIMAL(10,4)  DEFAULT 0,
     product_type         VARCHAR(20)    DEFAULT 'product',
+    -- Papelera de productos (migration_54): 'eliminado' distingue un
+    -- soft-delete real de un simple 'activo=FALSE' (desactivado pero
+    -- no eliminado). eliminado_por: usuario_id, sin FK cross-schema a
+    -- public.usuarios (mismo criterio que usuario_id en ventas/ingresos).
+    eliminado        BOOLEAN        DEFAULT FALSE,
+    eliminado_at     TIMESTAMP,
+    eliminado_por    INTEGER,
     created_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_productos_codigo_sunat ON productos (codigo_sunat);
+CREATE INDEX IF NOT EXISTS idx_productos_eliminado ON productos (eliminado, eliminado_at);
+
+-- EXPERIMENTAL (migration_55) -- impide codigo_barras duplicado entre
+-- productos activos (no eliminados). Indice parcial: NULL/'' y los
+-- codigo_barras de productos ya eliminados no cuentan para la unicidad,
+-- asi un producto nuevo puede reusar el codigo de barras de uno que
+-- esta en la papelera; si luego se intenta restaurar el original y hay
+-- choque, el UPDATE falla con 23505 (ver 'restaurar' en inventario/api.php).
+-- Si la prueba no resulta: DROP INDEX IF EXISTS uq_productos_codigo_barras_activo;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_productos_codigo_barras_activo
+    ON productos (codigo_barras)
+    WHERE codigo_barras IS NOT NULL AND codigo_barras <> '' AND eliminado = FALSE;
 
 -- Catálogo reutilizable de unidades de medida para "Precios por unidad de
 -- medida" (ej. CAJA, BLISTER, PAQUETE). Extensible desde el formulario de
