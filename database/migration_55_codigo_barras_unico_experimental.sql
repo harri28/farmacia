@@ -28,8 +28,25 @@
 --   Es solo un indice, no una columna -- se puede quitar sin perder
 --   datos ni tocar schema_sucursal.sql mas que borrando este bloque.
 --
+-- POR QUE CADA SCHEMA VA EN SU PROPIO BLOQUE BEGIN/EXCEPTION:
+--   Confirmado en produccion 2026-10-04 -- SI existen codigo_barras
+--   duplicados entre productos activos en al menos un schema real
+--   (ej. '7757773000012' repetido en mas de un producto). Un DO $$ es
+--   una sola sentencia: si un CREATE UNIQUE INDEX falla a mitad del
+--   loop sin atraparse, Postgres revierte TODO el bloque completo --
+--   ni siquiera los schemas sin duplicados quedarian protegidos. Por
+--   eso cada schema corre en su propio sub-bloque con EXCEPTION: el
+--   que tiene datos duplicados se salta (con un RAISE NOTICE) y el
+--   resto sigue normal. El schema saltado necesita limpieza manual de
+--   datos (fusionar o corregir el codigo_barras repetido) antes de
+--   poder re-correr esta migracion sobre el para que tambien quede
+--   protegido.
+--
 -- USO:
 --   psql -U postgres -d farmacia -f database/migration_55_codigo_barras_unico_experimental.sql
+-- (es seguro volver a correrla las veces que haga falta: los schemas
+--  que ya tienen el indice no hacen nada -- IF NOT EXISTS -- y solo
+--  reintenta los que quedaron pendientes)
 -- ============================================================
 
 DO $$
@@ -42,10 +59,17 @@ BEGIN
         WHERE schema_name NOT LIKE 'pg_%'
           AND schema_name NOT IN ('information_schema', 'public')
     LOOP
-        EXECUTE format($q$
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_productos_codigo_barras_activo
-            ON %I.productos (codigo_barras)
-            WHERE codigo_barras IS NOT NULL AND codigo_barras <> '' AND eliminado = FALSE
-        $q$, s);
+        BEGIN
+            EXECUTE format($q$
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_productos_codigo_barras_activo
+                ON %I.productos (codigo_barras)
+                WHERE codigo_barras IS NOT NULL AND codigo_barras <> '' AND eliminado = FALSE
+            $q$, s);
+        EXCEPTION
+            WHEN unique_violation THEN
+                RAISE NOTICE 'SALTADO % -- tiene codigo_barras duplicado entre productos activos, hay que corregir los datos primero (detalle: %)', s, SQLERRM;
+            WHEN undefined_table THEN
+                RAISE NOTICE 'SALTADO % -- no tiene tabla productos', s;
+        END;
     END LOOP;
 END $$;
