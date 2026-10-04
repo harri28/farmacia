@@ -70,6 +70,9 @@ include '../../includes/header.php';
     <button class="rep-tab" id="rep-tab-btn-caja" onclick="repSwitchTab('caja')">
         <i class="fas fa-cash-register"></i> Caja
     </button>
+    <button class="rep-tab" id="rep-tab-btn-productos" onclick="repSwitchTab('productos')">
+        <i class="fas fa-ranking-star"></i> Productos
+    </button>
 </div>
 
 <!-- ============================================================
@@ -209,10 +212,11 @@ include '../../includes/header.php';
                     <th id="vt-th-etiqueta">Vendedor</th>
                     <th class="text-right">N° Ventas</th><th class="text-right">Ingresos</th>
                     <th class="text-right">IGV</th><th class="text-right">Ticket promedio</th>
+                    <th class="text-right">% Participación</th><th class="text-right">vs Promedio</th>
                     <th class="text-right">Anuladas</th>
                 </tr></thead>
                 <tbody id="vt-tabla-body">
-                    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
             </table>
         </div>
@@ -355,6 +359,94 @@ include '../../includes/header.php';
 
 </div><!-- /rep-pane-caja -->
 
+
+<!-- ============================================================
+     PANE: PRODUCTOS (Ranking ABC / Pareto 80-15-5)
+     ============================================================ -->
+<div id="rep-pane-productos" class="rep-pane" style="display:none">
+
+    <div class="card" style="margin-bottom:20px">
+        <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="pr-desde" class="form-control" value="<?= date('Y-m-01') ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="pr-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px">
+                <label class="form-label">Categoría</label>
+                <select id="pr-categoria" class="form-control">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:190px">
+                <label class="form-label">Orden</label>
+                <select id="pr-orden" class="form-control">
+                    <option value="ingreso_desc">Más vendidos (por ingreso)</option>
+                    <option value="ingreso_asc">Menos vendidos (por ingreso)</option>
+                    <option value="cantidad_desc">Más vendidos (por cantidad)</option>
+                    <option value="cantidad_asc">Menos vendidos (por cantidad)</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="prBuscar()" style="margin-bottom:0">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:0">
+                <span style="font-size:.78rem;color:var(--text-muted)">Rápido:</span>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('pr','hoy')">Hoy</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('pr','semana')">Esta semana</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('pr','mes')">Este mes</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('pr','mes_ant')">Mes anterior</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4" style="background:var(--surface-2);border:1px dashed var(--border)">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:.85rem;color:var(--text-muted)">
+            <i class="fas fa-circle-info" style="color:var(--primary);margin-top:2px"></i>
+            <div>Clasificación ABC (Pareto): <strong>A</strong> = productos que juntos generan hasta el 80% del
+            ingreso del periodo, <strong>B</strong> = el siguiente 15% (hasta 95% acumulado), <strong>C</strong> = el
+            5% restante. "Menos vendidos" solo incluye productos que <em>sí</em> tuvieron venta en el rango —
+            para productos con stock sin ninguna venta, revisa el detector de stock paralizado (próximamente).</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4" id="pr-stats">
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-boxes-stacked"></i></div><div><div class="stat-value" id="pr-st-productos">—</div><div class="stat-label">Productos con venta</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon green"><i class="fas fa-sack-dollar"></i></div><div><div class="stat-value" id="pr-st-ingreso">—</div><div class="stat-label">Ingreso total</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon yellow"><i class="fas fa-star"></i></div><div><div class="stat-value" id="pr-st-clase-a">—</div><div class="stat-label">Productos clase A</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-trophy"></i></div><div><div class="stat-value" id="pr-st-top" style="font-size:.95rem">—</div><div class="stat-label">Producto top</div></div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Ranking de productos</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+                <span style="font-size:.82rem;color:var(--text-muted)" id="pr-result-count">—</span>
+                <button class="btn btn-success btn-sm" onclick="prExportar()">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>Código</th><th>Producto</th><th>Categoría</th>
+                    <th class="text-right">Cantidad</th><th class="text-right">Ingreso</th>
+                    <th class="text-right">Margen Est.</th><th class="text-right">% Acumulado</th>
+                    <th style="text-align:center;width:70px">Clase</th>
+                </tr></thead>
+                <tbody id="pr-tabla-body">
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /rep-pane-productos -->
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -377,6 +469,7 @@ function repSwitchTab(tab) {
         if (tab === 'ventas')     { vtBuscar(); }
         if (tab === 'inventario') { invCargarCategorias(); invBuscar(); }
         if (tab === 'caja')       { cjBuscar(); }
+        if (tab === 'productos')  { prCargarCategorias(); prBuscar(); }
     }
 }
 
@@ -394,6 +487,7 @@ function repSetPeriodo(prefix, p) {
     if (prefix === 'cc') ccBuscar();
     if (prefix === 'vt') vtBuscar();
     if (prefix === 'cj') cjBuscar();
+    if (prefix === 'pr') prBuscar();
 }
 
 function repDownload(url) {
@@ -513,17 +607,23 @@ function vtBuscar() {
 
             if (!rows.length) {
                 document.getElementById('vt-tabla-body').innerHTML =
-                    '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>';
+                    '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>';
                 return;
             }
-            document.getElementById('vt-tabla-body').innerHTML = rows.map(r => `<tr>
+            document.getElementById('vt-tabla-body').innerHTML = rows.map(r => {
+                const vsProm = parseFloat(r.pct_vs_promedio);
+                const vsPromCls = vsProm >= 100 ? 'color:var(--success);font-weight:600' : 'color:var(--danger);font-weight:600';
+                return `<tr>
                 <td style="text-transform:capitalize">${esc(r.etiqueta)}</td>
                 <td class="text-right">${r.total_ventas}</td>
                 <td class="text-right"><strong>${money(r.total_ingresos)}</strong></td>
                 <td class="text-right">${money(r.total_igv)}</td>
                 <td class="text-right">${money(r.ticket_promedio)}</td>
+                <td class="text-right">${parseFloat(r.pct_participacion).toFixed(1)}%</td>
+                <td class="text-right" style="${vsPromCls}">${vsProm.toFixed(0)}%</td>
                 <td class="text-right">${r.total_anuladas}</td>
-            </tr>`).join('');
+            </tr>`;
+            }).join('');
         })
         .catch(() => showToast('Error al cargar el reporte de ventas', 'error'));
 }
@@ -650,6 +750,76 @@ function cjBuscar() {
 }
 
 function cjExportar() { repDownload(API + '?action=caja_movimientos_exportar&' + cjParams()); }
+
+// ================================================================
+// PRODUCTOS (Ranking ABC / Pareto)
+// ================================================================
+
+function prCargarCategorias() {
+    fetch(API + '?action=categorias_lista')
+        .then(r => r.json())
+        .then(data => {
+            const sel = document.getElementById('pr-categoria');
+            (data || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.nombre;
+                sel.appendChild(opt);
+            });
+        })
+        .catch(() => {});
+}
+
+function prParams(extra = {}) {
+    return new URLSearchParams({
+        desde: document.getElementById('pr-desde').value,
+        hasta: document.getElementById('pr-hasta').value,
+        categoria_id: document.getElementById('pr-categoria').value,
+        orden: document.getElementById('pr-orden').value,
+        ...extra
+    }).toString();
+}
+
+const _prBadgeClase = { A: 'badge-success', B: 'badge-warning', C: 'badge-gray' };
+
+function prBuscar() {
+    document.getElementById('pr-tabla-body').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=productos_ranking_stats&' + prParams())
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById('pr-st-productos').textContent = s.total_productos ?? 0;
+            document.getElementById('pr-st-ingreso').textContent   = money(s.ingreso_total);
+            document.getElementById('pr-st-clase-a').textContent   = s.productos_clase_a ?? 0;
+            document.getElementById('pr-st-top').textContent       = s.top_nombre ? `${esc(s.top_nombre)} (${money(s.top_ingreso)})` : '—';
+        })
+        .catch(() => {});
+
+    fetch(API + '?action=productos_ranking&' + prParams())
+        .then(r => r.json())
+        .then(data => {
+            const rows = Array.isArray(data) ? data : [];
+            document.getElementById('pr-result-count').textContent = rows.length + ' producto(s)';
+            if (!rows.length) {
+                document.getElementById('pr-tabla-body').innerHTML =
+                    '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-ranking-star"></i>Sin ventas en el periodo seleccionado</div></td></tr>';
+                return;
+            }
+            document.getElementById('pr-tabla-body').innerHTML = rows.map(p => `<tr>
+                <td style="font-size:.82rem;color:var(--text-muted)">${esc(p.codigo)}</td>
+                <td>${esc(p.nombre)}</td>
+                <td>${esc(p.categoria)}</td>
+                <td class="text-right">${p.cantidad_vendida}</td>
+                <td class="text-right"><strong>${money(p.ingreso)}</strong></td>
+                <td class="text-right">${money(p.margen)}</td>
+                <td class="text-right">${parseFloat(p.pct_acumulado).toFixed(1)}%</td>
+                <td style="text-align:center"><span class="badge ${_prBadgeClase[p.clase_abc] || 'badge-gray'}">${esc(p.clase_abc)}</span></td>
+            </tr>`).join('');
+        })
+        .catch(() => showToast('Error al cargar el ranking de productos', 'error'));
+}
+
+function prExportar() { repDownload(API + '?action=productos_ranking_exportar&' + prParams()); }
 
 // ================================================================
 // TOASTS

@@ -58,6 +58,67 @@ function reportesVentasAgrupacion(string $agrupar): array
     }
 }
 
+function reportesProductosRankingFiltro(): array
+{
+    [$desde, $hastaDt] = reportesRangoFechas();
+    $categoriaId = intval($_GET['categoria_id'] ?? 0);
+
+    $where  = "WHERE v.estado = 'completada' AND v.created_at BETWEEN :desde AND :hasta";
+    $params = [':desde' => $desde, ':hasta' => $hastaDt];
+    if ($categoriaId) { $where .= " AND p.categoria_id = :categoria_id"; $params[':categoria_id'] = $categoriaId; }
+
+    return [$where, $params];
+}
+
+// CTE compartida por productos_ranking / productos_ranking_stats / productos_ranking_exportar:
+// agrupa venta_detalles por producto en el periodo, calcula margen (ingreso - costo
+// estimado al precio_compra actual) y clasifica ABC por ingreso acumulado (Pareto 80/15/5).
+function reportesProductosRankingCTE(string $where): string
+{
+    return "
+        WITH ventas_prod AS (
+            SELECT
+                p.id, p.codigo, p.nombre,
+                COALESCE(cat.nombre, 'Sin categoría') AS categoria,
+                SUM(vd.cantidad)                            AS cantidad_vendida,
+                SUM(vd.subtotal)                             AS ingreso,
+                SUM(vd.cantidad * COALESCE(p.precio_compra, 0)) AS costo_estimado
+            FROM venta_detalles vd
+            JOIN ventas v     ON v.id = vd.venta_id
+            JOIN productos p  ON p.id = vd.producto_id
+            LEFT JOIN categorias cat ON cat.id = p.categoria_id
+            $where
+            GROUP BY p.id, p.codigo, p.nombre, cat.nombre
+        ),
+        clasificado AS (
+            SELECT
+                *,
+                (ingreso - costo_estimado) AS margen,
+                ROUND((ingreso / NULLIF(SUM(ingreso) OVER (), 0)) * 100, 2) AS pct_ingreso,
+                ROUND((SUM(ingreso) OVER (ORDER BY ingreso DESC ROWS UNBOUNDED PRECEDING)
+                       / NULLIF(SUM(ingreso) OVER (), 0)) * 100, 2)         AS pct_acumulado
+            FROM ventas_prod
+        )
+        SELECT *,
+            CASE WHEN pct_acumulado <= 80 THEN 'A'
+                 WHEN pct_acumulado <= 95 THEN 'B'
+                 ELSE 'C' END AS clase_abc
+        FROM clasificado
+    ";
+}
+
+// Whitelist de orden -- nunca se interpola el parametro del navegador directo en el SQL.
+function reportesProductosRankingOrden(string $orden): string
+{
+    $map = [
+        'ingreso_desc'  => 'ingreso DESC',
+        'ingreso_asc'   => 'ingreso ASC',
+        'cantidad_desc' => 'cantidad_vendida DESC',
+        'cantidad_asc'  => 'cantidad_vendida ASC',
+    ];
+    return $map[$orden] ?? $map['ingreso_desc'];
+}
+
 function reportesInventarioFiltro(): array
 {
     $categoriaId = intval($_GET['categoria_id'] ?? 0);
@@ -185,17 +246,32 @@ switch ($action) {
             $agrupar = trim((string) ($_GET['agrupar'] ?? 'vendedor'));
             [$groupExpr, ] = reportesVentasAgrupacion($agrupar);
 
+            // Ranking: ademas de los totales por grupo, calcula cuanto representa
+            // cada uno sobre el ingreso total del periodo (pct_participacion) y
+            // como se compara contra el promedio del propio grupo (pct_vs_promedio)
+            // -- ambos con funciones de ventana sobre el resultado ya agrupado, sin
+            // una segunda consulta.
             $stmt = $db->prepare("
+                WITH base AS (
+                    SELECT
+                        $groupExpr                                                          AS etiqueta,
+                        COUNT(*) FILTER (WHERE v.estado = 'completada')                     AS total_ventas,
+                        COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS total_ingresos,
+                        COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0)    AS total_igv,
+                        COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS ticket_promedio,
+                        COUNT(*) FILTER (WHERE v.estado = 'anulada')                        AS total_anuladas
+                    FROM ventas v
+                    WHERE v.created_at BETWEEN :desde AND :hasta
+                    GROUP BY $groupExpr
+                )
                 SELECT
-                    $groupExpr                                                          AS etiqueta,
-                    COUNT(*) FILTER (WHERE v.estado = 'completada')                     AS total_ventas,
-                    COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS total_ingresos,
-                    COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0)    AS total_igv,
-                    COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS ticket_promedio,
-                    COUNT(*) FILTER (WHERE v.estado = 'anulada')                        AS total_anuladas
-                FROM ventas v
-                WHERE v.created_at BETWEEN :desde AND :hasta
-                GROUP BY $groupExpr
+                    *,
+                    ROUND((total_ingresos / NULLIF(SUM(total_ingresos) OVER (), 0)) * 100, 2) AS pct_participacion,
+                    ROUND(AVG(total_ingresos) OVER (), 2)                                      AS promedio_grupo,
+                    CASE WHEN AVG(total_ingresos) OVER () > 0
+                         THEN ROUND((total_ingresos / AVG(total_ingresos) OVER ()) * 100, 1)
+                         ELSE 0 END                                                             AS pct_vs_promedio
+                FROM base
                 ORDER BY total_ingresos DESC
             ");
             $stmt->execute([':desde' => $desde, ':hasta' => $hastaDt]);
@@ -211,16 +287,27 @@ switch ($action) {
         [$groupExpr, $groupLabel] = reportesVentasAgrupacion($agrupar);
 
         $stmt = $db->prepare("
+            WITH base AS (
+                SELECT
+                    $groupExpr                                                          AS etiqueta,
+                    COUNT(*) FILTER (WHERE v.estado = 'completada')                     AS total_ventas,
+                    COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS total_ingresos,
+                    COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0)    AS total_igv,
+                    COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0)    AS ticket_promedio,
+                    COUNT(*) FILTER (WHERE v.estado = 'anulada')                        AS total_anuladas
+                FROM ventas v
+                WHERE v.created_at BETWEEN :desde AND :hasta
+                GROUP BY $groupExpr
+            )
             SELECT
-                $groupExpr                                                                    AS \"$groupLabel\",
-                COUNT(*) FILTER (WHERE v.estado = 'completada')                               AS \"N° Ventas\",
-                ROUND(COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0)::numeric, 2) AS \"Total Ingresos\",
-                ROUND(COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0)::numeric, 2) AS \"Total IGV\",
-                ROUND(COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0)::numeric, 2) AS \"Ticket Promedio\",
-                COUNT(*) FILTER (WHERE v.estado = 'anulada')                                  AS \"Anuladas\"
-            FROM ventas v
-            WHERE v.created_at BETWEEN :desde AND :hasta
-            GROUP BY $groupExpr
+                etiqueta                                                                  AS \"$groupLabel\",
+                total_ventas                                                               AS \"N° Ventas\",
+                ROUND(total_ingresos::numeric, 2)                                          AS \"Total Ingresos\",
+                ROUND(total_igv::numeric, 2)                                               AS \"Total IGV\",
+                ROUND(ticket_promedio::numeric, 2)                                         AS \"Ticket Promedio\",
+                ROUND((total_ingresos / NULLIF(SUM(total_ingresos) OVER (), 0) * 100)::numeric, 2) AS \"% Participación\",
+                total_anuladas                                                             AS \"Anuladas\"
+            FROM base
             ORDER BY \"Total Ingresos\" DESC
         ");
         $stmt->execute([':desde' => $desde, ':hasta' => $hastaDt]);
@@ -374,6 +461,64 @@ switch ($action) {
         ");
         $stmt->execute($params);
         reportesCsvOutput('movimientos_caja', $stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    // ----------------------------------------------------------------
+    // PRODUCTOS MAS / MENOS VENDIDOS (ranking ABC / Pareto 80-15-5)
+    // ----------------------------------------------------------------
+    case 'productos_ranking':
+        try {
+            [$where, $params] = reportesProductosRankingFiltro();
+            $orden = reportesProductosRankingOrden(trim((string) ($_GET['orden'] ?? 'ingreso_desc')));
+            $stmt = $db->prepare(reportesProductosRankingCTE($where) . " ORDER BY $orden");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'productos_ranking_stats':
+        try {
+            [$where, $params] = reportesProductosRankingFiltro();
+            // 'ranked' envuelve la CTE completa UNA sola vez -- el filtro de fechas/categoria
+            // (:desde/:hasta[/:categoria_id]) solo aparece una vez en toda la consulta, el resto
+            // son subconsultas que leen de 'ranked' sin volver a filtrar nada.
+            $stmt = $db->prepare("
+                WITH ranked AS (" . reportesProductosRankingCTE($where) . ")
+                SELECT
+                    (SELECT COUNT(*) FROM ranked)                                AS total_productos,
+                    (SELECT COALESCE(SUM(ingreso), 0) FROM ranked)               AS ingreso_total,
+                    (SELECT COALESCE(SUM(margen), 0) FROM ranked)                AS margen_total,
+                    (SELECT COUNT(*) FROM ranked WHERE clase_abc = 'A')         AS productos_clase_a,
+                    (SELECT nombre  FROM ranked ORDER BY ingreso DESC LIMIT 1)   AS top_nombre,
+                    (SELECT ingreso FROM ranked ORDER BY ingreso DESC LIMIT 1)   AS top_ingreso
+            ");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetch());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'productos_ranking_exportar':
+        [$where, $params] = reportesProductosRankingFiltro();
+        $orden = reportesProductosRankingOrden(trim((string) ($_GET['orden'] ?? 'ingreso_desc')));
+        $stmt = $db->prepare("
+            SELECT
+                codigo                            AS \"Código\",
+                nombre                            AS \"Producto\",
+                categoria                         AS \"Categoría\",
+                cantidad_vendida                  AS \"Cantidad Vendida\",
+                ROUND(ingreso::numeric, 2)        AS \"Ingreso\",
+                ROUND(margen::numeric, 2)         AS \"Margen Estimado\",
+                pct_acumulado                     AS \"% Acumulado\",
+                clase_abc                         AS \"Clase ABC\"
+            FROM (" . reportesProductosRankingCTE($where) . ") r
+            ORDER BY $orden
+        ");
+        $stmt->execute($params);
+        reportesCsvOutput('productos_ranking', $stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
     default:
