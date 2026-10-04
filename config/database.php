@@ -4,6 +4,14 @@
 // DESCRIPCIÓN: Conexión PDO a PostgreSQL + helpers globales
 // ============================================================
 
+// Zona horaria unica de la aplicacion (Peru, UTC-5, sin horario de verano).
+// PostgreSQL guarda las fechas en hora Lima; si PHP usa otra zona (en el VPS
+// venia America/New_York, 1 hora adelantado en horario de verano), "hoy" de
+// PHP cambia de dia antes de la medianoche real: el dashboard se reiniciaba a
+// las 11 p. m., y los comprobantes SUNAT, numeros de venta y estadisticas del
+// dia salian con fecha/hora corridas. Se fija aqui para no depender del php.ini.
+date_default_timezone_set('America/Lima');
+
 require_once __DIR__ . '/auth.php';   // inicia sesión y carga helpers
 
 define('DB_HOST', 'localhost');
