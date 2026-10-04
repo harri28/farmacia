@@ -491,6 +491,38 @@ CREATE INDEX IF NOT EXISTS idx_toma_inv_detalles_sesion
 -- Primeros Auxilios, Bebés y Niños, Genéricos), no hace falta reinsertarlas
 -- por sucursal.
 
+-- Promociones (migration_56) -- descuentos temporales sobre productos
+-- puntuales, tipicamente generados desde el reporte "Stock Paralizado".
+-- Regla de seguridad (aplicada en PHP): si un producto tiene mas de una
+-- promocion vigente a la vez, siempre se cobra el precio MAS BAJO
+-- resultante -- por eso no hay restriccion que impida superponerlas.
+CREATE TABLE IF NOT EXISTS promociones (
+    id              SERIAL PRIMARY KEY,
+    nombre          VARCHAR(150) NOT NULL,
+    descripcion     TEXT,
+    tipo_descuento  VARCHAR(20)   NOT NULL DEFAULT 'porcentaje',
+    valor_descuento DECIMAL(10,2) NOT NULL,
+    fecha_inicio    DATE NOT NULL,
+    fecha_fin       DATE NOT NULL,
+    activo          BOOLEAN DEFAULT TRUE,
+    creado_por      INTEGER, -- usuario_id, sin FK cross-schema (mismo criterio que ventas.usuario_id)
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_promociones_tipo_descuento CHECK (tipo_descuento IN ('porcentaje', 'monto_fijo')),
+    CONSTRAINT chk_promociones_fechas CHECK (fecha_fin >= fecha_inicio),
+    CONSTRAINT chk_promociones_valor_positivo CHECK (valor_descuento > 0)
+);
+
+CREATE TABLE IF NOT EXISTS promocion_productos (
+    id            SERIAL PRIMARY KEY,
+    promocion_id  INTEGER NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
+    producto_id   INTEGER NOT NULL REFERENCES productos(id)   ON DELETE CASCADE,
+    UNIQUE (promocion_id, producto_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_promocion_productos_producto ON promocion_productos (producto_id);
+CREATE INDEX IF NOT EXISTS idx_promociones_vigencia ON promociones (activo, fecha_inicio, fecha_fin);
+
 INSERT INTO clientes (nombres, apellidos, dni, telefono)
 VALUES ('Cliente', 'General', '00000000', '000000000')
 ON CONFLICT DO NOTHING;

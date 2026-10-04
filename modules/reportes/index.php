@@ -76,6 +76,12 @@ include '../../includes/header.php';
     <button class="rep-tab" id="rep-tab-btn-anulaciones" onclick="repSwitchTab('anulaciones')">
         <i class="fas fa-ban"></i> Anulaciones
     </button>
+    <button class="rep-tab" id="rep-tab-btn-paralizado" onclick="repSwitchTab('paralizado')">
+        <i class="fas fa-snowflake"></i> Stock Paralizado
+    </button>
+    <button class="rep-tab" id="rep-tab-btn-promociones" onclick="repSwitchTab('promociones')">
+        <i class="fas fa-tags"></i> Promociones
+    </button>
 </div>
 
 <!-- ============================================================
@@ -534,6 +540,164 @@ include '../../includes/header.php';
 
 </div><!-- /rep-pane-anulaciones -->
 
+
+<!-- ============================================================
+     PANE: STOCK PARALIZADO
+     ============================================================ -->
+<div id="rep-pane-paralizado" class="rep-pane" style="display:none">
+
+    <div class="card" style="margin-bottom:20px">
+        <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:190px">
+                <label class="form-label" title="Productos con stock que no tuvieron ninguna venta en esta cantidad de dias">Días sin venta a considerar</label>
+                <input type="number" id="pz-dias" class="form-control" value="60" min="7" max="365">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px">
+                <label class="form-label">Categoría</label>
+                <select id="pz-categoria" class="form-control">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="pzBuscar()" style="margin-bottom:0">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-4" style="background:var(--surface-2);border:1px dashed var(--border)">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:.85rem;color:var(--text-muted)">
+            <i class="fas fa-circle-info" style="color:var(--primary);margin-top:2px"></i>
+            <div>Productos con stock que <strong>no</strong> se vendieron ni una vez en el periodo elegido -- capital
+            inmovilizado en estantería. Selecciona uno o varios y crea una promoción para sacarlos adelante.</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4" id="pz-stats">
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-snowflake"></i></div><div><div class="stat-value" id="pz-st-productos">—</div><div class="stat-label">Productos paralizados</div></div></div></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-coins"></i></div><div><div class="stat-value" id="pz-st-valor">—</div><div class="stat-label">Capital inmovilizado</div></div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Productos sin movimiento</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+                <span style="font-size:.82rem;color:var(--text-muted)" id="pz-result-count">—</span>
+                <button class="btn btn-primary btn-sm" id="pz-btn-crear-promo" onclick="pzAbrirPromoConSeleccionados()" disabled>
+                    <i class="fas fa-tags"></i> Crear promoción con seleccionados
+                </button>
+                <button class="btn btn-success btn-sm" onclick="pzExportar()">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th style="width:36px"><input type="checkbox" id="pz-check-all" onchange="pzToggleAll(this)"></th>
+                    <th>Código</th><th>Producto</th><th>Categoría</th>
+                    <th class="text-right">Stock</th><th class="text-right">Valor Inmovilizado</th>
+                    <th>Última Venta</th>
+                </tr></thead>
+                <tbody id="pz-tabla-body">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /rep-pane-paralizado -->
+
+
+<!-- ============================================================
+     PANE: PROMOCIONES
+     ============================================================ -->
+<div id="rep-pane-promociones" class="rep-pane" style="display:none">
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Promociones</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+                <span style="font-size:.82rem;color:var(--text-muted)" id="pm-result-count">—</span>
+                <button class="btn btn-primary btn-sm" onclick="pmAbrirNueva()">
+                    <i class="fas fa-plus"></i> Nueva Promoción
+                </button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>Nombre</th><th>Descuento</th><th>Productos</th>
+                    <th>Vigencia</th><th style="width:100px">Estado</th>
+                    <th>Creada por</th><th style="width:110px"></th>
+                </tr></thead>
+                <tbody id="pm-tabla-body">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /rep-pane-promociones -->
+
+<!-- ===================== MODAL: Nueva Promoción ===================== -->
+<div class="modal-overlay" id="modal-nueva-promocion">
+    <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-tags" style="color:var(--primary);margin-right:8px"></i>Nueva Promoción
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="pm-nombre" class="form-control" placeholder="Ej: Liquidación de verano">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descripción (opcional)</label>
+                <input type="text" id="pm-descripcion" class="form-control" placeholder="Notas internas sobre esta promoción">
+            </div>
+            <div style="display:flex;gap:14px">
+                <div class="form-group" style="flex:1">
+                    <label class="form-label">Tipo de descuento</label>
+                    <select id="pm-tipo" class="form-control">
+                        <option value="porcentaje">Porcentaje (%)</option>
+                        <option value="monto_fijo">Monto fijo (S/)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label class="form-label" id="pm-valor-label">Valor del descuento</label>
+                    <input type="number" id="pm-valor" class="form-control" min="0.01" step="0.01" placeholder="20">
+                </div>
+            </div>
+            <div style="display:flex;gap:14px">
+                <div class="form-group" style="flex:1">
+                    <label class="form-label">Fecha inicio</label>
+                    <input type="date" id="pm-fecha-inicio" class="form-control">
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label class="form-label">Fecha fin</label>
+                    <input type="date" id="pm-fecha-fin" class="form-control">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+                    Productos incluidos <span style="color:var(--danger)">*</span>
+                    <span style="font-size:.78rem;color:var(--text-muted)" id="pm-productos-count">0 seleccionado(s)</span>
+                </label>
+                <input type="text" id="pm-productos-buscar" class="form-control" placeholder="Buscar producto por nombre o código..." style="margin-bottom:8px">
+                <div id="pm-productos-lista" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:8px"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('modal-nueva-promocion')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-promocion" onclick="pmGuardar()">
+                <i class="fas fa-check"></i> Crear Promoción
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -558,6 +722,8 @@ function repSwitchTab(tab) {
         if (tab === 'caja')        { cjBuscar(); }
         if (tab === 'productos')   { prCargarCategorias(); prBuscar(); }
         if (tab === 'anulaciones') { anBuscar(); }
+        if (tab === 'paralizado')  { pzCargarCategorias(); pzBuscar(); }
+        if (tab === 'promociones') { pmListar(); }
     }
 }
 
@@ -978,6 +1144,286 @@ function anBuscar() {
 }
 
 function anExportar() { repDownload(API + '?action=anulaciones_exportar&' + anParams()); }
+
+// ================================================================
+// STOCK PARALIZADO
+// ================================================================
+
+let pzSeleccionados = new Set();
+let pzUltimaLista = [];
+
+function pzCargarCategorias() {
+    fetch(API + '?action=categorias_lista')
+        .then(r => r.json())
+        .then(data => {
+            const sel = document.getElementById('pz-categoria');
+            if (sel.options.length > 1) return; // ya cargadas
+            (data || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.nombre;
+                sel.appendChild(opt);
+            });
+        })
+        .catch(() => {});
+}
+
+function pzParams(extra = {}) {
+    return new URLSearchParams({
+        dias_sin_venta: document.getElementById('pz-dias').value || 60,
+        categoria_id: document.getElementById('pz-categoria').value,
+        ...extra
+    }).toString();
+}
+
+function pzActualizarBotonPromo() {
+    document.getElementById('pz-btn-crear-promo').disabled = pzSeleccionados.size === 0;
+}
+
+function pzToggleAll(checkboxTodos) {
+    document.querySelectorAll('.pz-check-item').forEach(cb => {
+        cb.checked = checkboxTodos.checked;
+        const id = parseInt(cb.dataset.id);
+        if (checkboxTodos.checked) pzSeleccionados.add(id); else pzSeleccionados.delete(id);
+    });
+    pzActualizarBotonPromo();
+}
+
+function pzToggleUno(cb) {
+    const id = parseInt(cb.dataset.id);
+    if (cb.checked) pzSeleccionados.add(id); else pzSeleccionados.delete(id);
+    document.getElementById('pz-check-all').checked =
+        document.querySelectorAll('.pz-check-item').length > 0 &&
+        document.querySelectorAll('.pz-check-item:not(:checked)').length === 0;
+    pzActualizarBotonPromo();
+}
+
+function pzBuscar() {
+    pzSeleccionados = new Set();
+    pzActualizarBotonPromo();
+    document.getElementById('pz-check-all').checked = false;
+    document.getElementById('pz-tabla-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=stock_paralizado_stats&' + pzParams())
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById('pz-st-productos').textContent = s.total_productos ?? 0;
+            document.getElementById('pz-st-valor').textContent      = money(s.valor_inmovilizado);
+        })
+        .catch(() => {});
+
+    fetch(API + '?action=stock_paralizado&' + pzParams())
+        .then(r => r.json())
+        .then(data => {
+            pzUltimaLista = Array.isArray(data) ? data : [];
+            document.getElementById('pz-result-count').textContent = pzUltimaLista.length + ' producto(s)';
+            if (!pzUltimaLista.length) {
+                document.getElementById('pz-tabla-body').innerHTML =
+                    '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-circle-check"></i>No hay productos paralizados en este periodo</div></td></tr>';
+                return;
+            }
+            document.getElementById('pz-tabla-body').innerHTML = pzUltimaLista.map(p => `<tr>
+                <td><input type="checkbox" class="pz-check-item" data-id="${p.id}" onchange="pzToggleUno(this)"></td>
+                <td style="font-size:.82rem;color:var(--text-muted)">${esc(p.codigo)}</td>
+                <td>${esc(p.nombre)}</td>
+                <td>${esc(p.categoria)}</td>
+                <td class="text-right">${p.stock}</td>
+                <td class="text-right"><strong>${money(p.valor_inventario)}</strong></td>
+                <td style="font-size:.85rem;color:var(--text-muted)">${p.ultima_venta ? new Date(p.ultima_venta).toLocaleDateString('es-PE') : 'Nunca'}</td>
+            </tr>`).join('');
+        })
+        .catch(() => showToast('Error al cargar el stock paralizado', 'error'));
+}
+
+function pzExportar() { repDownload(API + '?action=stock_paralizado_exportar&' + pzParams()); }
+
+function pzAbrirPromoConSeleccionados() {
+    if (!pzSeleccionados.size) return;
+    const productos = (pzUltimaLista || []).filter(p => pzSeleccionados.has(p.id));
+    pmAbrirNueva(productos.map(p => ({ id: p.id, nombre: p.nombre, codigo: p.codigo })));
+}
+
+// ================================================================
+// PROMOCIONES
+// ================================================================
+
+let pmTodosProductos = null;      // cache de productos para el selector del modal
+let pmProductosSeleccionados = new Map(); // id -> {id, nombre, codigo}
+
+const _pmBadgeEstado = { vigente: 'badge-success', proxima: 'badge-primary', vencida: 'badge-gray', inactiva: 'badge-danger' };
+const _pmLabelEstado = { vigente: 'Vigente', proxima: 'Próxima', vencida: 'Vencida', inactiva: 'Inactiva' };
+
+function pmListar() {
+    document.getElementById('pm-tabla-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=promociones_listar')
+        .then(r => r.json())
+        .then(data => {
+            const rows = Array.isArray(data) ? data : [];
+            document.getElementById('pm-result-count').textContent = rows.length + ' promoción(es)';
+            if (!rows.length) {
+                document.getElementById('pm-tabla-body').innerHTML =
+                    '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-tags"></i>Todavía no creaste ninguna promoción</div></td></tr>';
+                return;
+            }
+            document.getElementById('pm-tabla-body').innerHTML = rows.map(p => {
+                const descuentoTxt = p.tipo_descuento === 'porcentaje'
+                    ? `${parseFloat(p.valor_descuento).toFixed(0)}%`
+                    : `S/ ${parseFloat(p.valor_descuento).toFixed(2)}`;
+                const vigenciaTxt = `${new Date(p.fecha_inicio).toLocaleDateString('es-PE')} — ${new Date(p.fecha_fin).toLocaleDateString('es-PE')}`;
+                const esActivo = p.activo === true || p.activo === 't';
+                return `<tr>
+                    <td><strong>${esc(p.nombre)}</strong>${p.descripcion ? `<div style="font-size:.78rem;color:var(--text-muted)">${esc(p.descripcion)}</div>` : ''}</td>
+                    <td>${descuentoTxt}</td>
+                    <td style="font-size:.85rem" title="${esc(p.productos_nombres || '')}">${p.total_productos} producto(s)</td>
+                    <td style="font-size:.85rem">${vigenciaTxt}</td>
+                    <td><span class="badge ${_pmBadgeEstado[p.estado] || 'badge-gray'}">${_pmLabelEstado[p.estado] || p.estado}</span></td>
+                    <td style="font-size:.85rem">${esc(p.creado_por_nombre || '—')}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="pmToggleActivo(${p.id}, this)">
+                            <i class="fas fa-power-off"></i> ${esActivo ? 'Desactivar' : 'Activar'}
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar las promociones', 'error'));
+}
+
+function pmToggleActivo(id, btn) {
+    btn.disabled = true;
+    fetch(API + '?action=promocion_toggle_activo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.message, 'error'); btn.disabled = false; return; }
+        showToast(data.activo ? 'Promoción activada' : 'Promoción desactivada', 'success');
+        pmListar();
+    })
+    .catch(() => { showToast('Error al cambiar el estado de la promoción', 'error'); btn.disabled = false; });
+}
+
+function pmAbrirNueva(preseleccionados = []) {
+    document.getElementById('pm-nombre').value = '';
+    document.getElementById('pm-descripcion').value = '';
+    document.getElementById('pm-tipo').value = 'porcentaje';
+    document.getElementById('pm-valor').value = '';
+    document.getElementById('pm-fecha-inicio').value = new Date().toISOString().slice(0,10);
+    document.getElementById('pm-fecha-fin').value = new Date().toISOString().slice(0,10);
+    document.getElementById('pm-productos-buscar').value = '';
+    pmActualizarLabelValor();
+
+    pmProductosSeleccionados = new Map(preseleccionados.map(p => [p.id, p]));
+    pmActualizarContadorProductos();
+
+    if (pmTodosProductos) {
+        pmRenderSelectorProductos();
+        openModal('modal-nueva-promocion');
+    } else {
+        document.getElementById('pm-productos-lista').innerHTML = '<div style="text-align:center;padding:10px"><i class="fas fa-spinner fa-spin"></i></div>';
+        openModal('modal-nueva-promocion');
+        fetch(BASE + 'modules/inventario/api.php?action=listar')
+            .then(r => r.json())
+            .then(data => {
+                pmTodosProductos = Array.isArray(data) ? data : [];
+                pmRenderSelectorProductos();
+            })
+            .catch(() => {
+                document.getElementById('pm-productos-lista').innerHTML = '<div style="text-align:center;color:var(--danger);padding:10px">Error al cargar productos</div>';
+            });
+    }
+}
+
+function pmActualizarLabelValor() {
+    const tipo = document.getElementById('pm-tipo').value;
+    document.getElementById('pm-valor-label').textContent = tipo === 'porcentaje' ? 'Valor del descuento (%)' : 'Valor del descuento (S/)';
+}
+
+function pmActualizarContadorProductos() {
+    document.getElementById('pm-productos-count').textContent = pmProductosSeleccionados.size + ' seleccionado(s)';
+}
+
+function pmRenderSelectorProductos() {
+    const q = document.getElementById('pm-productos-buscar').value.toLowerCase().trim();
+    const lista = (pmTodosProductos || []).filter(p =>
+        !q || p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q)
+    ).slice(0, 150); // limite razonable para no congelar el DOM con catalogos muy grandes
+
+    if (!lista.length) {
+        document.getElementById('pm-productos-lista').innerHTML = '<div style="text-align:center;color:var(--text-light);padding:10px">Sin resultados</div>';
+        return;
+    }
+
+    document.getElementById('pm-productos-lista').innerHTML = lista.map(p => `
+        <label style="display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:.85rem;cursor:pointer">
+            <input type="checkbox" class="pm-check-producto" data-id="${p.id}" data-nombre="${esc(p.nombre)}" data-codigo="${esc(p.codigo)}"
+                   ${pmProductosSeleccionados.has(p.id) ? 'checked' : ''} onchange="pmToggleProducto(this)">
+            <span style="font-family:monospace;color:var(--text-muted);min-width:80px">${esc(p.codigo)}</span>
+            <span>${esc(p.nombre)}</span>
+        </label>`).join('');
+}
+
+function pmToggleProducto(cb) {
+    const id = parseInt(cb.dataset.id);
+    if (cb.checked) {
+        pmProductosSeleccionados.set(id, { id, nombre: cb.dataset.nombre, codigo: cb.dataset.codigo });
+    } else {
+        pmProductosSeleccionados.delete(id);
+    }
+    pmActualizarContadorProductos();
+}
+
+function pmGuardar() {
+    const nombre = document.getElementById('pm-nombre').value.trim();
+    const tipo = document.getElementById('pm-tipo').value;
+    const valor = parseFloat(document.getElementById('pm-valor').value);
+    const fechaInicio = document.getElementById('pm-fecha-inicio').value;
+    const fechaFin = document.getElementById('pm-fecha-fin').value;
+    const productoIds = [...pmProductosSeleccionados.keys()];
+
+    if (!nombre) { showToast('El nombre es requerido', 'error'); return; }
+    if (!valor || valor <= 0) { showToast('Ingresa un valor de descuento válido', 'error'); return; }
+    if (tipo === 'porcentaje' && valor > 100) { showToast('El descuento porcentual no puede superar 100%', 'error'); return; }
+    if (!fechaInicio || !fechaFin) { showToast('Selecciona las fechas de vigencia', 'error'); return; }
+    if (fechaFin < fechaInicio) { showToast('La fecha de fin no puede ser anterior a la de inicio', 'error'); return; }
+    if (!productoIds.length) { showToast('Selecciona al menos un producto', 'error'); return; }
+
+    const btn = document.getElementById('btn-guardar-promocion');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+
+    fetch(API + '?action=promocion_crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            nombre, descripcion: document.getElementById('pm-descripcion').value.trim(),
+            tipo_descuento: tipo, valor_descuento: valor,
+            fecha_inicio: fechaInicio, fecha_fin: fechaFin, producto_ids: productoIds,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Crear Promoción';
+        if (data.error) { showToast(data.message, 'error'); return; }
+        closeModal('modal-nueva-promocion');
+        showToast(`Promoción creada (${data.productos_aplicados} producto(s))`, 'success');
+        repSwitchTab('promociones');
+        pmListar();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Crear Promoción';
+        showToast('Error al crear la promoción', 'error');
+    });
+}
+
+document.getElementById('pm-tipo').addEventListener('change', pmActualizarLabelValor);
+document.getElementById('pm-productos-buscar').addEventListener('input', pmRenderSelectorProductos);
 
 // ================================================================
 // TOASTS
