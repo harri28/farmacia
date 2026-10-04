@@ -660,12 +660,12 @@ include '../../includes/header.php';
         <div class="table-wrap">
             <table>
                 <thead><tr>
-                    <th>Nombre</th><th>Descuento</th><th>Productos</th>
+                    <th>Nombre</th><th>Descuento</th><th>Nombre del Producto</th><th>Código</th>
                     <th>Vigencia</th><th style="width:100px">Estado</th>
                     <th>Creada por</th><th style="width:110px"></th>
                 </tr></thead>
                 <tbody id="pm-tabla-body">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
             </table>
         </div>
@@ -1340,7 +1340,7 @@ const _pmLabelEstado = { vigente: 'Vigente', proxima: 'Próxima', vencida: 'Venc
 
 function pmListar() {
     document.getElementById('pm-tabla-body').innerHTML =
-        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
 
     fetch(API + '?action=promociones_listar')
         .then(r => r.json())
@@ -1349,7 +1349,7 @@ function pmListar() {
             document.getElementById('pm-result-count').textContent = rows.length + ' promoción(es)';
             if (!rows.length) {
                 document.getElementById('pm-tabla-body').innerHTML =
-                    '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-tags"></i>Todavía no creaste ninguna promoción</div></td></tr>';
+                    '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-tags"></i>Todavía no creaste ninguna promoción</div></td></tr>';
                 return;
             }
             document.getElementById('pm-tabla-body').innerHTML = rows.map(p => {
@@ -1358,10 +1358,20 @@ function pmListar() {
                     : `S/ ${parseFloat(p.valor_descuento).toFixed(2)}`;
                 const vigenciaTxt = `${new Date(p.fecha_inicio).toLocaleDateString('es-PE')} — ${new Date(p.fecha_fin).toLocaleDateString('es-PE')}`;
                 const esActivo = p.activo === true || p.activo === 't';
+                // Nombre y código en lineas paralelas (misma posicion = mismo producto),
+                // asi no se desalinean cuando algun producto no tiene codigo de barras.
+                const detalle = Array.isArray(p.productos_detalle) ? p.productos_detalle : [];
+                const nombresHtml = detalle.length
+                    ? detalle.map(d => esc(d.nombre)).join('<br>')
+                    : '<span style="color:var(--text-light)">—</span>';
+                const codigosHtml = detalle.length
+                    ? detalle.map(d => d.codigo_barras ? esc(d.codigo_barras) : '<span style="color:var(--text-light)">—</span>').join('<br>')
+                    : '<span style="color:var(--text-light)">—</span>';
                 return `<tr>
                     <td><strong>${esc(p.nombre)}</strong>${p.descripcion ? `<div style="font-size:.78rem;color:var(--text-muted)">${esc(p.descripcion)}</div>` : ''}</td>
                     <td>${descuentoTxt}</td>
-                    <td style="font-size:.85rem" title="${esc(p.productos_nombres || '')}">${p.total_productos} producto(s)</td>
+                    <td style="font-size:.85rem">${nombresHtml}</td>
+                    <td style="font-size:.82rem;font-family:monospace;color:var(--text-muted)">${codigosHtml}</td>
                     <td style="font-size:.85rem">${vigenciaTxt}</td>
                     <td><span class="badge ${_pmBadgeEstado[p.estado] || 'badge-gray'}">${_pmLabelEstado[p.estado] || p.estado}</span></td>
                     <td style="font-size:.85rem">${esc(p.creado_por_nombre || '—')}</td>

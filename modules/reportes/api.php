@@ -832,7 +832,16 @@ switch ($action) {
                         FROM promocion_productos pp2
                         JOIN productos p2 ON p2.id = pp2.producto_id
                         WHERE pp2.promocion_id = pr.id
-                    ) AS productos_nombres
+                    ) AS productos_nombres,
+                    -- Detalle producto por producto (nombre + codigo de barras), en el
+                    -- mismo orden para los dos, asi el front puede mostrarlos en columnas
+                    -- separadas sin que se desalineen cuando algun producto no tiene barras.
+                    (
+                        SELECT json_agg(json_build_object('nombre', p3.nombre, 'codigo_barras', p3.codigo_barras) ORDER BY p3.nombre)
+                        FROM promocion_productos pp3
+                        JOIN productos p3 ON p3.id = pp3.producto_id
+                        WHERE pp3.promocion_id = pr.id
+                    ) AS productos_detalle
                 FROM promociones pr
                 LEFT JOIN public.usuarios u ON u.id = pr.creado_por
                 ORDER BY pr.created_at DESC
@@ -840,6 +849,9 @@ switch ($action) {
 
             foreach ($rows as &$row) {
                 $row['estado'] = reportesPromoEstado($row['fecha_inicio'], $row['fecha_fin'], $row['activo'] === true || $row['activo'] === 't');
+                // json_agg() vuelve de Postgres como texto -- decodificarlo aca para no
+                // mandarlo doble-codificado (string con JSON adentro) al front.
+                $row['productos_detalle'] = $row['productos_detalle'] ? json_decode($row['productos_detalle'], true) : [];
             }
             unset($row);
             echo json_encode($rows);
