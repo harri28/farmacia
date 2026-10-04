@@ -34,6 +34,34 @@ function reportesCostosComprasFiltro(): array
     return [$where, $params];
 }
 
+function reportesAnulacionesFiltro(): array
+{
+    [$desde, $hastaDt] = reportesRangoFechas();
+    return [
+        "WHERE v.estado = 'anulada' AND v.created_at BETWEEN :desde AND :hasta",
+        [':desde' => $desde, ':hasta' => $hastaDt],
+    ];
+}
+
+// CTE compartida por anulaciones_stats -- la lista de ventas anuladas del periodo
+// se calcula UNA vez y el resto son subconsultas de solo lectura sobre ella.
+// Nota: no existe en el esquema una columna "quien anulo" ni "fecha de anulacion"
+// ('anular_venta' en modules/ventas/api.php solo guarda estado + motivo_anulacion) --
+// "vendedor" aqui es el dueño original de la venta (quien la registro), no
+// necesariamente quien hizo clic en anular. Se deja asi, con el nombre de columna
+// honesto en vez de inventar precision que el dato no tiene.
+function reportesAnulacionesCTE(string $where): string
+{
+    return "
+        WITH anuladas AS (
+            SELECT v.id, v.numero_venta, v.created_at, v.total, v.motivo_anulacion,
+                   COALESCE(v.vendedor, 'Sin asignar') AS vendedor
+            FROM ventas v
+            $where
+        )
+    ";
+}
+
 function reportesCajaMovimientosFiltro(): array
 {
     [$desde, $hastaDt] = reportesRangoFechas();
@@ -131,6 +159,46 @@ function reportesInventarioFiltro(): array
     if ($soloActivos) { $where .= " AND p.activo = TRUE"; }
 
     return [$where, $params];
+}
+
+// Dias hacia atras para calcular la velocidad de venta (idea "dias de cobertura
+// de stock"). Parametro ?dias_venta=, acotado a un rango razonable para evitar
+// consultas absurdas (ej. 0 o 50 años).
+function reportesInventarioDiasVenta(): int
+{
+    $dias = intval($_GET['dias_venta'] ?? 30);
+    if ($dias < 7)   { $dias = 7; }
+    if ($dias > 365) { $dias = 365; }
+    return $dias;
+}
+
+// Subconsulta reutilizable: cantidad vendida por producto en los ultimos N dias
+// (solo ventas completadas), para derivar velocidad de venta diaria y, con eso,
+// en cuantos dias se agotaria el stock actual al ritmo reciente -- mas util que
+// un umbral fijo de "stock bajo" porque avisa antes si la venta se acelero.
+function reportesInventarioVelocidadJoin(): string
+{
+    return "
+        LEFT JOIN (
+            SELECT vd.producto_id, SUM(vd.cantidad) AS cantidad_vendida
+            FROM venta_detalles vd
+            JOIN ventas v ON v.id = vd.venta_id
+            WHERE v.estado = 'completada' AND v.created_at >= NOW() - make_interval(days => :dias_venta::int)
+            GROUP BY vd.producto_id
+        ) vel ON vel.producto_id = p.id
+    ";
+}
+
+// Whitelist de orden -- nunca se interpola el query string directo en el SQL.
+function reportesInventarioOrden(string $orden): string
+{
+    $map = [
+        'valor_desc'     => 'valor_inventario DESC',
+        'valor_asc'      => 'valor_inventario ASC',
+        'cobertura_asc'  => 'dias_cobertura ASC NULLS LAST',
+        'cobertura_desc' => 'dias_cobertura DESC NULLS LAST',
+    ];
+    return $map[$orden] ?? $map['valor_desc'];
 }
 
 function reportesCsvOutput(string $filenameBase, array $rows): void
@@ -320,17 +388,26 @@ switch ($action) {
     case 'inventario_valorizacion':
         try {
             [$where, $params] = reportesInventarioFiltro();
+            $params[':dias_venta'] = reportesInventarioDiasVenta();
+            $orden = reportesInventarioOrden(trim((string) ($_GET['orden'] ?? 'valor_desc')));
+            $velJoin = reportesInventarioVelocidadJoin();
             $stmt = $db->prepare("
                 SELECT p.id, p.codigo, p.nombre, COALESCE(cat.nombre, 'Sin categoría') AS categoria,
                        p.stock, p.stock_minimo,
                        COALESCE(p.precio_compra, 0) AS precio_compra,
                        p.precio_venta,
                        ROUND((p.stock * COALESCE(p.precio_compra, 0))::numeric, 2) AS valor_inventario,
-                       p.activo
+                       p.activo,
+                       COALESCE(vel.cantidad_vendida, 0) AS cantidad_vendida_periodo,
+                       ROUND((COALESCE(vel.cantidad_vendida, 0) / :dias_venta::numeric)::numeric, 3) AS velocidad_diaria,
+                       CASE WHEN COALESCE(vel.cantidad_vendida, 0) > 0
+                            THEN ROUND((p.stock / (vel.cantidad_vendida / :dias_venta::numeric))::numeric, 1)
+                            ELSE NULL END AS dias_cobertura
                 FROM productos p
                 LEFT JOIN categorias cat ON cat.id = p.categoria_id
+                $velJoin
                 $where
-                ORDER BY valor_inventario DESC
+                ORDER BY $orden
             ");
             $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
@@ -342,14 +419,21 @@ switch ($action) {
     case 'inventario_valorizacion_stats':
         try {
             [$where, $params] = reportesInventarioFiltro();
+            $params[':dias_venta'] = reportesInventarioDiasVenta();
+            $velJoin = reportesInventarioVelocidadJoin();
             $stmt = $db->prepare("
                 SELECT
                     COUNT(*)                                                              AS total_productos,
                     COALESCE(SUM(p.stock * COALESCE(p.precio_compra, 0)), 0)               AS valor_total_compra,
                     COALESCE(SUM(p.stock * p.precio_venta), 0)                             AS valor_total_venta,
                     COUNT(*) FILTER (WHERE p.stock = 0)                                     AS agotados,
-                    COUNT(*) FILTER (WHERE p.stock > 0 AND p.stock <= p.stock_minimo)       AS stock_bajo
+                    COUNT(*) FILTER (WHERE p.stock > 0 AND p.stock <= p.stock_minimo)       AS stock_bajo,
+                    COUNT(*) FILTER (
+                        WHERE p.stock > 0 AND COALESCE(vel.cantidad_vendida, 0) > 0
+                          AND (p.stock / (vel.cantidad_vendida / :dias_venta::numeric)) <= 7
+                    )                                                                       AS en_riesgo_quiebre
                 FROM productos p
+                $velJoin
                 $where
             ");
             $stmt->execute($params);
@@ -361,6 +445,15 @@ switch ($action) {
 
     case 'inventario_valorizacion_exportar':
         [$where, $params] = reportesInventarioFiltro();
+        $params[':dias_venta'] = reportesInventarioDiasVenta();
+        $ordenExportMap = [
+            'valor_desc'     => '"Valor Inventario" DESC',
+            'valor_asc'      => '"Valor Inventario" ASC',
+            'cobertura_asc'  => '"Días de Cobertura" ASC NULLS LAST',
+            'cobertura_desc' => '"Días de Cobertura" DESC NULLS LAST',
+        ];
+        $orden = $ordenExportMap[trim((string) ($_GET['orden'] ?? 'valor_desc'))] ?? $ordenExportMap['valor_desc'];
+        $velJoin = reportesInventarioVelocidadJoin();
         $stmt = $db->prepare("
             SELECT
                 p.codigo                                                          AS \"Código\",
@@ -370,11 +463,16 @@ switch ($action) {
                 ROUND(COALESCE(p.precio_compra, 0)::numeric, 2)                   AS \"Precio Compra\",
                 ROUND(p.precio_venta::numeric, 2)                                 AS \"Precio Venta\",
                 ROUND((p.stock * COALESCE(p.precio_compra, 0))::numeric, 2)       AS \"Valor Inventario\",
+                COALESCE(vel.cantidad_vendida, 0)                                 AS \"Vendido en Periodo\",
+                CASE WHEN COALESCE(vel.cantidad_vendida, 0) > 0
+                     THEN ROUND((p.stock / (vel.cantidad_vendida / :dias_venta::numeric))::numeric, 1)
+                     ELSE NULL END                                               AS \"Días de Cobertura\",
                 CASE WHEN p.activo THEN 'Activo' ELSE 'Inactivo' END              AS \"Estado\"
             FROM productos p
+            $velJoin
             LEFT JOIN categorias cat ON cat.id = p.categoria_id
             $where
-            ORDER BY \"Valor Inventario\" DESC
+            ORDER BY $orden
         ");
         $stmt->execute($params);
         reportesCsvOutput('valorizacion_inventario', $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -519,6 +617,85 @@ switch ($action) {
         ");
         $stmt->execute($params);
         reportesCsvOutput('productos_ranking', $stmt->fetchAll(PDO::FETCH_ASSOC));
+        break;
+
+    // ----------------------------------------------------------------
+    // ANULACIONES
+    // ----------------------------------------------------------------
+    case 'anulaciones_listar':
+        try {
+            [$where, $params] = reportesAnulacionesFiltro();
+            $stmt = $db->prepare("
+                SELECT
+                    v.id, v.numero_venta, v.created_at, v.total, v.motivo_anulacion, v.vendedor,
+                    (
+                        SELECT STRING_AGG(DISTINCT p.nombre, ', ')
+                        FROM venta_detalles vd
+                        JOIN productos p ON p.id = vd.producto_id
+                        WHERE vd.venta_id = v.id
+                    ) AS productos
+                FROM ventas v
+                $where
+                ORDER BY v.created_at DESC
+            ");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'anulaciones_stats':
+        try {
+            [$where, $params] = reportesAnulacionesFiltro();
+            $stmt = $db->prepare(
+                reportesAnulacionesCTE($where) . ",
+                por_vendedor AS (
+                    SELECT vendedor, COUNT(*) AS n FROM anuladas GROUP BY vendedor ORDER BY n DESC, vendedor LIMIT 1
+                ),
+                por_producto AS (
+                    SELECT p.nombre, COUNT(*) AS n
+                    FROM venta_detalles vd
+                    JOIN productos p ON p.id = vd.producto_id
+                    WHERE vd.venta_id IN (SELECT id FROM anuladas)
+                    GROUP BY p.nombre ORDER BY n DESC, p.nombre LIMIT 1
+                )
+                SELECT
+                    (SELECT COUNT(*) FROM anuladas)               AS total_anuladas,
+                    (SELECT COALESCE(SUM(total), 0) FROM anuladas) AS monto_anulado,
+                    (SELECT vendedor FROM por_vendedor)            AS vendedor_top,
+                    (SELECT n FROM por_vendedor)                   AS vendedor_top_count,
+                    (SELECT nombre FROM por_producto)              AS producto_top,
+                    (SELECT n FROM por_producto)                   AS producto_top_count
+            ");
+            $stmt->execute($params);
+            echo json_encode($stmt->fetch());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    case 'anulaciones_exportar':
+        [$where, $params] = reportesAnulacionesFiltro();
+        $stmt = $db->prepare("
+            SELECT
+                v.numero_venta                                       AS \"N° Venta\",
+                TO_CHAR(v.created_at, 'DD/MM/YYYY HH24:MI')           AS \"Fecha de Venta\",
+                COALESCE(v.vendedor, 'Sin asignar')                   AS \"Vendedor\",
+                ROUND(v.total::numeric, 2)                            AS \"Monto\",
+                COALESCE(v.motivo_anulacion, '')                      AS \"Motivo\",
+                COALESCE((
+                    SELECT STRING_AGG(DISTINCT p.nombre, ', ')
+                    FROM venta_detalles vd
+                    JOIN productos p ON p.id = vd.producto_id
+                    WHERE vd.venta_id = v.id
+                ), '')                                                 AS \"Productos\"
+            FROM ventas v
+            $where
+            ORDER BY v.created_at DESC
+        ");
+        $stmt->execute($params);
+        reportesCsvOutput('anulaciones', $stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
     default:

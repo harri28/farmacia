@@ -73,6 +73,9 @@ include '../../includes/header.php';
     <button class="rep-tab" id="rep-tab-btn-productos" onclick="repSwitchTab('productos')">
         <i class="fas fa-ranking-star"></i> Productos
     </button>
+    <button class="rep-tab" id="rep-tab-btn-anulaciones" onclick="repSwitchTab('anulaciones')">
+        <i class="fas fa-ban"></i> Anulaciones
+    </button>
 </div>
 
 <!-- ============================================================
@@ -249,6 +252,19 @@ include '../../includes/header.php';
                     <option value="0">Todos</option>
                 </select>
             </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:150px">
+                <label class="form-label" title="Ventana usada para calcular la velocidad de venta diaria">Días de venta a considerar</label>
+                <input type="number" id="inv-dias-venta" class="form-control" value="30" min="7" max="365">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:190px">
+                <label class="form-label">Orden</label>
+                <select id="inv-orden" class="form-control">
+                    <option value="valor_desc">Mayor valor en inventario</option>
+                    <option value="valor_asc">Menor valor en inventario</option>
+                    <option value="cobertura_asc">Menor días de cobertura (más urgente)</option>
+                    <option value="cobertura_desc">Mayor días de cobertura</option>
+                </select>
+            </div>
             <button class="btn btn-primary" onclick="invBuscar()" style="margin-bottom:0">
                 <i class="fas fa-search"></i> Buscar
             </button>
@@ -260,6 +276,7 @@ include '../../includes/header.php';
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon green"><i class="fas fa-coins"></i></div><div><div class="stat-value" id="inv-st-valor-compra">—</div><div class="stat-label">Valor (costo)</div></div></div></div>
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon yellow"><i class="fas fa-sack-dollar"></i></div><div><div class="stat-value" id="inv-st-valor-venta">—</div><div class="stat-label">Valor (venta)</div></div></div></div>
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-triangle-exclamation"></i></div><div><div class="stat-value" id="inv-st-alertas">—</div><div class="stat-label">Agotados / stock bajo</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-hourglass-half"></i></div><div><div class="stat-value" id="inv-st-riesgo">—</div><div class="stat-label">En riesgo de quiebre (≤7 días)</div></div></div></div>
     </div>
 
     <div class="card">
@@ -281,9 +298,10 @@ include '../../includes/header.php';
                     <th>Código</th><th>Producto</th><th>Categoría</th>
                     <th class="text-right">Stock</th><th class="text-right">P. Compra</th>
                     <th class="text-right">P. Venta</th><th class="text-right">Valor Inventario</th>
+                    <th class="text-right">Vendido (periodo)</th><th class="text-right">Días Cobertura</th>
                 </tr></thead>
                 <tbody id="inv-tabla-body">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
             </table>
         </div>
@@ -447,6 +465,75 @@ include '../../includes/header.php';
 
 </div><!-- /rep-pane-productos -->
 
+
+<!-- ============================================================
+     PANE: ANULACIONES
+     ============================================================ -->
+<div id="rep-pane-anulaciones" class="rep-pane" style="display:none">
+
+    <div class="card" style="margin-bottom:20px">
+        <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="an-desde" class="form-control" value="<?= date('Y-m-01') ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="an-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <button class="btn btn-primary" onclick="anBuscar()" style="margin-bottom:0">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:0">
+                <span style="font-size:.78rem;color:var(--text-muted)">Rápido:</span>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('an','hoy')">Hoy</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('an','semana')">Esta semana</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('an','mes')">Este mes</button>
+                <button class="btn btn-ghost btn-sm" onclick="repSetPeriodo('an','mes_ant')">Mes anterior</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4" style="background:var(--surface-2);border:1px dashed var(--border)">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:.85rem;color:var(--text-muted)">
+            <i class="fas fa-circle-info" style="color:var(--primary);margin-top:2px"></i>
+            <div>La columna "Vendedor" es quien registró la venta original, no necesariamente quien hizo clic en
+            anular — el sistema no guarda ese dato por separado hoy.</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4" id="an-stats">
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon red"><i class="fas fa-ban"></i></div><div><div class="stat-value" id="an-st-total">—</div><div class="stat-label">Ventas anuladas</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon yellow"><i class="fas fa-sack-dollar"></i></div><div><div class="stat-value" id="an-st-monto">—</div><div class="stat-label">Monto anulado</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-user"></i></div><div><div class="stat-value" id="an-st-vendedor" style="font-size:.95rem">—</div><div class="stat-label">Vendedor con más anulaciones</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value" id="an-st-producto" style="font-size:.95rem">—</div><div class="stat-label">Producto más anulado</div></div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Ventas anuladas</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+                <span style="font-size:.82rem;color:var(--text-muted)" id="an-result-count">—</span>
+                <button class="btn btn-success btn-sm" onclick="anExportar()">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>N° Venta</th><th>Fecha</th><th>Vendedor</th>
+                    <th class="text-right">Monto</th><th>Motivo</th><th>Productos</th>
+                </tr></thead>
+                <tbody id="an-tabla-body">
+                    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /rep-pane-anulaciones -->
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -465,11 +552,12 @@ function repSwitchTab(tab) {
 
     if (!_repTabLoaded[tab]) {
         _repTabLoaded[tab] = true;
-        if (tab === 'costos')     { ccCargarProveedores(); ccBuscar(); }
-        if (tab === 'ventas')     { vtBuscar(); }
-        if (tab === 'inventario') { invCargarCategorias(); invBuscar(); }
-        if (tab === 'caja')       { cjBuscar(); }
-        if (tab === 'productos')  { prCargarCategorias(); prBuscar(); }
+        if (tab === 'costos')      { ccCargarProveedores(); ccBuscar(); }
+        if (tab === 'ventas')      { vtBuscar(); }
+        if (tab === 'inventario')  { invCargarCategorias(); invBuscar(); }
+        if (tab === 'caja')        { cjBuscar(); }
+        if (tab === 'productos')   { prCargarCategorias(); prBuscar(); }
+        if (tab === 'anulaciones') { anBuscar(); }
     }
 }
 
@@ -488,6 +576,7 @@ function repSetPeriodo(prefix, p) {
     if (prefix === 'vt') vtBuscar();
     if (prefix === 'cj') cjBuscar();
     if (prefix === 'pr') prBuscar();
+    if (prefix === 'an') anBuscar();
 }
 
 function repDownload(url) {
@@ -653,13 +742,15 @@ function invParams(extra = {}) {
         q: document.getElementById('inv-q').value,
         categoria_id: document.getElementById('inv-categoria').value,
         solo_activos: document.getElementById('inv-solo-activos').value,
+        dias_venta: document.getElementById('inv-dias-venta').value || 30,
+        orden: document.getElementById('inv-orden').value,
         ...extra
     }).toString();
 }
 
 function invBuscar() {
     document.getElementById('inv-tabla-body').innerHTML =
-        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
 
     fetch(API + '?action=inventario_valorizacion_stats&' + invParams())
         .then(r => r.json())
@@ -668,6 +759,7 @@ function invBuscar() {
             document.getElementById('inv-st-valor-compra').textContent = money(s.valor_total_compra);
             document.getElementById('inv-st-valor-venta').textContent  = money(s.valor_total_venta);
             document.getElementById('inv-st-alertas').textContent      = `${s.agotados ?? 0} / ${s.stock_bajo ?? 0}`;
+            document.getElementById('inv-st-riesgo').textContent       = s.en_riesgo_quiebre ?? 0;
         })
         .catch(() => {});
 
@@ -678,10 +770,19 @@ function invBuscar() {
             document.getElementById('inv-result-count').textContent = rows.length + ' producto(s)';
             if (!rows.length) {
                 document.getElementById('inv-tabla-body').innerHTML =
-                    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>';
+                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>';
                 return;
             }
-            document.getElementById('inv-tabla-body').innerHTML = rows.map(p => `<tr>
+            document.getElementById('inv-tabla-body').innerHTML = rows.map(p => {
+                const dias = p.dias_cobertura;
+                let coberturaTxt = '<span style="color:var(--text-light)">Sin ventas</span>';
+                let coberturaCls = '';
+                if (dias !== null && dias !== undefined) {
+                    coberturaCls = parseFloat(dias) <= 7 ? 'color:var(--danger);font-weight:700' :
+                                   (parseFloat(dias) <= 15 ? 'color:var(--warning,#f59e0b);font-weight:600' : '');
+                    coberturaTxt = `<span style="${coberturaCls}">${parseFloat(dias).toFixed(0)} d</span>`;
+                }
+                return `<tr>
                 <td style="font-size:.82rem;color:var(--text-muted)">${esc(p.codigo)}</td>
                 <td>${esc(p.nombre)}</td>
                 <td>${esc(p.categoria)}</td>
@@ -689,7 +790,10 @@ function invBuscar() {
                 <td class="text-right">${money(p.precio_compra)}</td>
                 <td class="text-right">${money(p.precio_venta)}</td>
                 <td class="text-right"><strong>${money(p.valor_inventario)}</strong></td>
-            </tr>`).join('');
+                <td class="text-right">${p.cantidad_vendida_periodo}</td>
+                <td class="text-right">${coberturaTxt}</td>
+            </tr>`;
+            }).join('');
         })
         .catch(() => showToast('Error al cargar la valorización de inventario', 'error'));
 }
@@ -820,6 +924,60 @@ function prBuscar() {
 }
 
 function prExportar() { repDownload(API + '?action=productos_ranking_exportar&' + prParams()); }
+
+// ================================================================
+// ANULACIONES
+// ================================================================
+
+function anParams(extra = {}) {
+    return new URLSearchParams({
+        desde: document.getElementById('an-desde').value,
+        hasta: document.getElementById('an-hasta').value,
+        ...extra
+    }).toString();
+}
+
+function anBuscar() {
+    document.getElementById('an-tabla-body').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=anulaciones_stats&' + anParams())
+        .then(r => r.json())
+        .then(s => {
+            document.getElementById('an-st-total').textContent    = s.total_anuladas ?? 0;
+            document.getElementById('an-st-monto').textContent    = money(s.monto_anulado);
+            document.getElementById('an-st-vendedor').textContent = s.vendedor_top ? `${esc(s.vendedor_top)} (${s.vendedor_top_count})` : '—';
+            document.getElementById('an-st-producto').textContent = s.producto_top ? `${esc(s.producto_top)} (${s.producto_top_count})` : '—';
+        })
+        .catch(() => {});
+
+    fetch(API + '?action=anulaciones_listar&' + anParams())
+        .then(r => r.json())
+        .then(data => {
+            const rows = Array.isArray(data) ? data : [];
+            document.getElementById('an-result-count').textContent = rows.length + ' anulación(es)';
+            if (!rows.length) {
+                document.getElementById('an-tabla-body').innerHTML =
+                    '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-ban"></i>No hay ventas anuladas en el periodo seleccionado</div></td></tr>';
+                return;
+            }
+            document.getElementById('an-tabla-body').innerHTML = rows.map(v => {
+                const dt = new Date(v.created_at);
+                const fechaStr = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+                return `<tr>
+                <td><strong>${esc(v.numero_venta)}</strong></td>
+                <td style="font-size:.82rem;color:var(--text-muted)">${fechaStr}</td>
+                <td>${esc(v.vendedor)}</td>
+                <td class="text-right">${money(v.total)}</td>
+                <td style="font-size:.85rem">${esc(v.motivo_anulacion)}</td>
+                <td style="font-size:.85rem;color:var(--text-muted)">${esc(v.productos)}</td>
+            </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar las anulaciones', 'error'));
+}
+
+function anExportar() { repDownload(API + '?action=anulaciones_exportar&' + anParams()); }
 
 // ================================================================
 // TOASTS
