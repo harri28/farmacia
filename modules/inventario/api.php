@@ -370,7 +370,7 @@ switch ($action) {
             ':codigo_barras' => $codigoBarras ?: null,
             ':codigo_sunat' => $codigoSunat,
             ':nombre' => trim($data['nombre']),
-            ':cat' => $data['categoria_id'] ?: null,
+            ':cat' => empty($data['categoria_id']) ? null : $data['categoria_id'],
             ':lab' => trim($data['laboratorio'] ?? ''),
             ':pres' => trim($data['presentacion'] ?? ''),
             ':unidad' => $unidadTexto,
@@ -386,7 +386,7 @@ switch ($action) {
             ':stock_min' => intval($data['stock_minimo'] ?? 5),
             ':receta' => !empty($data['requiere_receta']) ? 'TRUE' : 'FALSE',
             ':favorito' => !empty($data['favorito']) ? 'TRUE' : 'FALSE',
-            ':fvenc' => $data['fecha_vencimiento'] ?: null,
+            ':fvenc' => empty($data['fecha_vencimiento']) ? null : $data['fecha_vencimiento'],
         ]);
         $id = $stmt->fetch()['id'];
         if (!empty($data['precios_unidad']) && is_array($data['precios_unidad'])) {
@@ -471,7 +471,7 @@ switch ($action) {
             ':codigo_barras' => $codigoBarras ?: null,
             ':codigo_sunat' => $codigoSunat,
             ':nombre' => trim($data['nombre']),
-            ':cat' => $data['categoria_id'] ?: null,
+            ':cat' => empty($data['categoria_id']) ? null : $data['categoria_id'],
             ':lab' => trim($data['laboratorio'] ?? ''),
             ':pres' => trim($data['presentacion'] ?? ''),
             ':unidad' => $unidadTexto,
@@ -487,7 +487,7 @@ switch ($action) {
             ':stock_min' => intval($data['stock_minimo'] ?? 5),
             ':receta' => !empty($data['requiere_receta']) ? 'TRUE' : 'FALSE',
             ':favorito' => !empty($data['favorito']) ? 'TRUE' : 'FALSE',
-            ':fvenc' => $data['fecha_vencimiento'] ?: null,
+            ':fvenc' => empty($data['fecha_vencimiento']) ? null : $data['fecha_vencimiento'],
         ]);
         guardarPreciosUnidadProducto($db, $id, is_array($data['precios_unidad'] ?? null) ? $data['precios_unidad'] : []);
         jsonResponse(['error' => false, 'message' => 'Producto actualizado correctamente']);
