@@ -62,16 +62,12 @@ CREATE TABLE IF NOT EXISTS productos (
 CREATE INDEX IF NOT EXISTS idx_productos_codigo_sunat ON productos (codigo_sunat);
 CREATE INDEX IF NOT EXISTS idx_productos_eliminado ON productos (eliminado, eliminado_at);
 
--- EXPERIMENTAL (migration_55) -- impide codigo_barras duplicado entre
--- productos activos (no eliminados). Indice parcial: NULL/'' y los
--- codigo_barras de productos ya eliminados no cuentan para la unicidad,
--- asi un producto nuevo puede reusar el codigo de barras de uno que
--- esta en la papelera; si luego se intenta restaurar el original y hay
--- choque, el UPDATE falla con 23505 (ver 'restaurar' en inventario/api.php).
--- Si la prueba no resulta: DROP INDEX IF EXISTS uq_productos_codigo_barras_activo;
-CREATE UNIQUE INDEX IF NOT EXISTS uq_productos_codigo_barras_activo
-    ON productos (codigo_barras)
-    WHERE codigo_barras IS NOT NULL AND codigo_barras <> '' AND eliminado = FALSE;
+-- Nota historica: migration_55 creaba un indice unico parcial sobre
+-- codigo_barras (uq_productos_codigo_barras_activo). Se revirtio en
+-- migration_57 (2026-10-05) porque, en el catalogo real, varias
+-- presentaciones del mismo producto (paquete x10 vs unidad suelta)
+-- comparten el mismo codigo de barras a proposito -- la restriccion
+-- impedia cargar esas presentaciones y no era sostenible.
 
 -- Catálogo reutilizable de unidades de medida para "Precios por unidad de
 -- medida" (ej. CAJA, BLISTER, PAQUETE). Extensible desde el formulario de

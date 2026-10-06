@@ -340,15 +340,10 @@ switch ($action) {
         $porcentajeIgv = round(floatval($data['porcentaje_igv'] ?? 18), 2);
         $incluyeIgv = !array_key_exists('incluye_igv', $data) || (bool) $data['incluye_igv'];
         $codigoBarras = trim($data['codigo_barras'] ?? '');
-        if ($codigoBarras !== '') {
-            // Pre-chequeo amigable; uq_productos_codigo_barras_activo (migration_55,
-            // experimental) es el respaldo real a nivel de BD si esto se saltara una carrera.
-            $checkCb = $db->prepare("SELECT id FROM productos WHERE codigo_barras = :cb AND eliminado = FALSE");
-            $checkCb->execute([':cb' => $codigoBarras]);
-            if ($checkCb->fetch()) {
-                jsonResponse(['error' => true, 'message' => 'Ya existe un producto con ese codigo de barras'], 409);
-            }
-        }
+        // Nota historica: aqui habia un pre-chequeo de codigo_barras duplicado,
+        // retirado junto a migration_55 (ver migration_57) -- varias presentaciones
+        // del mismo producto comparten codigo de barras a proposito en el catalogo
+        // real.
         $catalogos = resolverCatalogosProducto($db, $unidadCodigo, $afectacionCodigo);
         $esGravado = ($catalogos['afectacion_tipo'] ?? '') === 'GRAV';
 
@@ -418,13 +413,8 @@ switch ($action) {
         $porcentajeIgv = round(floatval($data['porcentaje_igv'] ?? 18), 2);
         $incluyeIgv = !array_key_exists('incluye_igv', $data) || (bool) $data['incluye_igv'];
         $codigoBarras = trim($data['codigo_barras'] ?? '');
-        if ($codigoBarras !== '') {
-            $checkCb = $db->prepare("SELECT id FROM productos WHERE codigo_barras = :cb AND eliminado = FALSE AND id != :id");
-            $checkCb->execute([':cb' => $codigoBarras, ':id' => $id]);
-            if ($checkCb->fetch()) {
-                jsonResponse(['error' => true, 'message' => 'Ya existe otro producto con ese codigo de barras'], 409);
-            }
-        }
+        // Pre-chequeo de codigo_barras duplicado retirado -- ver nota en 'crear'
+        // y migration_57.
         $catalogos = resolverCatalogosProducto($db, $unidadCodigo, $afectacionCodigo);
         $esGravado = ($catalogos['afectacion_tipo'] ?? '') === 'GRAV';
 
@@ -698,22 +688,13 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => 'ID invalido'], 400);
         }
 
-        try {
-            $stmt = $db->prepare("
-                UPDATE productos
-                SET eliminado = FALSE, eliminado_at = NULL, eliminado_por = NULL, activo = TRUE, updated_at = NOW()
-                WHERE id = :id AND eliminado = TRUE
-                RETURNING nombre
-            ");
-            $stmt->execute([':id' => $id]);
-        } catch (PDOException $e) {
-            if ($e->getCode() === '23505') {
-                // Choca con uq_productos_codigo_barras_activo (migration_55, experimental):
-                // otro producto activo ya tomó ese codigo de barras mientras este estaba en la papelera.
-                jsonResponse(['error' => true, 'message' => 'No se puede restaurar: otro producto activo ya usa el mismo código de barras. Cambia el código de barras del otro producto primero.'], 409);
-            }
-            throw $e;
-        }
+        $stmt = $db->prepare("
+            UPDATE productos
+            SET eliminado = FALSE, eliminado_at = NULL, eliminado_por = NULL, activo = TRUE, updated_at = NOW()
+            WHERE id = :id AND eliminado = TRUE
+            RETURNING nombre
+        ");
+        $stmt->execute([':id' => $id]);
         $row = $stmt->fetch();
         if (!$row) {
             jsonResponse(['error' => true, 'message' => 'Producto no encontrado en Eliminados'], 404);
