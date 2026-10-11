@@ -1120,6 +1120,92 @@ switch ($action) {
         }
         break;
 
+    // ---- GET: Descargar ZIP con XML + CDR de un comprobante ----
+    case 'descargar_sunat_zip':
+        $comprobanteId = (int) ($_GET['comprobante_id'] ?? 0);
+        if ($comprobanteId <= 0) {
+            header('Content-Type: application/json; charset=UTF-8');
+            jsonResponse(['error' => true, 'message' => 'comprobante_id requerido'], 400);
+            break;
+        }
+
+        try {
+            $stmt = $db->prepare("
+                SELECT numero_completo, enlace_del_xml, enlace_del_cdr
+                FROM comprobantes_electronicos
+                WHERE id = :id
+            ");
+            $stmt->execute([':id' => $comprobanteId]);
+            $comp = $stmt->fetch();
+
+            if (!$comp) {
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'Comprobante no encontrado'], 404);
+                break;
+            }
+
+            $facturacionDir = realpath(__DIR__ . '/../../facturacion') ?: (__DIR__ . '/../../facturacion');
+            $xmlDir = $facturacionDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'xml';
+            $cdrDir = $facturacionDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cdr';
+
+            $files = [];
+            $xmlUrl = trim((string) ($comp['enlace_del_xml'] ?? ''));
+            if ($xmlUrl !== '') {
+                $xmlName = rawurldecode(basename($xmlUrl));
+                $xmlPath = $xmlDir . DIRECTORY_SEPARATOR . $xmlName;
+                if (is_file($xmlPath)) {
+                    $files[$xmlName] = $xmlPath;
+                }
+            }
+            $cdrUrl = trim((string) ($comp['enlace_del_cdr'] ?? ''));
+            if ($cdrUrl !== '') {
+                $cdrName = rawurldecode(basename($cdrUrl));
+                $cdrPath = $cdrDir . DIRECTORY_SEPARATOR . $cdrName;
+                if (is_file($cdrPath)) {
+                    $files[$cdrName] = $cdrPath;
+                }
+            }
+
+            if (!$files) {
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'No hay XML ni CDR disponibles para este comprobante'], 404);
+                break;
+            }
+
+            $tmpZip = tempnam(sys_get_temp_dir(), 'sunat_') . '.zip';
+            $zip = new ZipArchive();
+            if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                @unlink($tmpZip);
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'No se pudo crear el ZIP temporal'], 500);
+                break;
+            }
+            foreach ($files as $name => $path) {
+                $zip->addFile($path, $name);
+            }
+            $zip->close();
+
+            $numero = (string) ($comp['numero_completo'] ?? '');
+            $baseName = preg_replace('/[^A-Za-z0-9._-]/', '_', $numero);
+            if ($baseName === '' || $baseName === null) {
+                $baseName = 'comprobante_' . $comprobanteId;
+            }
+            $downloadName = $baseName . '_sunat.zip';
+
+            while (ob_get_level() > 0) { ob_end_clean(); }
+
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+            header('Content-Length: ' . filesize($tmpZip));
+            header('Cache-Control: no-store');
+            readfile($tmpZip);
+            @unlink($tmpZip);
+        } catch (Exception $e) {
+            header('Content-Type: application/json; charset=UTF-8');
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
     default:
         header('Content-Type: application/json; charset=UTF-8');
         jsonResponse(['error' => true, 'message' => 'Acción no válida'], 404);

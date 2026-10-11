@@ -860,6 +860,7 @@ function rptLoadReporte() {
                     ${actionIconButton('print','Imprimir ticket',null,`rptImprimirTicket(${parseInt(v.id,10)})`)}
                     ${v.comprobante_id&&v.enlace_cdr&&v.tipo_comprobante!=='ticket' ? actionIconButton('file-circle-plus','Generar nota de crédito',null,`rptAbrirNc(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${v.enlace_pdf ? actionIconButton('file-pdf','Ver PDF',v.enlace_pdf) : ''}
+                    ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&!v.enlace_cdr ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)})`) : ''}
                 </div>`;
                 return `<tr>
@@ -893,6 +894,15 @@ function rptExportar() {
     link.download = '';
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     showToast('Descargando archivo Excel...','success');
+}
+
+function facDescargarSunatZip(comprobanteId) {
+    if (!comprobanteId) return;
+    const link = document.createElement('a');
+    link.href = BASE + 'modules/facturacion/api.php?action=descargar_sunat_zip&comprobante_id=' + encodeURIComponent(comprobanteId);
+    link.download = '';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    showToast('Descargando XML + CDR...','success');
 }
 
 function rptReenviarSunat(comprobanteId) {
@@ -1124,7 +1134,7 @@ function ncCargarNotas() {
                     <td>${xml}</td><td>${cdr}</td>
                     <td class="sunat-cell"><span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span></td>
                     <td><span class="badge ${estadoClass}">${row.enlace_del_cdr?'Vigente':'Pendiente'}</span></td>
-                    <td><div class="actions-inline">${actionIconButton('print','Imprimir ticket',null,`ncImprimirTicket(${parseInt(row.id,10)})`)}${pdf}${reenviar}</div></td>
+                    <td><div class="actions-inline">${actionIconButton('print','Imprimir ticket',null,`ncImprimirTicket(${parseInt(row.id,10)})`)}${pdf}${row.enlace_del_xml?actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(row.id,10)})`):''}${reenviar}</div></td>
                 </tr>`;
             }).join('');
             ncInitTable();
