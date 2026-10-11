@@ -154,70 +154,106 @@ function sunat_profile_for_current_tenant(PDO $db): array
     ];
 }
 
+/**
+ * Genera + firma + zippea el comprobante SIN hablar con SUNAT.
+ * Util para: (1) la primera mitad de enviar_sunat() y (2) el endpoint de
+ * descarga manual (para subir el ZIP en el portal SOL cuando el envio
+ * automatico sigue fallando).
+ *
+ * Devuelve:
+ *   - xml_path   : ruta absoluta al .XML firmado
+ *   - zip_path   : ruta absoluta al .ZIP firmado (listo para subir a SUNAT)
+ *   - file_base  : nombre base <RUC>-<DOCTYPE>-<SERIE>-<CORRELATIVO>
+ *   - profile    : perfil del tenant resuelto
+ *   - sign_result: lo que devolvio Signature::signature_xml
+ *
+ * NOTA: usa el search_path actual del PDO (debe estar apuntando al schema
+ * de la sucursal del comprobante).
+ */
+function sunat_generate_signed_zip(PDO $db, array $comp, ?array $cliente, array $items, array $venta): array
+{
+    $profile = sunat_profile_for_current_tenant($db);
+    $baseDir = sunat_base_dir();
+    if (!is_dir($baseDir)) {
+        throw new RuntimeException('No se encontro la carpeta interna de facturacion.');
+    }
+
+    $tipoDocumento = trim((string) ($comp['tipo'] ?? 'boleta'));
+    $customer = sunat_build_customer($cliente, $tipoDocumento);
+    $invoiceItems = sunat_build_invoice_items($items);
+    $totals = sunat_build_totals($invoiceItems);
+    $docType = sunat_codigo_documento_por_tipo($tipoDocumento);
+    $correlativo = str_pad((string) intval($comp['numero']), 8, '0', STR_PAD_LEFT);
+    $fileBase = $profile['emisor']['ruc'] . '-' . $docType . '-' . $comp['serie'] . '-' . $correlativo;
+
+    $xmlDir = $baseDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'xml';
+    if (!is_dir($xmlDir)) {
+        mkdir($xmlDir, 0775, true);
+    }
+
+    $xmlPath = $xmlDir . DIRECTORY_SEPARATOR . $fileBase . '.XML';
+    $zipPath = $xmlDir . DIRECTORY_SEPARATOR . $fileBase . '.ZIP';
+
+    $cabecera = [
+        'tipo_comprobante' => $docType,
+        'serie' => $comp['serie'],
+        'correlativo' => $correlativo,
+        'fecha_emision' => $venta['fecha_emision'] ?? date('Y-m-d'),
+        'hora_emision' => $venta['hora_emision'] ?? date('H:i:s'),
+        'fecha_vencimiento' => $venta['fecha_emision'] ?? date('Y-m-d'),
+        'moneda' => $venta['moneda'] ?? 'PEN',
+        'forma_pago' => $venta['sunat_forma_pago'] ?? 'Contado',
+        'monto_credito' => $venta['sunat_forma_pago'] === 'Credito' ? (string) ($venta['totales']['total'] ?? '0.00') : '0.00',
+        'anexo_sucursal' => $profile['emisor']['anexo_sucursal'] ?? '0000',
+        'documento_modificado_tipo_documento_codigo' => $venta['documento_modificado_tipo_documento_codigo'] ?? null,
+        'documento_modificado_numero_completo' => $venta['documento_modificado_numero_completo'] ?? null,
+        'motivo_codigo' => $venta['motivo_codigo'] ?? null,
+        'motivo_descripcion' => $venta['motivo_descripcion'] ?? null,
+    ];
+
+    $xmlContent = $tipoDocumento === 'nota_credito'
+        ? sunat_build_credit_note_xml($profile['emisor'], $customer, $cabecera, $invoiceItems, $totals)
+        : sunat_build_invoice_xml($profile['emisor'], $customer, $cabecera, $invoiceItems, $totals);
+
+    file_put_contents($xmlPath, $xmlContent);
+
+    require_once $baseDir . DIRECTORY_SEPARATOR . 'signature.php';
+    $signer = new Signature();
+    $signResult = $signer->signature_xml('0', $xmlPath, $profile['certificado']['ruta'], $profile['certificado']['clave']);
+
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('No se pudo generar el ZIP del comprobante.');
+    }
+    $zip->addFile($xmlPath, $fileBase . '.XML');
+    $zip->close();
+
+    return [
+        'xml_path'    => $xmlPath,
+        'zip_path'    => $zipPath,
+        'file_base'   => $fileBase,
+        'profile'     => $profile,
+        'sign_result' => $signResult,
+    ];
+}
+
 function enviar_sunat(PDO $db, array $comp, ?array $cliente, array $items, array $venta): array
 {
     try {
-        $profile = sunat_profile_for_current_tenant($db);
-        $baseDir = sunat_base_dir();
-        if (!is_dir($baseDir)) {
-            throw new RuntimeException('No se encontro la carpeta interna de facturacion.');
-        }
+        $generated = sunat_generate_signed_zip($db, $comp, $cliente, $items, $venta);
+        $profile    = $generated['profile'];
+        $signResult = $generated['sign_result'];
+        $xmlPath    = $generated['xml_path'];
+        $zipPath    = $generated['zip_path'];
+        $fileBase   = $generated['file_base'];
+        $baseDir    = sunat_base_dir();
 
-        $tipoDocumento = trim((string) ($comp['tipo'] ?? 'boleta'));
-        $customer = sunat_build_customer($cliente, $tipoDocumento);
-        $invoiceItems = sunat_build_invoice_items($items);
-        $totals = sunat_build_totals($invoiceItems);
-        $docType = sunat_codigo_documento_por_tipo($tipoDocumento);
-        $correlativo = str_pad((string) intval($comp['numero']), 8, '0', STR_PAD_LEFT);
-        $fileBase = $profile['emisor']['ruc'] . '-' . $docType . '-' . $comp['serie'] . '-' . $correlativo;
-
-        $xmlDir = $baseDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'xml';
         $cdrDir = $baseDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'cdr';
-        if (!is_dir($xmlDir)) {
-            mkdir($xmlDir, 0775, true);
-        }
         if (!is_dir($cdrDir)) {
             mkdir($cdrDir, 0775, true);
         }
-
-        $xmlPath = $xmlDir . DIRECTORY_SEPARATOR . $fileBase . '.XML';
-        $zipPath = $xmlDir . DIRECTORY_SEPARATOR . $fileBase . '.ZIP';
-        $cdrZipPath = $cdrDir . DIRECTORY_SEPARATOR . 'R-' . $fileBase . '.ZIP';
+        $cdrZipPath    = $cdrDir . DIRECTORY_SEPARATOR . 'R-' . $fileBase . '.ZIP';
         $cdrExtractDir = $cdrDir . DIRECTORY_SEPARATOR . 'R-' . $fileBase;
-
-        $cabecera = [
-            'tipo_comprobante' => $docType,
-            'serie' => $comp['serie'],
-            'correlativo' => $correlativo,
-            'fecha_emision' => $venta['fecha_emision'] ?? date('Y-m-d'),
-            'hora_emision' => $venta['hora_emision'] ?? date('H:i:s'),
-            'fecha_vencimiento' => $venta['fecha_emision'] ?? date('Y-m-d'),
-            'moneda' => $venta['moneda'] ?? 'PEN',
-            'forma_pago' => $venta['sunat_forma_pago'] ?? 'Contado',
-            'monto_credito' => $venta['sunat_forma_pago'] === 'Credito' ? (string) ($venta['totales']['total'] ?? '0.00') : '0.00',
-            'anexo_sucursal' => $profile['emisor']['anexo_sucursal'] ?? '0000',
-            'documento_modificado_tipo_documento_codigo' => $venta['documento_modificado_tipo_documento_codigo'] ?? null,
-            'documento_modificado_numero_completo' => $venta['documento_modificado_numero_completo'] ?? null,
-            'motivo_codigo' => $venta['motivo_codigo'] ?? null,
-            'motivo_descripcion' => $venta['motivo_descripcion'] ?? null,
-        ];
-
-        $xmlContent = $tipoDocumento === 'nota_credito'
-            ? sunat_build_credit_note_xml($profile['emisor'], $customer, $cabecera, $invoiceItems, $totals)
-            : sunat_build_invoice_xml($profile['emisor'], $customer, $cabecera, $invoiceItems, $totals);
-
-        file_put_contents($xmlPath, $xmlContent);
-
-        require_once $baseDir . DIRECTORY_SEPARATOR . 'signature.php';
-        $signer = new Signature();
-        $signResult = $signer->signature_xml('0', $xmlPath, $profile['certificado']['ruta'], $profile['certificado']['clave']);
-
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException('No se pudo generar el ZIP del comprobante.');
-        }
-        $zip->addFile($xmlPath, $fileBase . '.XML');
-        $zip->close();
 
         $soapEnvelope = sunat_build_send_bill_envelope(
             $profile['emisor']['ruc'],
@@ -681,6 +717,16 @@ function sunat_dom_value(DOMDocument $document, string $tagName): ?string
 function sunat_parse_cdr(string $extractDir): array
 {
     $files = glob($extractDir . DIRECTORY_SEPARATOR . '*.XML') ?: [];
+    if (!$files) {
+        // SUNAT no siempre nombra el XML del CDR en mayusculas; en Linux (filesystem
+        // case-sensitive) un glob solo en mayusculas no encuentra un *.xml real.
+        foreach ((@scandir($extractDir) ?: []) as $entry) {
+            if (preg_match('/\.xml$/i', $entry)) {
+                $files = [$extractDir . DIRECTORY_SEPARATOR . $entry];
+                break;
+            }
+        }
+    }
     if (!$files) {
         return ['response_code' => null, 'description' => 'CDR recibido sin XML legible.', 'xml_path' => null];
     }

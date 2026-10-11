@@ -975,11 +975,29 @@ switch ($action) {
         }
         break;
 
-    // ---- GET: Comprobantes con reenvio automatico pendiente/activo ----
+    // ---- GET: Comprobantes SIN CDR (viejos + nuevos), con filtros ----
     case 'reenvios_pendientes':
         header('Content-Type: application/json; charset=UTF-8');
         try {
-            $stmt = $db->query("
+            $where  = ["COALESCE(ce.enlace_del_cdr,'') = ''"];
+            $params = [];
+
+            $fDesde = trim((string) ($_GET['desde'] ?? ''));
+            $fHasta = trim((string) ($_GET['hasta'] ?? ''));
+            $fTipo  = trim((string) ($_GET['tipo']  ?? ''));
+            $fEstado = trim((string) ($_GET['estado'] ?? ''));
+
+            if ($fDesde !== '') { $where[] = "v.created_at >= :desde";                 $params[':desde'] = $fDesde . ' 00:00:00'; }
+            if ($fHasta !== '') { $where[] = "v.created_at <= :hasta";                 $params[':hasta'] = $fHasta . ' 23:59:59'; }
+            if ($fTipo  !== '') { $where[] = "ce.tipo = :tipo";                        $params[':tipo']  = $fTipo; }
+
+            // Filtro por estado derivado (programado/pendiente/agotado/rechazado)
+            if ($fEstado === 'programado')  { $where[] = "ce.reenvio_proximo_at IS NOT NULL"; }
+            if ($fEstado === 'pendiente')   { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) = 0"; }
+            if ($fEstado === 'agotado')     { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) >= 20"; }
+            if ($fEstado === 'rechazado')   { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) > 0 AND COALESCE(ce.reenvio_intentos,0) < 20"; }
+
+            $sql = "
                 SELECT
                     ce.id,
                     ce.numero_completo,
@@ -990,7 +1008,8 @@ switch ($action) {
                     ce.reenvio_proximo_at,
                     ce.reenvio_ultimo_at,
                     ce.reenvio_ultimo_error,
-                    ce.created_at,
+                    ce.created_at AS comprobante_created_at,
+                    v.created_at AS venta_created_at,
                     v.numero_venta,
                     v.total,
                     COALESCE(c.nombre_completo, c.razon_social, TRIM(COALESCE(c.nombres,'') || ' ' || COALESCE(c.apellidos,''))) AS cliente,
@@ -1005,16 +1024,186 @@ switch ($action) {
                 FROM comprobantes_electronicos ce
                 INNER JOIN ventas v ON v.id = ce.venta_id
                 LEFT JOIN clientes c ON c.id = v.cliente_id
-                WHERE COALESCE(ce.enlace_del_cdr,'') = ''
-                  AND (
-                        ce.reenvio_proximo_at IS NOT NULL
-                     OR COALESCE(ce.reenvio_intentos,0) > 0
-                  )
-                ORDER BY ce.reenvio_proximo_at ASC NULLS LAST, ce.id DESC
-                LIMIT 500
-            ");
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY v.created_at DESC
+                LIMIT 1000
+            ";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
         } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    // ---- POST: Programar reintento masivo (los recoge el worker) ----
+    case 'reenviar_sunat_batch':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $raw  = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?: [];
+            $ids  = array_values(array_filter(array_map('intval', (array) ($data['comprobante_ids'] ?? []))));
+
+            if (!$ids) {
+                jsonResponse(['error' => true, 'message' => 'Debes seleccionar al menos un comprobante.'], 422);
+            }
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $db->prepare("
+                UPDATE comprobantes_electronicos
+                SET reenvio_proximo_at = NOW(),
+                    reenvio_intentos   = 0,
+                    reenvio_ultimo_error = NULL
+                WHERE id IN ($placeholders)
+                  AND COALESCE(enlace_del_cdr, '') = ''
+            ");
+            $stmt->execute($ids);
+            $afectados = $stmt->rowCount();
+
+            registrarAuditoria('Programación masiva de reenvío SUNAT', 'facturacion', "Comprobantes: {$afectados}/" . count($ids));
+
+            jsonResponse([
+                'error' => false,
+                'message' => "Programados {$afectados} comprobante(s) para reintento. El worker los recogerá en los próximos minutos.",
+                'programados' => $afectados,
+                'solicitados' => count($ids),
+            ]);
+        } catch (Throwable $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    // ---- POST: Descargar ZIP maestro con los ZIP firmados de los seleccionados ----
+    //         (para subir manualmente al portal SUNAT SOL)
+    case 'descargar_sunat_pending_zip':
+        try {
+            $raw  = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?: [];
+            $ids  = array_values(array_filter(array_map('intval', (array) ($data['comprobante_ids'] ?? []))));
+
+            if (!$ids) {
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'Debes seleccionar al menos un comprobante.'], 422);
+            }
+            // Tope defensivo: 100 comprobantes por descarga (evita ZIPs enormes).
+            if (count($ids) > 100) {
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'Máximo 100 comprobantes por descarga.'], 422);
+            }
+
+            require_once '../../config/sunat.php';
+            require_once __DIR__ . '/_data_helpers.php';
+
+            $facturacionDir = realpath(__DIR__ . '/../../facturacion') ?: (__DIR__ . '/../../facturacion');
+            $xmlStorageDir  = $facturacionDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'xml';
+
+            $tmpZip = tempnam(sys_get_temp_dir(), 'sunat_bundle_') . '.zip';
+            $master = new ZipArchive();
+            if ($master->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                @unlink($tmpZip);
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse(['error' => true, 'message' => 'No se pudo crear el ZIP maestro'], 500);
+            }
+
+            $incluidos = 0;
+            $fallos    = [];
+            foreach ($ids as $compId) {
+                try {
+                    $comp = facturacionCargarComprobanteVenta($db, (int) $compId);
+
+                    // 1) Intentar encontrar el ZIP ya firmado en disco
+                    $xmlUrl = trim((string) ($comp['enlace_del_xml'] ?? ''));
+                    $zipPath = null;
+                    if ($xmlUrl !== '') {
+                        $xmlName = rawurldecode(basename($xmlUrl));
+                        // El ZIP comparte base con el XML, solo cambia la extension
+                        $candidateZip = $xmlStorageDir . DIRECTORY_SEPARATOR
+                            . preg_replace('/\.XML$/i', '.ZIP', $xmlName);
+                        if (is_file($candidateZip)) {
+                            $zipPath = $candidateZip;
+                        }
+                    }
+
+                    // 2) Si no esta en disco, regenerarlo on-demand sin tocar SUNAT
+                    if (!$zipPath) {
+                        $cliente = facturacionCargarClienteVenta($db, !empty($comp['cliente_id']) ? (int) $comp['cliente_id'] : null);
+                        $items   = facturacionCargarItemsVenta($db, (int) $comp['venta_id']);
+
+                        $gen = sunat_generate_signed_zip(
+                            $db,
+                            [
+                                'id'                    => (int) $comp['id'],
+                                'tipo'                  => (string) $comp['tipo'],
+                                'serie'                 => (string) $comp['serie'],
+                                'numero'                => (int) $comp['numero'],
+                                'numero_completo'       => (string) $comp['numero_completo'],
+                                'codigo_tipo_documento' => (string) $comp['codigo_tipo_documento'],
+                            ],
+                            $cliente,
+                            $items,
+                            [
+                                'numero_venta'      => (string) $comp['numero_venta'],
+                                'tipo_pago'         => (string) $comp['tipo_pago'],
+                                'sunat_forma_pago'  => (string) ($comp['sunat_forma_pago'] ?: 'Contado'),
+                                'fecha_emision'     => (string) $comp['fecha_emision'],
+                                'hora_emision'      => (string) $comp['hora_emision'],
+                                'moneda'            => (string) ($comp['moneda_codigo'] ?: 'PEN'),
+                                'totales'           => ['total' => (float) $comp['total']],
+                                'documento_modificado_tipo_documento_codigo' => (string) ($comp['documento_modificado_tipo_documento_codigo'] ?? ''),
+                                'documento_modificado_numero_completo'       => (string) ($comp['documento_modificado_numero_completo'] ?? ''),
+                                'motivo_codigo'      => (string) ($comp['codigo_tipo_nota_credito'] ?? ''),
+                                'motivo_descripcion' => (string) ($comp['motivo_nota_credito'] ?? ''),
+                            ]
+                        );
+                        $zipPath = $gen['zip_path'];
+                    }
+
+                    if (!is_file($zipPath)) {
+                        $fallos[] = ($comp['numero_completo'] ?? "ID {$compId}") . ': ZIP no disponible';
+                        continue;
+                    }
+
+                    $entryName = basename($zipPath);
+                    $master->addFile($zipPath, $entryName);
+                    $incluidos++;
+                } catch (Throwable $e) {
+                    $fallos[] = "ID {$compId}: " . $e->getMessage();
+                }
+            }
+
+            // Si hubo fallos, agregar un README dentro del ZIP maestro
+            if ($fallos) {
+                $master->addFromString(
+                    'LEEME_fallos.txt',
+                    "Los siguientes comprobantes no se pudieron incluir:\n\n" . implode("\n", $fallos) . "\n"
+                );
+            }
+
+            $master->close();
+
+            if ($incluidos === 0) {
+                @unlink($tmpZip);
+                header('Content-Type: application/json; charset=UTF-8');
+                jsonResponse([
+                    'error' => true,
+                    'message' => 'Ningún comprobante se pudo preparar. Detalle: ' . implode(' | ', $fallos),
+                ], 500);
+            }
+
+            registrarAuditoria('Descarga manual de ZIP SUNAT', 'facturacion', "Incluidos: {$incluidos}, fallidos: " . count($fallos));
+
+            $downloadName = 'sunat_pendientes_' . date('Ymd_His') . '.zip';
+
+            while (ob_get_level() > 0) { ob_end_clean(); }
+
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+            header('Content-Length: ' . filesize($tmpZip));
+            header('Cache-Control: no-store');
+            readfile($tmpZip);
+            @unlink($tmpZip);
+        } catch (Throwable $e) {
+            header('Content-Type: application/json; charset=UTF-8');
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
         }
         break;

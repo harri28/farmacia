@@ -590,22 +590,64 @@ include '../../includes/header.php';
         </div>
     </div>
 
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:12px">
+        <div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" id="rnv-desde">
+            </div>
+            <div class="form-group" style="margin:0;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="rnv-hasta">
+            </div>
+            <div class="form-group" style="margin:0;min-width:140px">
+                <label class="form-label">Tipo</label>
+                <select class="form-control" id="rnv-tipo">
+                    <option value="">Todos</option>
+                    <option value="boleta">Boleta</option>
+                    <option value="factura">Factura</option>
+                    <option value="nota_credito">Nota de crédito</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:160px">
+                <label class="form-label">Estado</label>
+                <select class="form-control" id="rnv-estado">
+                    <option value="">Todos</option>
+                    <option value="programado">Programado</option>
+                    <option value="pendiente">Nunca enviado</option>
+                    <option value="agotado">Agotado (20 intentos)</option>
+                    <option value="rechazado">Rechazado por SUNAT</option>
+                </select>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px">
+                <button class="btn btn-primary" onclick="rnvCargar()"><i class="fas fa-magnifying-glass"></i> Buscar</button>
+                <button class="btn btn-outline" onclick="rnvLimpiarFiltros()">Limpiar</button>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
-        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
-            <h3 style="margin:0;font-size:1rem">Comprobantes pendientes de aceptación</h3>
-            <button class="btn btn-outline" onclick="rnvCargar()"><i class="fas fa-rotate"></i> Refrescar</button>
+        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0;font-size:1rem">Comprobantes pendientes <span id="rnv-count" style="color:var(--text-muted);font-weight:500">(0)</span></h3>
+            <div id="rnv-batch-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+                <span id="rnv-sel-count" style="font-size:.85rem;color:var(--text-muted)">0 seleccionado(s)</span>
+                <button class="btn btn-sm btn-warning" onclick="rnvReintentarSync()" title="Hasta 5 a la vez, con progreso en vivo (puede tardar varios minutos)"><i class="fas fa-bolt"></i> Reintentar ahora</button>
+                <button class="btn btn-sm btn-primary" onclick="rnvProgramarWorker()" title="Delega al worker; se procesan en los próximos minutos sin bloquear el navegador"><i class="fas fa-clock"></i> Programar al worker</button>
+                <button class="btn btn-sm btn-success" onclick="rnvDescargarZips()" title="Descarga un ZIP maestro con los ZIP firmados listos para subir manualmente al portal SOL de SUNAT"><i class="fas fa-download"></i> Descargar ZIP para SUNAT</button>
+            </div>
         </div>
         <div class="table-responsive" style="padding:12px">
             <table id="rnv-table" class="table" style="width:100%">
                 <thead>
                     <tr>
+                        <th style="width:36px"><input type="checkbox" id="rnv-check-all" onclick="rnvToggleAll(this.checked)"></th>
                         <th>Comprobante</th>
-                        <th>Venta</th>
+                        <th>Fecha venta</th>
                         <th>Cliente</th>
                         <th class="text-center">Total</th>
                         <th class="text-center">Intentos</th>
                         <th>Próximo intento</th>
-                        <th>Último intento</th>
                         <th>Estado</th>
                         <th>Último error</th>
                         <th class="text-center">Acciones</th>
@@ -617,6 +659,25 @@ include '../../includes/header.php';
     </div>
 
 </div><!-- /pane-reenvios -->
+
+<!-- Modal: progreso de reintento sincronico -->
+<div class="modal-overlay" id="modal-rnv-progress">
+    <div class="modal" style="max-width:560px;width:min(560px,calc(100vw - 32px))">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-bolt" style="color:#f59e0b;margin-right:8px"></i>Reintentando a SUNAT</h3>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+            <div id="rnv-progress-text" style="font-size:.95rem;margin-bottom:12px">Preparando…</div>
+            <div style="background:var(--surface-2);border-radius:999px;height:10px;overflow:hidden">
+                <div id="rnv-progress-bar" style="height:100%;background:#f59e0b;width:0%;transition:width .2s"></div>
+            </div>
+            <div id="rnv-progress-log" style="margin-top:14px;max-height:220px;overflow-y:auto;background:var(--surface-2);border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:.8rem"></div>
+        </div>
+        <div class="modal-footer" style="padding:12px 24px;text-align:right">
+            <button class="btn btn-outline" id="rnv-progress-close" onclick="rnvCerrarProgress()" disabled>Cerrar</button>
+        </div>
+    </div>
+</div>
 <?php endif; ?>
 
 
@@ -808,14 +869,15 @@ function switchTab(tab) {
 // REENVIOS SUNAT (solo admin/gerente)
 // ================================================================
 let rnvTable = null;
+const RNV_MAX_SYNC = 5;
 
 function rnvEstadoBadge(estado) {
     const map = {
-        programado: { label:'Programado', cls:'badge-warning' },
-        agotado:    { label:'Agotado',    cls:'badge-danger'  },
-        rechazado:  { label:'Rechazado',  cls:'badge-danger'  },
-        pendiente:  { label:'Pendiente',  cls:'badge-warning' },
-        aceptado:   { label:'Aceptado',   cls:'badge-success' },
+        programado: { label:'Programado',    cls:'badge-warning' },
+        agotado:    { label:'Agotado',       cls:'badge-danger'  },
+        rechazado:  { label:'Rechazado',     cls:'badge-danger'  },
+        pendiente:  { label:'Nunca enviado', cls:'badge-warning' },
+        aceptado:   { label:'Aceptado',      cls:'badge-success' },
     };
     const b = map[estado] || map.pendiente;
     return `<span class="badge ${b.cls}">${b.label}</span>`;
@@ -828,6 +890,28 @@ function rnvFormatearFecha(iso) {
     return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
 }
 
+function rnvLimpiarFiltros() {
+    document.getElementById('rnv-desde').value = '';
+    document.getElementById('rnv-hasta').value = '';
+    document.getElementById('rnv-tipo').value = '';
+    document.getElementById('rnv-estado').value = '';
+    rnvCargar();
+}
+
+function rnvBuildQuery(extra = {}) {
+    const p = new URLSearchParams();
+    const d = document.getElementById('rnv-desde')?.value || '';
+    const h = document.getElementById('rnv-hasta')?.value || '';
+    const t = document.getElementById('rnv-tipo')?.value || '';
+    const e = document.getElementById('rnv-estado')?.value || '';
+    if (d) p.append('desde', d);
+    if (h) p.append('hasta', h);
+    if (t) p.append('tipo', t);
+    if (e) p.append('estado', e);
+    for (const k in extra) p.append(k, extra[k]);
+    return p.toString();
+}
+
 function rnvCargar() {
     // Stats
     fetch(BASE + 'modules/facturacion/api.php?action=reenvios_stats')
@@ -837,7 +921,6 @@ function rnvCargar() {
             document.getElementById('rnv-stat-agotados').textContent    = s.agotados || 0;
             document.getElementById('rnv-stat-rechazados').textContent  = s.rechazados || 0;
             document.getElementById('rnv-stat-proximo').textContent     = rnvFormatearFecha(s.proximo_at);
-            // Badge global en el tab
             const totalActivos = (parseInt(s.programados,10)||0);
             const badge = document.getElementById('reenvios-badge');
             if (badge) {
@@ -848,14 +931,16 @@ function rnvCargar() {
         .catch(() => {});
 
     // Tabla
-    fetch(BASE + 'modules/facturacion/api.php?action=reenvios_pendientes')
+    fetch(BASE + 'modules/facturacion/api.php?action=reenvios_pendientes&' + rnvBuildQuery())
         .then(r => r.json())
         .then(data => {
             if (!Array.isArray(data)) data = [];
+            document.getElementById('rnv-count').textContent = `(${data.length})`;
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes pendientes de reenvío.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes pendientes con esos filtros.</td></tr>`;
                 if (rnvTable) { rnvTable.destroy(); rnvTable = null; }
+                rnvActualizarBatchBar();
                 return;
             }
             tbody.innerHTML = data.map(r => {
@@ -863,34 +948,57 @@ function rnvCargar() {
                 const intentoCls = intentos >= 15 ? 'color:#dc2626;font-weight:700' : (intentos >= 10 ? 'color:#f59e0b;font-weight:600' : '');
                 const errorTxt = (r.reenvio_ultimo_error || '').toString();
                 const errorCorto = errorTxt.length > 60 ? errorTxt.substring(0, 60) + '…' : errorTxt;
-                const puedeReenviarManual = parseInt(r.id, 10) > 0;
-                const accion = puedeReenviarManual
-                    ? actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarAhora(${parseInt(r.id,10)})`)
-                    : '';
+                const compId = parseInt(r.id, 10);
+                const fechaVenta = rnvFormatearFecha(r.venta_created_at);
                 return `<tr>
-                    <td><strong>${esc(r.numero_completo||'')}</strong>${r.ambiente_sunat==='beta'?' <span class="badge" style="background:#f59e0b;color:#fff">BETA</span>':''}</td>
-                    <td>${esc(r.numero_venta||'')}</td>
+                    <td class="text-center"><input type="checkbox" class="rnv-row-check" value="${compId}" onclick="rnvActualizarBatchBar()"></td>
+                    <td><strong>${esc(r.numero_completo||'')}</strong><br><small style="color:var(--text-muted)">${esc(r.tipo||'')}</small>${r.ambiente_sunat==='beta'?' <span class="badge" style="background:#f59e0b;color:#fff">BETA</span>':''}</td>
+                    <td>${fechaVenta}<br><small style="color:var(--text-muted)">${esc(r.numero_venta||'')}</small></td>
                     <td>${esc(r.cliente||'—')}<br><small style="color:var(--text-muted)">${esc(r.documento||'')}</small></td>
                     <td class="text-center">S/ ${parseFloat(r.total||0).toFixed(2)}</td>
                     <td class="text-center" style="${intentoCls}">${intentos}/20</td>
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
-                    <td>${rnvFormatearFecha(r.reenvio_ultimo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
-                    <td class="text-center"><div class="actions-inline">${accion}</div></td>
+                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId})`)}</div></td>
                 </tr>`;
             }).join('');
             if (rnvTable) rnvTable.destroy();
             rnvTable = $('#rnv-table').DataTable({
-                order: [[5, 'asc']],
+                order: [[2, 'desc']],
                 pageLength: 25,
                 language: { url: BASE + 'assets/vendor/datatables/es-ES.json' },
+                columnDefs: [{ orderable: false, targets: [0, 9] }],
+                drawCallback: function() {
+                    document.getElementById('rnv-check-all').checked = false;
+                    rnvActualizarBatchBar();
+                },
             });
+            rnvActualizarBatchBar();
         })
         .catch(err => showToast(err.message || 'No se pudo cargar la lista de reenvíos','error'));
 }
 
-function rnvReenviarAhora(comprobanteId) {
+function rnvToggleAll(checked) {
+    document.querySelectorAll('.rnv-row-check').forEach(c => { c.checked = checked; });
+    rnvActualizarBatchBar();
+}
+
+function rnvSeleccionados() {
+    return Array.from(document.querySelectorAll('.rnv-row-check:checked')).map(c => parseInt(c.value, 10));
+}
+
+function rnvActualizarBatchBar() {
+    const ids = rnvSeleccionados();
+    const bar = document.getElementById('rnv-batch-bar');
+    const cnt = document.getElementById('rnv-sel-count');
+    if (!bar || !cnt) return;
+    if (ids.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    cnt.textContent = `${ids.length} seleccionado(s)`;
+}
+
+function rnvReenviarUno(comprobanteId) {
     if (!comprobanteId) return;
     fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -903,6 +1011,109 @@ function rnvReenviarAhora(comprobanteId) {
         rnvCargar();
     })
     .catch(err => { showToast(err.message || 'Error al reenviar','error'); rnvCargar(); });
+}
+
+// --- Batch sincronico con modal de progreso ---
+async function rnvReintentarSync() {
+    const ids = rnvSeleccionados();
+    if (!ids.length) return;
+    if (ids.length > RNV_MAX_SYNC) {
+        showToast(`El modo sincrónico acepta máximo ${RNV_MAX_SYNC} comprobantes a la vez. Usa "Programar al worker" para lotes grandes.`, 'error');
+        return;
+    }
+
+    const modal = document.getElementById('modal-rnv-progress');
+    const txt   = document.getElementById('rnv-progress-text');
+    const bar   = document.getElementById('rnv-progress-bar');
+    const log   = document.getElementById('rnv-progress-log');
+    const btn   = document.getElementById('rnv-progress-close');
+    log.innerHTML = ''; bar.style.width = '0%'; btn.disabled = true;
+    openModal('modal-rnv-progress');
+
+    let ok = 0, fail = 0;
+    for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        txt.textContent = `Enviando ${i + 1} de ${ids.length}…`;
+        log.innerHTML += `<div>[${i + 1}] Enviando ID ${id}…</div>`;
+        log.scrollTop = log.scrollHeight;
+        try {
+            const r = await fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ comprobante_id: id })
+            });
+            const d = await r.json();
+            if (r.ok && !d.error) {
+                ok++;
+                log.innerHTML += `<div style="color:#10b981">    ✓ OK</div>`;
+            } else {
+                fail++;
+                log.innerHTML += `<div style="color:#dc2626">    ✗ ${esc(d.message || 'Error')}</div>`;
+            }
+        } catch (e) {
+            fail++;
+            log.innerHTML += `<div style="color:#dc2626">    ✗ ${esc(e.message || 'Error de red')}</div>`;
+        }
+        bar.style.width = (((i + 1) / ids.length) * 100).toFixed(0) + '%';
+        log.scrollTop = log.scrollHeight;
+    }
+    txt.innerHTML = `<strong>Terminado:</strong> ${ok} aceptado(s), ${fail} fallido(s).`;
+    btn.disabled = false;
+}
+
+function rnvCerrarProgress() {
+    closeModal('modal-rnv-progress');
+    rnvCargar();
+}
+
+// --- Batch asincronico: programar al worker ---
+function rnvProgramarWorker() {
+    const ids = rnvSeleccionados();
+    if (!ids.length) return;
+    if (!confirm(`Programar ${ids.length} comprobante(s) para que el worker los reintente. Los resultados aparecerán aquí en los próximos minutos. ¿Continuar?`)) return;
+
+    fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat_batch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ comprobante_ids: ids })
+    })
+    .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.message || 'No se pudo programar.');
+        showToast(d.message, 'success');
+        rnvCargar();
+    })
+    .catch(err => showToast(err.message || 'Error al programar','error'));
+}
+
+// --- Descargar ZIP maestro para subir manual a SUNAT ---
+function rnvDescargarZips() {
+    const ids = rnvSeleccionados();
+    if (!ids.length) return;
+    if (ids.length > 100) {
+        showToast('Máximo 100 comprobantes por descarga.', 'error');
+        return;
+    }
+    showToast(`Generando ZIP con ${ids.length} comprobante(s)… puede tardar unos segundos.`, 'info');
+
+    // POST con body JSON, el server responde con el ZIP binario
+    fetch(BASE + 'modules/facturacion/api.php?action=descargar_sunat_pending_zip', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ comprobante_ids: ids })
+    })
+    .then(async r => {
+        if (!r.ok) {
+            let msg = 'No se pudo generar el ZIP.';
+            try { const d = await r.json(); msg = d.message || msg; } catch(_){}
+            throw new Error(msg);
+        }
+        const blob = await r.blob();
+        const url  = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sunat_pendientes_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.zip`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    })
+    .catch(err => showToast(err.message || 'Error al descargar','error'));
 }
 
 // ================================================================
