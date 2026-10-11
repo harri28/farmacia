@@ -312,6 +312,11 @@ CREATE TABLE IF NOT EXISTS comprobantes_electronicos (
     soap_response         TEXT,
     payload_json          JSONB,
     sunat_response_json   JSONB,
+    -- Reenvio automatico a SUNAT (migration_58). El worker lee estos campos.
+    reenvio_intentos      INTEGER   DEFAULT 0,
+    reenvio_proximo_at    TIMESTAMP,
+    reenvio_ultimo_at     TIMESTAMP,
+    reenvio_ultimo_error  TEXT,
     updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     anulado               BOOLEAN DEFAULT FALSE,
     created_at            TIMESTAMP   DEFAULT CURRENT_TIMESTAMP

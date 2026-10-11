@@ -862,6 +862,25 @@ switch ($action) {
                     'totales' => $resumen,
                 ];
                 $comprobanteResult = enviar_sunat($db, $compData, $clienteInfo, $itemsSunat, $ventaInfo);
+                // Si fallo por error de red/timeout (no hay CDR y no hubo respuesta
+                // de SUNAT), programar el primer reintento para dentro de 5 minutos.
+                // El worker scripts/reenviar_sunat_pendientes.php lo tomara.
+                $falloRed = $comprobanteResult
+                    && !empty($comprobanteResult['error_nubefact'])
+                    && empty($comprobanteResult['enlace_del_cdr'])
+                    && ($comprobanteResult['response_code'] ?? null) === null;
+                if ($falloRed) {
+                    $db->prepare("
+                        UPDATE comprobantes_electronicos
+                        SET reenvio_intentos = 0,
+                            reenvio_proximo_at = NOW() + interval '5 minutes',
+                            reenvio_ultimo_error = :err
+                        WHERE id = :id
+                    ")->execute([
+                        ':err' => (string) ($comprobanteResult['mensaje'] ?? 'Error desconocido'),
+                        ':id'  => (int) $compData['id'],
+                    ]);
+                }
             }
 
             echo json_encode([

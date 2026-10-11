@@ -5,25 +5,11 @@
 // ============================================================
 
 require_once '../../config/database.php';
+require_once __DIR__ . '/_data_helpers.php';
 requireApiAuth(['admin', 'gerente']);
 
 $action = $_GET['action'] ?? '';
 $db     = getDB();
-
-function facturacionNormalizarAfectacionTipo(?string $tipo, ?string $codigo): string
-{
-    $tipo = strtoupper(trim((string) $tipo));
-    if ($tipo !== '') {
-        return $tipo;
-    }
-
-    switch (trim((string) $codigo)) {
-        case '20': case '21': return 'EXO';
-        case '30': case '31': case '32': case '33': case '34': case '35': case '36': return 'INA';
-        case '40': return 'EXP';
-        default:   return 'GRAV';
-    }
-}
 
 function facturacionSerieNotaCreditoSegunOrigen(array $origen): array
 {
@@ -70,54 +56,6 @@ function facturacionMarcarOrigenComoAnulado(PDO $db, int $origenComprobanteId, i
     ]);
 }
 
-function facturacionCargarComprobanteVenta(PDO $db, int $comprobanteId): array
-{
-    $stmt = $db->prepare("
-        SELECT
-            ce.id,
-            ce.venta_id,
-            ce.tipo,
-            ce.serie,
-            ce.numero,
-            ce.numero_completo,
-            ce.codigo_tipo_documento,
-            ce.estado_sunat,
-            ce.enlace_del_pdf,
-            ce.enlace_del_xml,
-            ce.enlace_del_cdr,
-            ce.nubefact_response,
-            ce.referencia_comprobante_id,
-            ce.tipo_nota_credito_id,
-            ce.codigo_tipo_nota_credito,
-            ce.motivo_nota_credito,
-            ce.descripcion_nota_credito,
-            ce.documento_modificado_tipo_documento_codigo,
-            ce.documento_modificado_serie,
-            ce.documento_modificado_numero,
-            ce.documento_modificado_numero_completo,
-            ce.documento_modificado_fecha,
-            v.numero_venta,
-            v.tipo_pago,
-            v.sunat_forma_pago,
-            v.fecha_emision,
-            v.hora_emision,
-            v.moneda_codigo,
-            v.total,
-            v.cliente_id
-        FROM comprobantes_electronicos ce
-        INNER JOIN ventas v ON v.id = ce.venta_id
-        WHERE ce.id = :id
-        LIMIT 1
-    ");
-    $stmt->execute([':id' => $comprobanteId]);
-    $row = $stmt->fetch();
-
-    if (!$row) {
-        throw new RuntimeException('No se encontro el comprobante seleccionado.');
-    }
-
-    return $row;
-}
 
 function facturacionCargarTiposNotaCredito(PDO $db): array
 {
@@ -232,89 +170,6 @@ function facturacionCargarNotasCredito(PDO $db, string $desde, string $hasta, st
     ");
     $stmt->execute($params);
     return $stmt->fetchAll() ?: [];
-}
-
-function facturacionCargarClienteVenta(PDO $db, ?int $clienteId): ?array
-{
-    if (!$clienteId) {
-        return null;
-    }
-
-    $stmt = $db->prepare("
-        SELECT
-            id, nombres, apellidos, dni, ruc, telefono, email, direccion,
-            tipo_documento_id, tipo_documento_codigo, numero_documento,
-            nombre_completo, razon_social, ubigeo
-        FROM clientes
-        WHERE id = :id
-        LIMIT 1
-    ");
-    $stmt->execute([':id' => $clienteId]);
-
-    return $stmt->fetch() ?: null;
-}
-
-function facturacionCargarItemsVenta(PDO $db, int $ventaId): array
-{
-    $stmt = $db->prepare("
-        SELECT
-            vd.producto_id,
-            COALESCE(vd.descripcion, p.nombre, 'Producto') AS nombre,
-            COALESCE(vd.codigo_interno, p.codigo_interno, p.codigo, '') AS codigo,
-            vd.codigo_sunat,
-            vd.cantidad,
-            vd.precio_unitario,
-            vd.valor_unitario,
-            vd.valor_total,
-            vd.precio_total,
-            vd.igv,
-            vd.unidad_codigo,
-            vd.afectacion_igv_codigo,
-            COALESCE(a.tipo, '') AS afectacion_tipo,
-            CASE
-                WHEN COALESCE(vd.igv, 0) > 0 AND COALESCE(vd.valor_total, 0) > 0
-                    THEN ROUND((vd.igv / NULLIF(vd.valor_total, 0)) * 100, 2)
-                ELSE 0
-            END AS porcentaje_igv
-        FROM venta_detalles vd
-        LEFT JOIN productos p ON p.id = vd.producto_id
-        LEFT JOIN public.fe_tipos_afectacion_igv a ON a.id = vd.afectacion_igv_id
-        WHERE vd.venta_id = :venta_id
-        ORDER BY vd.id
-    ");
-    $stmt->execute([':venta_id' => $ventaId]);
-
-    $items = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $row['afectacion_tipo'] = facturacionNormalizarAfectacionTipo(
-            $row['afectacion_tipo'] ?? null,
-            $row['afectacion_igv_codigo'] ?? null
-        );
-        $items[] = $row;
-    }
-
-    if (!$items) {
-        throw new RuntimeException('La venta no tiene detalle para reenviar a SUNAT.');
-    }
-
-    return $items;
-}
-
-function facturacionExtraerResponseCode(?string $json): ?string
-{
-    $json = trim((string) $json);
-    if ($json === '') {
-        return null;
-    }
-
-    $data = json_decode($json, true);
-    if (!is_array($data)) {
-        return null;
-    }
-
-    return isset($data['cdr']['response_code'])
-        ? trim((string) $data['cdr']['response_code'])
-        : (isset($data['cdr']['responseCode']) ? trim((string) $data['cdr']['responseCode']) : null);
 }
 
 // ---- Parámetros de filtro comunes ----
@@ -1115,6 +970,68 @@ switch ($action) {
             ");
             $stmt->execute($params);
             echo json_encode($stmt->fetchAll());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    // ---- GET: Comprobantes con reenvio automatico pendiente/activo ----
+    case 'reenvios_pendientes':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $stmt = $db->query("
+                SELECT
+                    ce.id,
+                    ce.numero_completo,
+                    ce.tipo,
+                    ce.estado_sunat,
+                    ce.ambiente_sunat,
+                    ce.reenvio_intentos,
+                    ce.reenvio_proximo_at,
+                    ce.reenvio_ultimo_at,
+                    ce.reenvio_ultimo_error,
+                    ce.created_at,
+                    v.numero_venta,
+                    v.total,
+                    COALESCE(c.nombre_completo, c.razon_social, TRIM(COALESCE(c.nombres,'') || ' ' || COALESCE(c.apellidos,''))) AS cliente,
+                    COALESCE(c.numero_documento, c.ruc, c.dni, '') AS documento,
+                    CASE
+                        WHEN COALESCE(ce.enlace_del_cdr,'') <> '' THEN 'aceptado'
+                        WHEN ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) >= 20 THEN 'agotado'
+                        WHEN ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) > 0 THEN 'rechazado'
+                        WHEN ce.reenvio_proximo_at IS NOT NULL THEN 'programado'
+                        ELSE 'pendiente'
+                    END AS estado_reenvio
+                FROM comprobantes_electronicos ce
+                INNER JOIN ventas v ON v.id = ce.venta_id
+                LEFT JOIN clientes c ON c.id = v.cliente_id
+                WHERE COALESCE(ce.enlace_del_cdr,'') = ''
+                  AND (
+                        ce.reenvio_proximo_at IS NOT NULL
+                     OR COALESCE(ce.reenvio_intentos,0) > 0
+                  )
+                ORDER BY ce.reenvio_proximo_at ASC NULLS LAST, ce.id DESC
+                LIMIT 500
+            ");
+            echo json_encode($stmt->fetchAll());
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    // ---- GET: Stats agregadas de reenvios para la cabecera del tab ----
+    case 'reenvios_stats':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $stmt = $db->query("
+                SELECT
+                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NOT NULL) AS programados,
+                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
+                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) > 0 AND COALESCE(reenvio_intentos,0) < 20) AS rechazados,
+                    MIN(reenvio_proximo_at) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NOT NULL) AS proximo_at
+                FROM comprobantes_electronicos
+            ");
+            echo json_encode($stmt->fetch());
         } catch (Exception $e) {
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
         }
