@@ -55,7 +55,7 @@ function validarDocumentoPorTipo(string $codigo, string $numero): ?string
 
 function consultarDocumentoExterno(string $numero): array
 {
-    $token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ODgiLCJuYW1lIjoiTXl0ZW1zIiwiZW1haWwiOiJteXRlbXNjb250YWN0b0BnbWFpbC5jb20iLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJjb25zdWx0b3IifQ.CMerOf33h1rSeWSEtfPwOv_6_vLhC0ZyhseiQs5Ba6c';
+    $token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0MTc0OSJ9.EpZ7TjGQEqgCK-4c2XT1vNntWSlwWprh5Z_xgJ61B5Y';
     $numero = trim($numero);
     $url = strlen($numero) === 8
         ? 'https://api.factiliza.com/pe/v1/dni/info/' . $numero
