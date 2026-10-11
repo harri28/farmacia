@@ -1058,6 +1058,8 @@ async function rnvReintentarSync() {
     }
     txt.innerHTML = `<strong>Terminado:</strong> ${ok} aceptado(s), ${fail} fallido(s).`;
     btn.disabled = false;
+    // Refrescar la lista de atrás para que los aceptados ya no aparezcan
+    rnvCargar();
 }
 
 function rnvCerrarProgress() {

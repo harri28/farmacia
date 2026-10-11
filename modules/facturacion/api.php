@@ -979,7 +979,14 @@ switch ($action) {
     case 'reenvios_pendientes':
         header('Content-Type: application/json; charset=UTF-8');
         try {
-            $where  = ["COALESCE(ce.enlace_del_cdr,'') = ''"];
+            // Un comprobante NO está pendiente si ya tiene CDR, o si su estado
+            // dice "aceptado"/"observado" (SUNAT ya lo recibió aunque el enlace
+            // CDR no se haya guardado por un fallo intermitente).
+            $where  = [
+                "COALESCE(ce.enlace_del_cdr,'') = ''",
+                "LOWER(COALESCE(ce.estado_sunat,'')) NOT LIKE '%acept%'",
+                "LOWER(COALESCE(ce.estado_sunat,'')) NOT LIKE '%observ%'",
+            ];
             $params = [];
 
             $fDesde = trim((string) ($_GET['desde'] ?? ''));
@@ -1212,13 +1219,21 @@ switch ($action) {
     case 'reenvios_stats':
         header('Content-Type: application/json; charset=UTF-8');
         try {
+            // Mismo criterio de "pendiente" que reenvios_pendientes
             $stmt = $db->query("
+                WITH base AS (
+                    SELECT *
+                    FROM comprobantes_electronicos
+                    WHERE COALESCE(enlace_del_cdr,'') = ''
+                      AND LOWER(COALESCE(estado_sunat,'')) NOT LIKE '%acept%'
+                      AND LOWER(COALESCE(estado_sunat,'')) NOT LIKE '%observ%'
+                )
                 SELECT
-                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NOT NULL) AS programados,
-                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
-                    COUNT(*) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) > 0 AND COALESCE(reenvio_intentos,0) < 20) AS rechazados,
-                    MIN(reenvio_proximo_at) FILTER (WHERE COALESCE(enlace_del_cdr,'') = '' AND reenvio_proximo_at IS NOT NULL) AS proximo_at
-                FROM comprobantes_electronicos
+                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NOT NULL) AS programados,
+                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
+                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) > 0 AND COALESCE(reenvio_intentos,0) < 20) AS rechazados,
+                    MIN(reenvio_proximo_at) FILTER (WHERE reenvio_proximo_at IS NOT NULL) AS proximo_at
+                FROM base
             ");
             echo json_encode($stmt->fetch());
         } catch (Exception $e) {
