@@ -938,10 +938,7 @@ function rnvCargar() {
             const data  = Array.isArray(resp) ? resp : (resp.rows || []);
             const total = Array.isArray(resp) ? data.length : (resp.total || 0);
             const limit = Array.isArray(resp) ? data.length : (resp.limit || 1000);
-            const cntEl = document.getElementById('rnv-count');
-            cntEl.textContent = (total > data.length)
-                ? `(${total}) — mostrando ${data.length}`
-                : `(${total})`;
+            document.getElementById('rnv-count').textContent = `(${total})`;
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes pendientes con esos filtros.</td></tr>`;
