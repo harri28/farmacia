@@ -1062,6 +1062,43 @@ switch ($action) {
         }
         break;
 
+    // ---- POST: Cancelar programacion del worker en los seleccionados ----
+    //         (los deja en la lista pero sin reenvio_proximo_at, para enviar
+    //          manualmente con el boton "Reintentar ahora")
+    case 'cancelar_programacion_batch':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $raw  = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?: [];
+            $ids  = array_values(array_filter(array_map('intval', (array) ($data['comprobante_ids'] ?? []))));
+
+            if (!$ids) {
+                jsonResponse(['error' => true, 'message' => 'Debes seleccionar al menos un comprobante.'], 422);
+            }
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $db->prepare("
+                UPDATE comprobantes_electronicos
+                SET reenvio_proximo_at = NULL
+                WHERE id IN ($placeholders)
+                  AND reenvio_proximo_at IS NOT NULL
+            ");
+            $stmt->execute($ids);
+            $afectados = $stmt->rowCount();
+
+            registrarAuditoria('Cancelación de programación SUNAT', 'facturacion', "Comprobantes: {$afectados}/" . count($ids));
+
+            jsonResponse([
+                'error' => false,
+                'message' => "Programación cancelada en {$afectados} comprobante(s). Puedes enviarlos manualmente cuando quieras.",
+                'cancelados' => $afectados,
+                'solicitados' => count($ids),
+            ]);
+        } catch (Throwable $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
     // ---- POST: Programar reintento masivo (los recoge el worker) ----
     case 'reenviar_sunat_batch':
         header('Content-Type: application/json; charset=UTF-8');

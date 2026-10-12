@@ -634,6 +634,7 @@ include '../../includes/header.php';
                 <span id="rnv-sel-count" style="font-size:.85rem;color:var(--text-muted)">0 seleccionado(s)</span>
                 <button class="btn btn-sm btn-warning" onclick="rnvReintentarSync()" title="Hasta 5 a la vez, con progreso en vivo (puede tardar varios minutos)"><i class="fas fa-bolt"></i> Reintentar ahora</button>
                 <button class="btn btn-sm btn-primary" onclick="rnvProgramarWorker()" title="Delega al worker; se procesan en los próximos minutos sin bloquear el navegador"><i class="fas fa-clock"></i> Programar al worker</button>
+                <button class="btn btn-sm btn-outline" onclick="rnvCancelarProgramacion()" title="Quita los seleccionados de la cola del worker. Siguen en la lista para enviarlos manualmente."><i class="fas fa-pause"></i> Pausar programación</button>
                 <button class="btn btn-sm btn-success" onclick="rnvDescargarZips()" title="Descarga un ZIP maestro con los ZIP firmados listos para subir manualmente al portal SOL de SUNAT"><i class="fas fa-download"></i> Descargar ZIP para SUNAT</button>
             </div>
         </div>
@@ -963,7 +964,7 @@ function rnvCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
-                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId})`)}</div></td>
+                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId})`)}${r.estado_reenvio==='programado'?actionIconButton('pause','Pausar programación (quita del worker)',null,`rnvCancelarUno(${compId})`):''}</div></td>
                 </tr>`;
             }).join('');
             if (rnvTable) rnvTable.destroy();
@@ -1068,6 +1069,41 @@ async function rnvReintentarSync() {
 function rnvCerrarProgress() {
     closeModal('modal-rnv-progress');
     rnvCargar();
+}
+
+// --- Pausar programacion (uno) ---
+function rnvCancelarUno(comprobanteId) {
+    if (!comprobanteId) return;
+    fetch(BASE + 'modules/facturacion/api.php?action=cancelar_programacion_batch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ comprobante_ids: [comprobanteId] })
+    })
+    .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.message || 'No se pudo pausar.');
+        showToast(d.message || 'Programación cancelada','success');
+        rnvCargar();
+    })
+    .catch(err => showToast(err.message || 'Error al pausar','error'));
+}
+
+// --- Pausar programacion (batch) ---
+function rnvCancelarProgramacion() {
+    const ids = rnvSeleccionados();
+    if (!ids.length) return;
+    if (!confirm(`Pausar la programación de ${ids.length} comprobante(s). Siguen en la lista para que los envíes manualmente cuando quieras. ¿Continuar?`)) return;
+
+    fetch(BASE + 'modules/facturacion/api.php?action=cancelar_programacion_batch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ comprobante_ids: ids })
+    })
+    .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.message || 'No se pudo pausar.');
+        showToast(d.message, 'success');
+        rnvCargar();
+    })
+    .catch(err => showToast(err.message || 'Error al pausar','error'));
 }
 
 // --- Batch asincronico: programar al worker ---
