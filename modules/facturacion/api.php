@@ -1004,6 +1004,19 @@ switch ($action) {
             if ($fEstado === 'agotado')     { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) >= 20"; }
             if ($fEstado === 'rechazado')   { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) > 0 AND COALESCE(ce.reenvio_intentos,0) < 20"; }
 
+            $limit    = 1000;
+            $whereSql = implode(' AND ', $where);
+
+            // Total real sin LIMIT (para mostrar "mostrando N de M")
+            $countStmt = $db->prepare("
+                SELECT COUNT(*)
+                FROM comprobantes_electronicos ce
+                INNER JOIN ventas v ON v.id = ce.venta_id
+                WHERE $whereSql
+            ");
+            $countStmt->execute($params);
+            $total = (int) $countStmt->fetchColumn();
+
             $sql = "
                 SELECT
                     ce.id,
@@ -1031,13 +1044,19 @@ switch ($action) {
                 FROM comprobantes_electronicos ce
                 INNER JOIN ventas v ON v.id = ce.venta_id
                 LEFT JOIN clientes c ON c.id = v.cliente_id
-                WHERE " . implode(' AND ', $where) . "
+                WHERE $whereSql
                 ORDER BY v.created_at DESC
-                LIMIT 1000
+                LIMIT $limit
             ";
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
-            echo json_encode($stmt->fetchAll());
+            $rows = $stmt->fetchAll();
+
+            echo json_encode([
+                'total' => $total,
+                'limit' => $limit,
+                'rows'  => $rows,
+            ]);
         } catch (Exception $e) {
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
         }
