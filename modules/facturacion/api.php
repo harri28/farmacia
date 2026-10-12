@@ -770,13 +770,38 @@ switch ($action) {
                 ]
             );
 
+            // Registrar el intento manual en las columnas de tracking (igual
+            // que hace el worker). Antes solo el worker incrementaba el
+            // contador, entonces los reintentos manuales no se reflejaban en
+            // la UI (0/20 estancado).
             if (!empty($result['error_nubefact'])) {
+                $db->prepare("
+                    UPDATE comprobantes_electronicos
+                    SET reenvio_intentos    = COALESCE(reenvio_intentos, 0) + 1,
+                        reenvio_ultimo_at   = NOW(),
+                        reenvio_ultimo_error = :err
+                    WHERE id = :id
+                ")->execute([
+                    ':err' => (string) ($result['estado_sunat'] ?? $result['mensaje'] ?? 'Error desconocido'),
+                    ':id'  => (int) $comp['id'],
+                ]);
+
                 jsonResponse([
                     'error' => true,
                     'message' => 'SUNAT rechazó el comprobante: ' . (string) ($result['estado_sunat'] ?? $result['mensaje'] ?? 'Error desconocido'),
                     'comprobante' => $result,
                 ], 422);
             }
+
+            // Exito: tambien registrar y limpiar la programacion
+            $db->prepare("
+                UPDATE comprobantes_electronicos
+                SET reenvio_intentos    = COALESCE(reenvio_intentos, 0) + 1,
+                    reenvio_ultimo_at   = NOW(),
+                    reenvio_proximo_at  = NULL,
+                    reenvio_ultimo_error = NULL
+                WHERE id = :id
+            ")->execute([':id' => (int) $comp['id']]);
 
             registrarAuditoria('Reenvío de comprobante a SUNAT', 'facturacion', "Comprobante: {$comp['numero_completo']}");
 
