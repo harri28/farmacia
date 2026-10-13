@@ -132,6 +132,17 @@ require_once '../../includes/header.php';
 
 /* ---- Btn ---- */
 .btn-sm { padding:6px 13px; font-size:.78rem; }
+
+/* ---- Icon action buttons (fila de tabla) ---- */
+.icon-action-btn {
+    width:34px; height:34px; border-radius:999px;
+    border:1px solid #dbeafe; background:#f8fbff; color:var(--primary);
+    display:inline-flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:.18s ease; padding:0;
+}
+.icon-action-btn:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+.icon-action-btn.danger { border-color:#fecaca; background:#fef2f2; color:var(--danger); }
+.icon-action-btn.danger:hover { background:var(--danger); color:#fff; border-color:var(--danger); }
 </style>
 
 <div class="page-header">
@@ -677,10 +688,10 @@ async function cargarOrdenes() {
             <td style="font-size:.8rem;color:var(--text-muted)">${fmtDate(o.created_at)}</td>
             <td style="text-align:center" onclick="event.stopPropagation()">
                 <div style="display:flex;gap:5px;justify-content:center">
-                    <button class="btn btn-secondary btn-sm" onclick="verOrden(${o.id})" title="Ver detalle">
+                    <button class="icon-action-btn" onclick="verOrden(${o.id})" title="Ver detalle">
                         <i class="fas fa-eye"></i>
                     </button>
-                    ${o.estado!=='cancelada' ? `<button class="btn btn-secondary btn-sm" style="color:#dc2626" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
+                    ${o.estado!=='cancelada' ? `<button class="icon-action-btn danger" onclick="cambiarEstado(${o.id},'cancelada')" title="Cancelar"><i class="fas fa-ban"></i></button>` : ''}
                 </div>
             </td>
         </tr>`).join('');
