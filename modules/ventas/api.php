@@ -272,10 +272,14 @@ function ventasResolverFormaPagoId(PDO $db, string $tipoPago): ?int
 switch ($action) {
 
     case 'productos':
+        // precio_compra solo se expone al gerente (lo necesita el carrito del
+        // POS para el warning "precio custom debajo del costo"). Al cajero
+        // no se le muestra para no filtrarle la rentabilidad.
+        $precioCompraSelect = isGerente() ? 'p.precio_compra,' : '';
         $stmt = $db->query("
             SELECT
                 p.id, p.codigo, p.codigo_interno, p.codigo_barras, p.codigo_sunat,
-                p.nombre, p.precio_venta, p.stock, p.stock_minimo,
+                p.nombre, p.precio_venta, $precioCompraSelect p.stock, p.stock_minimo,
                 p.laboratorio, p.presentacion, p.categoria_id, p.favorito, p.total_vendido,
                 p.unidad_id, p.unidad_codigo, p.afectacion_igv_id, p.afectacion_igv_codigo,
                 p.porcentaje_igv, p.incluye_igv, p.icbper_activo, p.factor_icbper,
@@ -565,6 +569,35 @@ switch ($action) {
                     }
                 }
 
+                // Precio custom del gerente (override por linea en el POS).
+                // El valor que manda el frontend es el PRECIO FINAL (lo que ve
+                // el cliente, con IGV incluido si GRAV). Internamente se
+                // convierte a base segun incluye_igv para que la aritmetica
+                // de ventasCalcularDetalleTributario de el precio final exacto.
+                $precioOriginalBase = (float) $producto['precio_venta'];
+                $precioCustomFinal = isset($item['precio_unitario_custom']) ? (float) $item['precio_unitario_custom'] : null;
+                $precioCustomAplicado = null;
+                if ($precioCustomFinal !== null && $precioCustomFinal > 0) {
+                    if (!isGerente()) {
+                        throw new Exception('Solo el gerente puede modificar el precio de venta por linea.');
+                    }
+                    $tipoAfect = ventasNormalizarAfectacionTipo(
+                        $producto['afectacion_tipo'] ?? null,
+                        $producto['afectacion_igv_codigo'] ?? null
+                    );
+                    $pctIgv = $tipoAfect === 'GRAV'
+                        ? (float) ($producto['porcentaje_igv'] ?? 18)
+                        : 0.0;
+                    $incluyeIgv = $tipoAfect === 'GRAV'
+                        ? filter_var($producto['incluye_igv'] ?? false, FILTER_VALIDATE_BOOL)
+                        : false;
+                    $nuevoBase = ($tipoAfect === 'GRAV' && !$incluyeIgv)
+                        ? round($precioCustomFinal / (1 + ($pctIgv / 100)), 10)
+                        : $precioCustomFinal;
+                    $producto['precio_venta'] = $nuevoBase;
+                    $precioCustomAplicado = $precioCustomFinal;
+                }
+
                 $cantidadBase = round($cantidad * $factorEquivalencia, 2);
                 if ((float) $producto['stock'] < $cantidadBase) {
                     throw new Exception("Stock insuficiente para: {$producto['nombre']} (disponible: {$producto['stock']})");
@@ -577,6 +610,9 @@ switch ($action) {
                 $detalle['unidad_medida_vendida'] = $unidadVendida;
                 $detalle['factor_equivalencia'] = $factorEquivalencia;
                 $detalle['cantidad_base'] = $cantidadBase;
+                // Flags para auditoria postventa (fuera de la DB, solo en memoria)
+                $detalle['_precio_custom_aplicado'] = $precioCustomAplicado;
+                $detalle['_precio_original_base']   = $precioOriginalBase;
 
                 $productosInfo[$productoId] = $detalle;
                 $detallesVenta[] = $detalle;
@@ -847,6 +883,24 @@ switch ($action) {
             }
 
             $db->commit();
+
+            // Auditoria de precios modificados por el gerente (una entrada
+            // por linea con precio custom). Se registra despues del commit
+            // para que no revienten la venta si la insercion de auditoria
+            // falla; es solo bitacora, no critico.
+            foreach ($detallesVenta as $detPost) {
+                if (!empty($detPost['_precio_custom_aplicado'])) {
+                    $pOrig = (float) ($detPost['_precio_original_base'] ?? 0);
+                    $pNew  = (float) $detPost['_precio_custom_aplicado'];
+                    registrarAuditoria(
+                        'precio_modificado_en_venta',
+                        'ventas',
+                        "Venta {$numeroVenta} - {$detPost['nombre']} (ID {$detPost['producto_id']}): "
+                        . "base S/ " . number_format($pOrig, 2)
+                        . " → final S/ " . number_format($pNew, 2)
+                    );
+                }
+            }
 
             $comprobanteResult = null;
             if ($compData) {

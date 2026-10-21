@@ -989,6 +989,10 @@ let creditPaymentEnabled = false;
 let creditPaymentRows = [];
 let tiposDocumentoCliente = [];
 
+// Solo el gerente puede modificar el precio de venta por linea desde el POS.
+// El backend tambien valida; esto es solo para habilitar la UI editable.
+const USER_IS_GERENTE = <?= isGerente() ? 'true' : 'false' ?>;
+
 // ---- Init ----
 let cajaAbierta = false;
 let cajaEsMia   = true;
@@ -1057,7 +1061,12 @@ function productIgvRate(product) {
     return Number.isFinite(rate) ? rate : 18;
 }
 
-function getProductUnitSalePrice(product) {
+function getProductUnitSalePrice(product, cartItem = null) {
+    // Si el gerente definio un precio custom en esta linea del carrito, ese
+    // es el precio FINAL que ve el cliente (ya con IGV incluido para GRAV).
+    if (cartItem && cartItem.precio_custom_final != null) {
+        return parseFloat(cartItem.precio_custom_final) || 0;
+    }
     const base = parseFloat(product.precio_venta) || 0;
     if (productAffectationType(product) === 'GRAV' && !productIncludesIgv(product)) {
         return base * (1 + (productIgvRate(product) / 100));
@@ -1065,22 +1074,50 @@ function getProductUnitSalePrice(product) {
     return base;
 }
 
+// Precio final "catalogo" (sin override) — util para calcular el delta y el
+// warning cuando queda abajo del precio_compra.
+function getProductCatalogFinalPrice(product) {
+    const base = parseFloat(product.precio_venta) || 0;
+    if (productAffectationType(product) === 'GRAV' && !productIncludesIgv(product)) {
+        return base * (1 + (productIgvRate(product) / 100));
+    }
+    return base;
+}
+
+function setItemCustomPrice(key, nuevoPrecioFinal) {
+    const item = cart.find(i => i.key === key);
+    if (!item) return;
+    const v = parseFloat(nuevoPrecioFinal);
+    if (!isFinite(v) || v <= 0) {
+        delete item.precio_custom_final;
+    } else {
+        item.precio_custom_final = round2(v);
+    }
+    renderCart();
+}
+
 function computeCartTotals(items = cart) {
     return items.reduce((acc, item) => {
         const product = item.product || item;
         const qty = parseFloat(item.qty ?? item.cantidad ?? 0) || 0;
         const affectationType = productAffectationType(product);
-        const basePrice = parseFloat(product.precio_venta) || 0;
         const rate = affectationType === 'GRAV' ? productIgvRate(product) : 0;
         const includesIgv = affectationType === 'GRAV' ? productIncludesIgv(product) : false;
+        // Precio FINAL por unidad (ya respeta precio_custom_final del gerente)
+        const unitFinal = getProductUnitSalePrice(product, item);
+        // Precio BASE por unidad = sin IGV si GRAV y no incluye IGV, caso
+        // contrario coincide con el final.
+        const basePrice = (affectationType === 'GRAV' && !includesIgv)
+            ? unitFinal / (1 + (rate / 100))
+            : unitFinal;
         const lineValue = affectationType === 'GRAV'
-            ? (includesIgv ? ((getProductUnitSalePrice(product) / (1 + (rate / 100))) * qty) : (basePrice * qty))
+            ? (includesIgv ? ((unitFinal / (1 + (rate / 100))) * qty) : (basePrice * qty))
             : (basePrice * qty);
         const lineIgv = affectationType === 'GRAV'
-            ? (includesIgv ? ((getProductUnitSalePrice(product) * qty) - lineValue) : ((basePrice * (rate / 100)) * qty))
+            ? (includesIgv ? ((unitFinal * qty) - lineValue) : ((basePrice * (rate / 100)) * qty))
             : 0;
         const lineTotal = affectationType === 'GRAV'
-            ? (includesIgv ? (getProductUnitSalePrice(product) * qty) : ((basePrice + (basePrice * (rate / 100))) * qty))
+            ? (includesIgv ? (unitFinal * qty) : ((basePrice + (basePrice * (rate / 100))) * qty))
             : (basePrice * qty);
 
         if (affectationType === 'GRAV') acc.gravada += lineValue;
@@ -1427,14 +1464,45 @@ function renderCart() {
     oldItems.forEach(el => el.remove());
 
     cart.forEach(item => {
-        const subtotal = item.qty * getProductUnitSalePrice(item.product);
+        const unitFinal   = getProductUnitSalePrice(item.product, item);
+        const unitCatalog = getProductCatalogFinalPrice(item.product);
+        const precioCompra = parseFloat(item.product.precio_compra) || 0;
+        const subtotal    = item.qty * unitFinal;
         const unidadBadge = item.unidadMedida ? ` <span style="color:var(--primary);font-weight:700">(${item.unidadMedida})</span>` : '';
+        const esCustom    = item.precio_custom_final != null;
+        const bajoCosto   = precioCompra > 0 && unitFinal < precioCompra;
+        const bajoCatalogo = unitFinal < unitCatalog - 0.001;
+
+        // Precio editable solo para gerente. Para el resto, display como antes.
+        let precioHtml;
+        if (USER_IS_GERENTE) {
+            const warnStyle = bajoCosto
+                ? 'border:1.5px solid #dc2626;background:#fef2f2'
+                : (bajoCatalogo ? 'border:1.5px solid #f59e0b;background:#fffbeb' : 'border:1px solid var(--border)');
+            const warnMsg = bajoCosto
+                ? `<div style="font-size:.7rem;color:#dc2626;margin-top:2px">⚠ Debajo del costo (S/ ${precioCompra.toFixed(2)})</div>`
+                : (esCustom ? `<div style="font-size:.7rem;color:#f59e0b;margin-top:2px">Precio original: S/ ${unitCatalog.toFixed(2)}</div>` : '');
+            precioHtml = `
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:.75rem;color:var(--text-muted)">S/</span>
+                    <input type="number" step="0.01" min="0.01"
+                        value="${unitFinal.toFixed(2)}"
+                        onchange="setItemCustomPrice('${item.key}', this.value)"
+                        onclick="this.select()"
+                        style="width:70px;padding:3px 6px;${warnStyle};border-radius:4px;font-size:.82rem;font-weight:600;text-align:right">
+                    <span style="font-size:.72rem;color:var(--text-muted)">c/u</span>
+                </div>
+                ${warnMsg}`;
+        } else {
+            precioHtml = `<div class="cart-item-price">S/ ${unitFinal.toFixed(2)} c/u</div>`;
+        }
+
         const div = document.createElement('div');
         div.className = 'cart-item';
         div.innerHTML = `
             <div class="cart-item-info">
                 <div class="cart-item-name">${item.product.nombre}${unidadBadge}</div>
-                <div class="cart-item-price">S/ ${getProductUnitSalePrice(item.product).toFixed(2)} c/u</div>
+                ${precioHtml}
                 <div class="cart-item-controls">
                     <button class="qty-btn" onclick="changeQty('${item.key}',-1)"><i class="fas fa-minus"></i></button>
                     <span class="qty-value">${item.qty}</span>
@@ -2927,7 +2995,17 @@ function confirmarVenta() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
 
     const payload = {
-        items: cart.map(i => ({ producto_id: i.id, cantidad: i.qty, precio: parseFloat(i.product.precio_venta), unidad_medida: i.unidadMedida || null })),
+        items: cart.map(i => {
+            const item = { producto_id: i.id, cantidad: i.qty, precio: parseFloat(i.product.precio_venta), unidad_medida: i.unidadMedida || null };
+            // Si el gerente override-o el precio en el carrito, mandar el
+            // valor final que el cliente va a pagar (con IGV incluido para GRAV).
+            // El backend valida que el usuario sea gerente y ajusta la base
+            // segun incluye_igv del producto.
+            if (i.precio_custom_final != null) {
+                item.precio_unitario_custom = parseFloat(i.precio_custom_final);
+            }
+            return item;
+        }),
         cliente_id: selectedCliente ? selectedCliente.id : null,
         tipo_pago: tipoPago,
         tipo_comprobante: tipoComp,
