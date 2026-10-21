@@ -989,9 +989,9 @@ let creditPaymentEnabled = false;
 let creditPaymentRows = [];
 let tiposDocumentoCliente = [];
 
-// Solo el gerente puede modificar el precio de venta por linea desde el POS.
+// Admin y gerente pueden modificar el precio de venta por linea desde el POS.
 // El backend tambien valida; esto es solo para habilitar la UI editable.
-const USER_IS_GERENTE = <?= isGerente() ? 'true' : 'false' ?>;
+const USER_PUEDE_EDITAR_PRECIO = <?= isAdmin() ? 'true' : 'false' ?>;
 
 // ---- Init ----
 let cajaAbierta = false;
@@ -1475,7 +1475,7 @@ function renderCart() {
 
         // Precio editable solo para gerente. Para el resto, display como antes.
         let precioHtml;
-        if (USER_IS_GERENTE) {
+        if (USER_PUEDE_EDITAR_PRECIO) {
             const warnStyle = bajoCosto
                 ? 'border:1.5px solid #dc2626;background:#fef2f2'
                 : (bajoCatalogo ? 'border:1.5px solid #f59e0b;background:#fffbeb' : 'border:1px solid var(--border)');

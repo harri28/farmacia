@@ -272,10 +272,10 @@ function ventasResolverFormaPagoId(PDO $db, string $tipoPago): ?int
 switch ($action) {
 
     case 'productos':
-        // precio_compra solo se expone al gerente (lo necesita el carrito del
-        // POS para el warning "precio custom debajo del costo"). Al cajero
+        // precio_compra solo se expone a admin/gerente (lo necesita el carrito
+        // del POS para el warning "precio custom debajo del costo"). Al cajero
         // no se le muestra para no filtrarle la rentabilidad.
-        $precioCompraSelect = isGerente() ? 'p.precio_compra,' : '';
+        $precioCompraSelect = isAdmin() ? 'p.precio_compra,' : '';
         $stmt = $db->query("
             SELECT
                 p.id, p.codigo, p.codigo_interno, p.codigo_barras, p.codigo_sunat,
@@ -578,8 +578,8 @@ switch ($action) {
                 $precioCustomFinal = isset($item['precio_unitario_custom']) ? (float) $item['precio_unitario_custom'] : null;
                 $precioCustomAplicado = null;
                 if ($precioCustomFinal !== null && $precioCustomFinal > 0) {
-                    if (!isGerente()) {
-                        throw new Exception('Solo el gerente puede modificar el precio de venta por linea.');
+                    if (!isAdmin()) {
+                        throw new Exception('Solo el administrador o gerente puede modificar el precio de venta por línea.');
                     }
                     $tipoAfect = ventasNormalizarAfectacionTipo(
                         $producto['afectacion_tipo'] ?? null,
