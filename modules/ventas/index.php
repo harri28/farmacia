@@ -358,6 +358,16 @@ include '../../includes/header.php';
 .vt-tab:hover { background:var(--surface); color:var(--text); }
 .vt-tab.active { background:var(--primary); color:#fff; }
 .vt-tab.active:hover { background:var(--primary-dark,var(--primary)); }
+
+/* Input de precio editable en el carrito: ocultar flechas spinner nativas
+   para que el usuario pueda tipear libremente sin el ancho extra del
+   control numerico (y asi caben mas decimales si quisiera). */
+.cart-item input[type="number"]::-webkit-outer-spin-button,
+.cart-item input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.cart-item input[type="number"] { -moz-appearance: textfield; }
 </style>
 
 <div class="pos-page-wrap">
