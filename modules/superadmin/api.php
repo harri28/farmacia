@@ -447,12 +447,10 @@ switch ($action) {
             $db->exec("CREATE SCHEMA IF NOT EXISTS \"{$schema}\"");
             $db->exec("SET search_path TO \"{$schema}\", public");
 
-            $sql_raw = file_get_contents($sql_file);
-            // Eliminar comentarios de línea para evitar fragmentos vacíos
-            $sql_raw = preg_replace('/--[^\n]*/', '', $sql_raw);
-            foreach (array_filter(array_map('trim', explode(';', $sql_raw))) as $stmt_sql) {
-                $db->exec($stmt_sql);
-            }
+            // Ejecutar el archivo completo de una sola vez: el driver pgsql de
+            // PDO acepta multiples sentencias por exec(). Partirlo por ';' rompia
+            // los bloques DO $$ ... END $$; (dollar-quoted strings con ; adentro).
+            $db->exec(file_get_contents($sql_file));
             $db->exec("SET search_path TO public");
 
             // ---- Registrar en public.sucursales (transacción solo para el INSERT) ----

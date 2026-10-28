@@ -49,10 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ok('Conexión a PostgreSQL exitosa.');
 
             // ---- 1. Tablas públicas ----
-            $schema_public = file_get_contents(__DIR__ . '/schema_public.sql');
-            foreach (array_filter(array_map('trim', explode(';', $schema_public))) as $s) {
-                if ($s) $db->exec($s);
-            }
+            // Ejecutar el archivo completo de una: PDO/pgsql acepta multiples
+            // sentencias por exec(). Partir por ';' rompia los bloques DO $$...$$.
+            $db->exec(file_get_contents(__DIR__ . '/schema_public.sql'));
             ok('Tablas globales (public) creadas/verificadas.');
 
             // ---- 2. Crear o recuperar tenant ----
@@ -98,11 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ok("Schema '{$schema}' creado.");
 
                 $db->exec("SET search_path TO \"{$schema}\", public");
-                $schema_suc = file_get_contents(__DIR__ . '/schema_sucursal.sql');
-                $schema_suc = preg_replace('/--[^\n]*/', '', $schema_suc);
-                foreach (array_filter(array_map('trim', explode(';', $schema_suc))) as $s) {
-                    if ($s) $db->exec($s);
-                }
+                // Archivo completo de una: partir por ';' rompia los DO $$...$$.
+                $db->exec(file_get_contents(__DIR__ . '/schema_sucursal.sql'));
                 ok("Tablas de la sucursal '{$suc_nombre}' creadas.");
 
                 // Volver a public para inserts globales

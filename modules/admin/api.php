@@ -254,18 +254,11 @@ switch ($action) {
             $db->exec("CREATE SCHEMA IF NOT EXISTS \"{$schema}\"");
             $db->exec("SET search_path TO \"{$schema}\", public");
 
-            $sql_raw = file_get_contents($sql_file);
-            $sql_raw = preg_replace('/--[^\n]*/', '', $sql_raw);
-            foreach (array_filter(array_map('trim', explode(';', $sql_raw))) as $stmt_sql) {
-                $db->exec($stmt_sql);
-            }
-
-            // Restaurar search_path de la sesión actual
-            $sql_facturacion = file_get_contents($facturacion_file);
-            $sql_facturacion = preg_replace('/--[^\n]*/', '', $sql_facturacion);
-            foreach (array_filter(array_map('trim', explode(';', $sql_facturacion))) as $stmt_sql) {
-                $db->exec($stmt_sql);
-            }
+            // Ejecutar cada archivo completo de una sola vez: el driver pgsql de
+            // PDO acepta multiples sentencias por exec(). Partirlo por ';' rompia
+            // los bloques DO $$ ... END $$; (dollar-quoted strings con ; adentro).
+            $db->exec(file_get_contents($sql_file));
+            $db->exec(file_get_contents($facturacion_file));
 
             $mySchema = preg_replace('/[^a-z0-9_]/', '', strtolower($_SESSION['sucursal_schema'] ?? ''));
             $db->exec($mySchema ? "SET search_path TO \"{$mySchema}\", public" : "SET search_path TO public");
