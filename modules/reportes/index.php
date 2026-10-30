@@ -796,6 +796,57 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Resumen de ventas del usuario ===================== -->
+<div class="modal-overlay" id="modal-vt-usuario">
+    <div class="modal" style="max-width:900px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-user-tag" style="color:var(--primary);margin-right:8px"></i>
+                <span id="vtu-titulo">Resumen de ventas</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-vt-usuario')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="vtu-stats" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px"></div>
+
+            <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+                <div style="flex:1;min-width:260px">
+                    <h4 style="font-size:.9rem;margin:0 0 8px">Por comprobante</h4>
+                    <div style="overflow-x:auto">
+                        <table class="table" style="width:100%">
+                            <thead><tr><th>Tipo</th><th class="text-right">N°</th><th class="text-right">Total</th></tr></thead>
+                            <tbody id="vtu-comprobante-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:260px">
+                    <h4 style="font-size:.9rem;margin:0 0 8px">Por método de pago</h4>
+                    <div style="overflow-x:auto">
+                        <table class="table" style="width:100%">
+                            <thead><tr><th>Método</th><th class="text-right">N°</th><th class="text-right">Total</th></tr></thead>
+                            <tbody id="vtu-metodo-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="font-size:.9rem;margin:0 0 8px">Historial de ventas</h4>
+            <div style="overflow-x:auto">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>N° Venta</th><th>Fecha</th><th>Cliente</th>
+                            <th>Comprobante</th><th>Método</th>
+                            <th class="text-right">Total</th><th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vtu-historial-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -1066,10 +1117,14 @@ function vtBuscar() {
                     '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">Sin resultados</td></tr>';
                 return;
             }
+            const esVendedor = agrupar === 'vendedor';
             document.getElementById('vt-tabla-body').innerHTML = rows.map(r => {
                 const vsProm = parseFloat(r.pct_vs_promedio);
                 const vsPromCls = vsProm >= 100 ? 'color:var(--success);font-weight:600' : 'color:var(--danger);font-weight:600';
-                return `<tr>
+                const clickAttrs = esVendedor
+                    ? `onclick="vtVerUsuario(this.dataset.vendedor)" data-vendedor="${esc(r.etiqueta)}" style="cursor:pointer" title="Ver resumen de ventas del usuario"`
+                    : '';
+                return `<tr ${clickAttrs}>
                 <td style="text-transform:capitalize">${esc(r.etiqueta)}</td>
                 <td class="text-right">${r.total_ventas}</td>
                 <td class="text-right"><strong>${money(r.total_ingresos)}</strong></td>
@@ -1085,6 +1140,76 @@ function vtBuscar() {
 }
 
 function vtExportar() { repDownload(API + '?action=ventas_exportar&' + vtParams()); }
+
+// Drill-down: resumen de ventas de un usuario (respeta el rango del tab)
+function vtVerUsuario(vendedor) {
+    openModal('modal-vt-usuario');
+    document.getElementById('vtu-titulo').textContent = 'Resumen de ventas';
+    document.getElementById('vtu-stats').innerHTML =
+        '<div style="padding:16px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
+    document.getElementById('vtu-comprobante-body').innerHTML = '';
+    document.getElementById('vtu-metodo-body').innerHTML = '';
+    document.getElementById('vtu-historial-body').innerHTML = '';
+
+    fetch(API + '?action=ventas_usuario_resumen&' + vtParams({ vendedor }))
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { showToast(d.message, 'error'); return; }
+            const r = d.resumen || {};
+            document.getElementById('vtu-titulo').textContent = 'Resumen de ventas — ' + (d.vendedor || '');
+
+            const fmtF = iso => iso ? new Date(iso).toLocaleDateString('es-PE') : '—';
+            const stat = (label, val) =>
+                `<div style="flex:1;min-width:140px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+                    <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em">${label}</div>
+                    <div style="font-size:1.05rem;font-weight:700;margin-top:4px">${val}</div>
+                </div>`;
+            document.getElementById('vtu-stats').innerHTML =
+                stat('N° ventas', r.n_ventas ?? 0) +
+                stat('Ingresos', money(r.total_ingresos)) +
+                stat('Ticket prom.', money(r.ticket_promedio)) +
+                stat('IGV', money(r.total_igv)) +
+                stat('Anuladas', r.n_anuladas ?? 0) +
+                stat('Primera venta', fmtF(r.primera_venta)) +
+                stat('Última venta', fmtF(r.ultima_venta));
+
+            const comps = Array.isArray(d.por_comprobante) ? d.por_comprobante : [];
+            document.getElementById('vtu-comprobante-body').innerHTML = comps.length
+                ? comps.map(c => `<tr>
+                    <td style="text-transform:capitalize">${esc(c.tipo)}</td>
+                    <td class="text-right">${c.n ?? 0}</td>
+                    <td class="text-right">${money(c.total)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--text-light)">Sin datos</td></tr>';
+
+            const mets = Array.isArray(d.por_metodo) ? d.por_metodo : [];
+            document.getElementById('vtu-metodo-body').innerHTML = mets.length
+                ? mets.map(m => `<tr>
+                    <td style="text-transform:capitalize">${esc(m.metodo)}</td>
+                    <td class="text-right">${m.n ?? 0}</td>
+                    <td class="text-right">${money(m.total)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--text-light)">Sin datos</td></tr>';
+
+            const hist = Array.isArray(d.historial) ? d.historial : [];
+            document.getElementById('vtu-historial-body').innerHTML = hist.length
+                ? hist.map(h => {
+                    const dt = new Date(h.created_at);
+                    const estadoCls = h.estado === 'anulada' ? 'badge-danger' : 'badge-success';
+                    return `<tr>
+                        <td><strong>${esc(h.numero_venta)}</strong></td>
+                        <td style="font-size:.82rem;color:var(--text-muted)">${dt.toLocaleDateString('es-PE')}</td>
+                        <td>${esc(h.cliente)}</td>
+                        <td style="text-transform:capitalize">${esc(h.tipo_comprobante || '—')}</td>
+                        <td style="text-transform:capitalize">${esc(h.tipo_pago || '—')}</td>
+                        <td class="text-right">${money(h.total)}</td>
+                        <td><span class="badge ${estadoCls}" style="text-transform:capitalize">${esc(h.estado)}</span></td>
+                    </tr>`;
+                }).join('')
+                : '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-light)">Sin ventas</td></tr>';
+        })
+        .catch(() => showToast('Error al cargar el resumen del usuario', 'error'));
+}
 
 // ================================================================
 // INVENTARIO (Valorización)

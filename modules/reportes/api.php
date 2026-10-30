@@ -539,6 +539,83 @@ switch ($action) {
         reportesCsvOutput('ventas', $stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
+    // Drill-down: resumen de ventas de un vendedor/usuario (respeta el rango del tab)
+    case 'ventas_usuario_resumen':
+        try {
+            [$desde, $hastaDt] = reportesRangoFechas();
+            $vendedor = trim((string) ($_GET['vendedor'] ?? ''));
+            if ($vendedor === '') jsonResponse(['error' => true, 'message' => 'vendedor requerido'], 400);
+
+            // 'Sin asignar' representa v.vendedor NULL (ver ventas_reporte)
+            $esNull     = ($vendedor === 'Sin asignar');
+            $filtroVend = $esNull ? 'v.vendedor IS NULL' : 'v.vendedor = :vendedor';
+            $bind = [':desde' => $desde, ':hasta' => $hastaDt];
+            if (!$esNull) $bind[':vendedor'] = $vendedor;
+
+            $res = $db->prepare("
+                SELECT
+                    COUNT(*) FILTER (WHERE v.estado = 'completada')                  AS n_ventas,
+                    COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS total_ingresos,
+                    COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0) AS total_igv,
+                    COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS ticket_promedio,
+                    COUNT(*) FILTER (WHERE v.estado = 'anulada')                     AS n_anuladas,
+                    MIN(v.created_at) FILTER (WHERE v.estado = 'completada')         AS primera_venta,
+                    MAX(v.created_at) FILTER (WHERE v.estado = 'completada')         AS ultima_venta
+                FROM ventas v
+                WHERE v.created_at BETWEEN :desde AND :hasta AND $filtroVend
+            ");
+            $res->execute($bind);
+            $resumen = $res->fetch();
+
+            $comp = $db->prepare("
+                SELECT COALESCE(NULLIF(TRIM(v.tipo_comprobante), ''), 'otro') AS tipo,
+                       COUNT(*) AS n, COALESCE(SUM(v.total), 0) AS total
+                FROM ventas v
+                WHERE v.created_at BETWEEN :desde AND :hasta AND $filtroVend
+                  AND v.estado = 'completada'
+                GROUP BY COALESCE(NULLIF(TRIM(v.tipo_comprobante), ''), 'otro')
+                ORDER BY total DESC
+            ");
+            $comp->execute($bind);
+
+            $met = $db->prepare("
+                SELECT COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'otro') AS metodo,
+                       COUNT(*) AS n, COALESCE(SUM(v.total), 0) AS total
+                FROM ventas v
+                WHERE v.created_at BETWEEN :desde AND :hasta AND $filtroVend
+                  AND v.estado = 'completada'
+                GROUP BY COALESCE(NULLIF(TRIM(v.tipo_pago), ''), 'otro')
+                ORDER BY total DESC
+            ");
+            $met->execute($bind);
+
+            $hist = $db->prepare("
+                SELECT v.numero_venta, v.created_at, v.tipo_comprobante, v.tipo_pago,
+                       v.total, v.estado,
+                       COALESCE(NULLIF(TRIM(c.nombre_completo), ''),
+                                NULLIF(TRIM(CONCAT_WS(' ', c.nombres, c.apellidos)), ''),
+                                'Cliente General') AS cliente
+                FROM ventas v
+                LEFT JOIN clientes c ON c.id = v.cliente_id
+                WHERE v.created_at BETWEEN :desde AND :hasta AND $filtroVend
+                ORDER BY v.created_at DESC, v.id DESC
+                LIMIT 100
+            ");
+            $hist->execute($bind);
+
+            jsonResponse([
+                'error'           => false,
+                'vendedor'        => $vendedor,
+                'resumen'         => $resumen,
+                'por_comprobante' => $comp->fetchAll(),
+                'por_metodo'      => $met->fetchAll(),
+                'historial'       => $hist->fetchAll(),
+            ]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => 'Error al cargar el resumen: ' . $e->getMessage()], 500);
+        }
+        break;
+
     // ----------------------------------------------------------------
     // VALORIZACION DE INVENTARIO
     // ----------------------------------------------------------------
