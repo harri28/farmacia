@@ -713,6 +713,89 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Items de la orden de compra ===================== -->
+<div class="modal-overlay" id="modal-oc-items">
+    <div class="modal" style="max-width:760px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-file-invoice-dollar" style="color:var(--primary);margin-right:8px"></i>
+                <span id="oci-titulo">Items de la orden</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-oc-items')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="oci-cabecera" style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px"></div>
+            <div style="overflow-x:auto">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Unidad</th>
+                            <th class="text-right">Cantidad</th>
+                            <th class="text-right">P. Unit</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="oci-tabla-body"></tbody>
+                </table>
+            </div>
+            <p style="font-size:.78rem;color:var(--text-light);margin-top:10px">
+                <i class="fas fa-info-circle"></i> Clic en un producto para ver su resumen de compras.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: Resumen de compras del producto ===================== -->
+<div class="modal-overlay" id="modal-prod-resumen">
+    <div class="modal" style="max-width:860px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-box" style="color:var(--primary);margin-right:8px"></i>
+                <span id="pr-titulo">Resumen de compras</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-prod-resumen')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="pr-stats" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px"></div>
+
+            <h4 style="font-size:.9rem;margin:0 0 8px">Por proveedor</h4>
+            <div style="overflow-x:auto;margin-bottom:18px">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Proveedor</th>
+                            <th class="text-right">Cantidad</th>
+                            <th class="text-right">Gastado</th>
+                            <th class="text-right">Compras</th>
+                            <th class="text-right">P. Mín</th>
+                            <th class="text-right">P. Máx</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pr-proveedor-body"></tbody>
+                </table>
+            </div>
+
+            <h4 style="font-size:.9rem;margin:0 0 8px">Historial de compras</h4>
+            <div style="overflow-x:auto">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>N° Orden</th>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th class="text-right">Cantidad</th>
+                            <th class="text-right">P. Unit</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pr-historial-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -823,7 +906,7 @@ function ccBuscar() {
             const badgeEstado = { borrador:'badge-gray', pendiente:'badge-warning', aprobada:'badge-primary', recibida:'badge-success', cancelada:'badge-danger' };
             document.getElementById('cc-tabla-body').innerHTML = rows.map(o => {
                 const dt = new Date(o.created_at);
-                return `<tr>
+                return `<tr onclick="ccVerItems(${o.id})" style="cursor:pointer" title="Ver items de la orden">
                     <td><strong>${esc(o.numero_orden)}</strong></td>
                     <td style="font-size:.82rem;color:var(--text-muted)">${dt.toLocaleDateString('es-PE')}</td>
                     <td>${esc(o.proveedor)}</td>
@@ -839,6 +922,109 @@ function ccBuscar() {
 }
 
 function ccExportar() { repDownload(API + '?action=costos_compras_exportar&' + ccParams()); }
+
+// Drill-down: items de una orden de compra
+function ccVerItems(ordenId) {
+    openModal('modal-oc-items');
+    document.getElementById('oci-titulo').textContent = 'Items de la orden';
+    document.getElementById('oci-cabecera').innerHTML = '';
+    document.getElementById('oci-tabla-body').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=compra_orden_items&orden_id=' + ordenId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { showToast(d.message, 'error'); closeModal('modal-oc-items'); return; }
+            const o = d.orden;
+            document.getElementById('oci-titulo').textContent = 'Orden ' + (o.numero_orden || '');
+            const dt = new Date(o.created_at);
+            document.getElementById('oci-cabecera').innerHTML =
+                `<strong>Proveedor:</strong> ${esc(o.proveedor)} &nbsp;·&nbsp; ` +
+                `<strong>Fecha:</strong> ${dt.toLocaleDateString('es-PE')} &nbsp;·&nbsp; ` +
+                `<strong>Estado:</strong> ${esc(o.estado)} &nbsp;·&nbsp; ` +
+                `<strong>Total:</strong> ${money(o.total)}`;
+            const items = Array.isArray(d.items) ? d.items : [];
+            if (!items.length) {
+                document.getElementById('oci-tabla-body').innerHTML =
+                    '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-light)">Sin items</td></tr>';
+                return;
+            }
+            document.getElementById('oci-tabla-body').innerHTML = items.map(it => {
+                const clickable = it.producto_id
+                    ? `onclick="ccVerResumenProducto(${it.producto_id})" style="cursor:pointer" title="Ver resumen de compras del producto"`
+                    : '';
+                const cod = it.codigo ? `<span style="color:var(--text-light);font-size:.8rem"> (${esc(it.codigo)})</span>` : '';
+                return `<tr ${clickable}>
+                    <td>${esc(it.nombre)}${cod}</td>
+                    <td>${esc(it.unidad_medida || '—')}</td>
+                    <td class="text-right">${parseFloat(it.cantidad) || 0}</td>
+                    <td class="text-right">${money(it.precio_unitario)}</td>
+                    <td class="text-right">${money(it.subtotal)}</td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => { showToast('Error al cargar los items', 'error'); closeModal('modal-oc-items'); });
+}
+
+// Drill-down: resumen historico de compras de un producto
+function ccVerResumenProducto(prodId) {
+    openModal('modal-prod-resumen');
+    document.getElementById('pr-titulo').textContent = 'Resumen de compras';
+    document.getElementById('pr-stats').innerHTML =
+        '<div style="padding:16px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
+    document.getElementById('pr-proveedor-body').innerHTML = '';
+    document.getElementById('pr-historial-body').innerHTML = '';
+
+    fetch(API + '?action=compra_producto_resumen&producto_id=' + prodId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { showToast(d.message, 'error'); return; }
+            const p = d.producto || {}, r = d.resumen || {};
+            document.getElementById('pr-titulo').textContent = 'Resumen de compras — ' + (p.nombre || '');
+
+            const stat = (label, val) =>
+                `<div style="flex:1;min-width:140px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+                    <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em">${label}</div>
+                    <div style="font-size:1.05rem;font-weight:700;margin-top:4px">${val}</div>
+                </div>`;
+            document.getElementById('pr-stats').innerHTML =
+                stat('Cantidad total', (parseFloat(r.total_cantidad) || 0) + ' ' + esc(p.unidad || '')) +
+                stat('Total gastado', money(r.total_gastado)) +
+                stat('N° compras', r.n_compras ?? 0) +
+                stat('Precio prom.', money(r.precio_prom)) +
+                stat('Precio mín.', money(r.precio_min)) +
+                stat('Precio máx.', money(r.precio_max)) +
+                stat('Último precio', money(r.precio_ultimo));
+
+            const provs = Array.isArray(d.por_proveedor) ? d.por_proveedor : [];
+            document.getElementById('pr-proveedor-body').innerHTML = provs.length
+                ? provs.map(v => `<tr>
+                    <td>${esc(v.proveedor)}</td>
+                    <td class="text-right">${parseFloat(v.cantidad) || 0}</td>
+                    <td class="text-right">${money(v.gastado)}</td>
+                    <td class="text-right">${v.compras ?? 0}</td>
+                    <td class="text-right">${money(v.precio_min)}</td>
+                    <td class="text-right">${money(v.precio_max)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--text-light)">Sin datos</td></tr>';
+
+            const hist = Array.isArray(d.historial) ? d.historial : [];
+            document.getElementById('pr-historial-body').innerHTML = hist.length
+                ? hist.map(h => {
+                    const dt = new Date(h.created_at);
+                    return `<tr>
+                        <td><strong>${esc(h.numero_orden)}</strong></td>
+                        <td style="font-size:.82rem;color:var(--text-muted)">${dt.toLocaleDateString('es-PE')}</td>
+                        <td>${esc(h.proveedor)}</td>
+                        <td class="text-right">${parseFloat(h.cantidad) || 0}</td>
+                        <td class="text-right">${money(h.precio_unitario)}</td>
+                        <td class="text-right">${money(h.subtotal)}</td>
+                    </tr>`;
+                }).join('')
+                : '<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--text-light)">Sin historial</td></tr>';
+        })
+        .catch(() => showToast('Error al cargar el resumen del producto', 'error'));
+}
 
 // ================================================================
 // VENTAS
