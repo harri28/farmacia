@@ -22,16 +22,21 @@ include '../../includes/header.php';
 .section-title { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
 
 /* ---- KPI cards ---- */
-.kpi-grid      { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+/* auto-fit = sin columnas vacías: 3 o 6 tarjetas siempre llenan la fila y
+   quedan todas del mismo ancho; nunca descolgadas a la izquierda. */
+.kpi-grid      { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: stretch; }
 .kpi-card      {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 14px 16px;
+    padding: 16px 18px;
     box-shadow: var(--shadow);
     position: relative;
     overflow: hidden;
     transition: box-shadow var(--transition);
+    display: flex;
+    flex-direction: column;
+    min-height: 136px;   /* piso común: todas iguales aunque el texto varíe */
 }
 .kpi-card:hover { box-shadow: var(--shadow-md); }
 .kpi-card .accent {
@@ -215,15 +220,13 @@ include '../../includes/header.php';
     <!-- KPI Row -->
     <div>
         <p class="section-title">Resumen · <span id="per-titulo"></span></p>
-        <div class="row g-3" id="kpi-grid">
+        <div class="kpi-grid" id="kpi-grid">
             <?php for ($i = 0; $i < 6; $i++): ?>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="kpi-card">
-                    <div class="accent skel" style="background:transparent"></div>
-                    <div class="skel" style="width:40px;height:40px;margin-bottom:12px"></div>
-                    <div class="skel" style="width:60%;height:.78rem;margin-bottom:6px"></div>
-                    <div class="skel" style="width:80%;height:1.6rem"></div>
-                </div>
+            <div class="kpi-card">
+                <div class="accent skel" style="background:transparent"></div>
+                <div class="skel" style="width:32px;height:32px;margin-bottom:8px"></div>
+                <div class="skel" style="width:60%;height:.72rem;margin-bottom:6px"></div>
+                <div class="skel" style="width:80%;height:1.25rem"></div>
             </div>
             <?php endfor; ?>
         </div>
@@ -495,15 +498,13 @@ async function loadKpis() {
         accent: inv.stock_bajo > 0 ? 'var(--danger)' : 'var(--success)' });
 
     document.getElementById('kpi-grid').innerHTML = cards.map(c => `
-        <div class="col-6 col-md-4 col-xl-2">
-            <div class="kpi-card">
-                <div class="accent" style="background:${c.accent}"></div>
-                <div class="kpi-icon" style="background:${c.iconBg};color:${c.iconColor}"><i class="${c.icon}"></i></div>
-                <div class="kpi-label">${c.label}</div>
-                <div class="kpi-value">${c.value}</div>
-                <div class="kpi-sub">${c.sub}</div>
-                ${c.cmp}
-            </div>
+        <div class="kpi-card">
+            <div class="accent" style="background:${c.accent}"></div>
+            <div class="kpi-icon" style="background:${c.iconBg};color:${c.iconColor}"><i class="${c.icon}"></i></div>
+            <div class="kpi-label">${c.label}</div>
+            <div class="kpi-value">${c.value}</div>
+            <div class="kpi-sub">${c.sub}</div>
+            ${c.cmp}
         </div>`).join('');
 }
 
