@@ -27,7 +27,6 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
     <meta name="theme-color" content="#4f46e5">
     <title><?= htmlspecialchars($tenant['nombre']) ?> — FarmaSystem</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -90,7 +89,7 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         .btn-logout:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 
         /* Main */
-        .main { padding: 28px 32px; max-width: 1300px; margin: 0 auto; }
+        .main { padding: 28px 32px; max-width: 1500px; width: 100%; margin: 0 auto; }
 
         /* Hero header */
         .hero {
@@ -145,8 +144,10 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         .stat-label { font-size: .78rem; color: var(--sa-text-muted); margin-top: 3px; }
 
         /* Sections */
-        .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 900px) { .sections { grid-template-columns: 1fr; } }
+        /* Sucursales (mas angosto) a la izquierda, Usuarios (mas columnas) a la derecha.
+           minmax(0,...) deja que la tabla de Usuarios respire sin empujar scroll a la pagina. */
+        .sections { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(0, 1.55fr); gap: 20px; align-items: start; }
+        @media (max-width: 1024px) { .sections { grid-template-columns: 1fr; } }
 
         .section-card {
             background: var(--sa-surface); border: 1px solid var(--sa-border);
@@ -174,6 +175,9 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         .sec-table tbody tr { border-top: 1px solid var(--sa-bg); transition: background .1s; }
         .sec-table tbody tr:hover { background: #fafafe; }
         .sec-table td { padding: 11px 16px; font-size: .86rem; color: var(--sa-text-secondary); vertical-align: middle; }
+        /* Columnas en una sola linea; si no entra (pantalla muy angosta) el contenedor
+           hace scroll horizontal — no se parten los nombres ni "Sucursal" en varias lineas. */
+        .sec-table th, .sec-table td { white-space: nowrap; }
         .td-name { font-weight: 600; color: var(--sa-text); }
 
         /* Empty state */
@@ -1380,6 +1384,5 @@ cargarPagos();
 cargarSucursales();
 cargarUsuarios();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
