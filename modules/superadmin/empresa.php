@@ -144,9 +144,12 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         .stat-label { font-size: .78rem; color: var(--sa-text-muted); margin-top: 3px; }
 
         /* Sections */
-        /* Sucursales (mas angosto) a la izquierda, Usuarios (mas columnas) a la derecha.
-           minmax(0,...) deja que la tabla de Usuarios respire sin empujar scroll a la pagina. */
-        .sections { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(0, 1.55fr); gap: 20px; align-items: start; }
+        /* Sucursales a la izquierda: toma solo el ancho que necesita su contenido
+           (max-content), asi nunca le sobra espacio ni aparece scroll horizontal.
+           Usuarios (1fr) se lleva TODO el resto del ancho disponible.
+           minmax(0,1fr) deja que Usuarios ceda primero y pueda hacer scroll interno
+           como red de seguridad en pantallas angostas. */
+        .sections { display: grid; grid-template-columns: minmax(300px, max-content) minmax(0, 1fr); gap: 20px; align-items: start; }
         @media (max-width: 1024px) { .sections { grid-template-columns: 1fr; } }
 
         .section-card {
