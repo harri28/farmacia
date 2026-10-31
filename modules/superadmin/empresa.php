@@ -795,7 +795,7 @@ async function cargarSucursales() {
         document.getElementById('listaSucursales').innerHTML = `
         <table class="sec-table">
             <thead><tr>
-                <th>Nombre</th><th>Dirección</th><th>Usuarios</th><th>Estado</th><th></th>
+                <th>Nombre</th><th>Usuarios</th><th>Estado</th><th></th>
             </tr></thead>
             <tbody>${lista.map(s => `
             <tr id="srow-${s.id}" style="${s.archivada ? 'opacity:.55' : ''}">
@@ -803,7 +803,6 @@ async function cargarSucursales() {
                     ${esc(s.nombre)}
                     ${s.archivada ? '<span style="margin-left:6px;padding:1px 7px;border-radius:20px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:var(--sa-bg);color:var(--sa-text-light)">Archivada</span>' : ''}
                 </td>
-                <td style="color:var(--sa-text-muted);font-size:.82rem">${esc(s.direccion||'—')}</td>
                 <td style="text-align:center">${s.total_usuarios}</td>
                 <td>${s.archivada
                     ? '<span style="padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;background:var(--sa-bg);color:var(--sa-text-light)">Archivada</span>'
