@@ -955,7 +955,7 @@ async function cargarUsuarios() {
         }
         document.getElementById('listaUsuarios').innerHTML = `
         <table class="sec-table">
-            <thead><tr><th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th style="text-align:center">Estado</th><th></th></tr></thead>
             <tbody>${lista.map(u => {
                 const acc = typeof u.accesos === 'string' ? JSON.parse(u.accesos) : (u.accesos||[]);
                 const primera = acc[0] ?? null;
@@ -977,9 +977,7 @@ async function cargarUsuarios() {
                     <td style="font-family:monospace;font-size:.82rem">${esc(u.username)}</td>
                     <td>${sucText}</td>
                     <td>${rolText}</td>
-                    <td><span style="padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;
-                        background:${u.activo?'#dcfce7':'#fee2e2'};color:${u.activo?'#16a34a':'#dc2626'}">
-                        ${u.activo?'Activo':'Inactivo'}</span></td>
+                    <td style="text-align:center"><span title="${u.activo?'Activo':'Inactivo'}" style="font-size:.95rem">${u.activo?'🟢':'🔴'}</span></td>
                     <td style="text-align:right">
                         <div style="display:flex;gap:5px;justify-content:flex-end">
                             <button class="btn-icon btn-edit" title="Editar"
