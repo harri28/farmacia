@@ -26,6 +26,7 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#4f46e5">
     <title><?= htmlspecialchars($tenant['nombre']) ?> — FarmaSystem</title>
+    <link rel="icon" type="image/png" href="../../assets/img/logos/favicon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
