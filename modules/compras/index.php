@@ -117,6 +117,11 @@ require_once '../../includes/header.php';
 .btn-del-row { background:#fee2e2; border:none; color:#dc2626; width:28px; height:28px;
                border-radius:6px; cursor:pointer; font-size:.8rem; }
 .btn-del-row:hover { background:#dc2626; color:#fff; }
+.btn-edit-row { background:var(--primary-light); border:none; color:var(--primary); width:28px; height:28px;
+                border-radius:6px; cursor:pointer; font-size:.8rem; margin-right:4px; }
+.btn-edit-row:hover { background:var(--primary); color:#fff; }
+/* Modal apilado encima de Nueva Orden de Compra */
+.modal-overlay.modal-stacked { z-index:600; }
 .items-total { text-align:right; font-size:.9rem; color:var(--text-secondary); padding:8px 0; border-top:1px solid var(--border); }
 .items-total strong { color:var(--text-primary); font-size:1rem; }
 #ocCostoEnvio { width:140px !important; padding:7px 9px; font-size:.83rem; }
@@ -385,8 +390,8 @@ require_once '../../includes/header.php';
                 <th style="width:9%">U.M.</th>
                 <th style="width:10%">Cantidad</th>
                 <th style="width:13%">P. Unitario</th>
-                <th style="width:13%">Sub. Total</th>
-                <th style="width:2%"></th>
+                <th style="width:11%">Sub. Total</th>
+                <th style="width:8%"></th>
             </tr></thead>
             <tbody id="itemsBody"></tbody>
         </table>
@@ -418,6 +423,54 @@ require_once '../../includes/header.php';
         <button class="btn btn-secondary" onclick="cerrarModal('modalOrdenOverlay')">Cancelar</button>
         <button class="btn btn-primary" id="btnRegistrarOrden" onclick="guardarOrden()">
             <i class="fas fa-save"></i> Registrar orden de compra
+        </button>
+    </div>
+</div>
+</div>
+
+<!-- ============================================================
+     MODAL: Información de Medicamentos (apilado sobre Nueva Orden)
+     Edita directamente el producto en inventario.
+============================================================ -->
+<div class="modal-overlay modal-stacked" id="modalInfoMedOverlay">
+<div class="modal modal-md">
+    <div class="modal-header">
+        <span class="modal-title"><i class="fas fa-pills" style="color:var(--primary);margin-right:8px"></i>Información de Medicamentos</span>
+        <button class="modal-close" onclick="cerrarModal('modalInfoMedOverlay')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+        <p style="margin:0 0 14px;font-size:.82rem;color:var(--text-muted)">
+            Producto: <strong id="imNombre" style="color:var(--text-primary)"></strong><br>
+            Los cambios afectan directamente al producto en <strong>Inventario</strong>, no solo a esta orden.
+        </p>
+        <div class="form-row c2">
+            <div class="form-group">
+                <label>Fecha de vencimiento</label>
+                <input type="date" id="imVencimiento">
+                <small style="font-size:.7rem;color:var(--text-muted)">Si la dejas vacía, no se modifica la fecha actual.</small>
+            </div>
+            <div class="form-group">
+                <label>Laboratorio</label>
+                <input type="text" id="imLaboratorio" placeholder="Laboratorio">
+            </div>
+        </div>
+        <div class="form-row c2">
+            <div class="form-group">
+                <label>Presentación</label>
+                <input type="text" id="imPresentacion" placeholder="Ej. Caja x 10 tabletas">
+            </div>
+            <div class="form-group">
+                <label>&nbsp;</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-primary);text-transform:none">
+                    <input type="checkbox" id="imRequiereReceta" style="width:auto"> Requiere receta
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="cerrarModal('modalInfoMedOverlay')">Cancelar</button>
+        <button class="btn btn-primary" id="btnGuardarInfoMed" onclick="guardarInfoMedicamento()">
+            <i class="fas fa-save"></i> Guardar
         </button>
     </div>
 </div>
@@ -933,6 +986,7 @@ async function abrirNuevaOrden() {
     document.getElementById('ocFechaEntrega').value  =
         hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
     document.getElementById('itemsBody').innerHTML   = '';
+    _ocProductos = {};
     toggleCredito();
     calcularTotales();
 
@@ -1007,7 +1061,10 @@ function agregarFila() {
         <td><input type="text" inputmode="decimal" id="fs-${idx}" value="0.00"
                 oninput="sanitizarDecimalOrden(this); calcularSubtotalManual(${idx})" onfocus="cursorAlFinalOrden(this)"
                 style="text-align:right;padding:7px 10px;font-weight:600"></td>
-        <td><button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();calcularTotales()"><i class="fas fa-trash"></i></button></td>
+        <td style="white-space:nowrap;text-align:right">
+            <button class="btn-edit-row" title="Información de medicamento" onclick="abrirInfoMedicamento(${idx})"><i class="fas fa-pen"></i></button>
+            <button class="btn-del-row" onclick="document.getElementById('fila-${idx}').remove();delete _ocProductos[${idx}];calcularTotales()"><i class="fas fa-trash"></i></button>
+        </td>
     `;
     document.getElementById('itemsBody').appendChild(tr);
     return idx;
@@ -1056,11 +1113,23 @@ function buscarProductoOrden(idx, valor) {
     }, 200);
 }
 
+// Guarda por fila los datos de medicamento del producto seleccionado,
+// para precargar el modal "Información de Medicamentos" sin otra consulta.
+let _ocProductos = {};
+
 function seleccionarProductoOrden(idx, p) {
     document.getElementById(`fbusca-${idx}`).value = p.nombre;
     document.getElementById(`fp-${idx}`).value      = p.id;
     if (p.precio_compra) document.getElementById(`fu-${idx}`).value  = parseFloat(p.precio_compra).toFixed(2);
     if (p.unidad)         document.getElementById(`fum-${idx}`).value = p.unidad;
+    _ocProductos[idx] = {
+        id: p.id,
+        nombre: p.nombre,
+        fecha_vencimiento: p.fecha_vencimiento || '',
+        laboratorio: p.laboratorio || '',
+        presentacion: p.presentacion || '',
+        requiere_receta: p.requiere_receta === 't' || p.requiere_receta === true
+    };
     document.getElementById('oc-producto-dropdown').style.display = 'none';
     calcularFila(idx);
 }
@@ -1071,6 +1140,56 @@ document.addEventListener('click', e => {
     if (e.target.id?.startsWith('fbusca-') || dropdown.contains(e.target)) return;
     dropdown.style.display = 'none';
 });
+
+// ---- Información de Medicamentos (edita el producto en inventario) ----
+let _imFilaIdx = null;
+
+function abrirInfoMedicamento(idx) {
+    const info = _ocProductos[idx];
+    if (!info || !info.id) { toast('Selecciona un producto primero','err'); return; }
+    _imFilaIdx = idx;
+    document.getElementById('imNombre').textContent      = info.nombre;
+    document.getElementById('imVencimiento').value       = info.fecha_vencimiento || '';
+    document.getElementById('imLaboratorio').value       = info.laboratorio || '';
+    document.getElementById('imPresentacion').value      = info.presentacion || '';
+    document.getElementById('imRequiereReceta').checked  = !!info.requiere_receta;
+    document.getElementById('modalInfoMedOverlay').classList.add('active');
+}
+
+async function guardarInfoMedicamento() {
+    const idx = _imFilaIdx;
+    const info = (idx !== null) ? _ocProductos[idx] : null;
+    if (!info || !info.id) { toast('No hay producto para actualizar','err'); return; }
+
+    const payload = {
+        producto_id:      info.id,
+        fecha_vencimiento: document.getElementById('imVencimiento').value || '',
+        laboratorio:      document.getElementById('imLaboratorio').value.trim(),
+        presentacion:     document.getElementById('imPresentacion').value.trim(),
+        requiere_receta:  document.getElementById('imRequiereReceta').checked,
+    };
+
+    const btn = document.getElementById('btnGuardarInfoMed');
+    btn.disabled = true;
+    try {
+        const r = await fetch(`${API}?action=producto_actualizar_info`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (d.error) { toast(d.message,'err'); return; }
+
+        // Refresca el mapa local para que el modal muestre los nuevos valores.
+        if (payload.fecha_vencimiento) info.fecha_vencimiento = payload.fecha_vencimiento;
+        info.laboratorio     = payload.laboratorio;
+        info.presentacion    = payload.presentacion;
+        info.requiere_receta = payload.requiere_receta;
+
+        cerrarModal('modalInfoMedOverlay');
+        toast('Información del producto actualizada');
+    } catch { toast('Error de conexión','err'); }
+    finally { btn.disabled = false; }
+}
 
 // El scanner HID (assets/js/barcode-scanner.js) borra lo tipeado del
 // input activo y dispara este evento en su lugar -- por eso escanear

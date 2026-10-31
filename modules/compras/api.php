@@ -579,13 +579,61 @@ switch ($action) {
     case 'productos_buscar':
         $q    = trim($_GET['q'] ?? '');
         $stmt = $db->prepare("
-            SELECT id, codigo, codigo_barras, nombre, unidad, precio_compra, precio_venta, stock
+            SELECT id, codigo, codigo_barras, nombre, unidad, precio_compra, precio_venta, stock,
+                   fecha_vencimiento, laboratorio, presentacion, requiere_receta
             FROM productos
             WHERE activo = TRUE AND (nombre ILIKE :q OR codigo ILIKE :q OR codigo_barras ILIKE :q)
             ORDER BY nombre ASC LIMIT 20
         ");
         $stmt->execute([':q' => "%{$q}%"]);
         echo json_encode($stmt->fetchAll());
+        break;
+
+    // ----------------------------------------------------------------
+    // ACTUALIZAR INFORMACION DE MEDICAMENTO (desde Nueva Orden de Compra)
+    // Edita directamente el producto en inventario. La fecha de vencimiento
+    // solo se reemplaza si llega una fecha no vacia (vacio = no tocar, para
+    // evitar borrados accidentales); laboratorio/presentacion/requiere_receta
+    // se guardan siempre tal cual se envian.
+    // ----------------------------------------------------------------
+    case 'producto_actualizar_info':
+        requireApiAuth(['admin', 'gerente']);
+        $d          = json_decode(file_get_contents('php://input'), true);
+        $productoId = intval($d['producto_id'] ?? 0);
+        if (!$productoId) {
+            jsonResponse(['error' => true, 'message' => 'Producto no válido'], 400);
+        }
+
+        $fechaVenc = trim($d['fecha_vencimiento'] ?? '');
+        if ($fechaVenc !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaVenc)) {
+            jsonResponse(['error' => true, 'message' => 'Fecha de vencimiento no válida'], 400);
+        }
+
+        $params = [
+            ':id'      => $productoId,
+            ':lab'     => trim($d['laboratorio'] ?? '') ?: null,
+            ':pres'    => trim($d['presentacion'] ?? '') ?: null,
+            ':receta'  => !empty($d['requiere_receta']),
+        ];
+        $setFecha = '';
+        if ($fechaVenc !== '') {
+            $setFecha = ', fecha_vencimiento = :fv';
+            $params[':fv'] = $fechaVenc;
+        }
+
+        $stmt = $db->prepare("
+            UPDATE productos
+            SET laboratorio = :lab,
+                presentacion = :pres,
+                requiere_receta = :receta{$setFecha},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ");
+        $stmt->execute($params);
+        if ($stmt->rowCount() === 0) {
+            jsonResponse(['error' => true, 'message' => 'Producto no encontrado'], 404);
+        }
+        jsonResponse(['error' => false, 'message' => 'Información del producto actualizada']);
         break;
 
     default:
