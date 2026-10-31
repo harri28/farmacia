@@ -203,6 +203,40 @@ include '../../includes/header.php';
 .dm-head h3 { font-size: .95rem; font-weight: 600; }
 .dm-close { border: none; background: transparent; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; }
 .dm-body { overflow: auto; }
+
+/* ---- Reporte Productos por vencer (modal) ---- */
+.pv-box { max-width: 1040px; }
+.pv-toolbar { padding: 14px 20px; border-bottom: 1px solid var(--border-light); display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.pv-field label { display: block; font-size: .7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+.pv-field select { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: .83rem; background: var(--surface); color: var(--text-primary); min-width: 170px; }
+.pv-spacer { flex: 1 1 auto; }
+.pv-count { font-size: .78rem; color: var(--text-muted); align-self: center; }
+.pv-table { width: 100%; border-collapse: collapse; }
+.pv-table th { padding: 10px 12px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); text-align: left; background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+.pv-table td { padding: 9px 12px; font-size: .83rem; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+.pv-table tbody tr:hover { background: var(--surface-2); }
+.pv-table .col-chk { width: 36px; text-align: center; }
+.pv-table .col-num { text-align: right; }
+.pv-empty { padding: 36px; text-align: center; color: var(--text-muted); font-size: .88rem; }
+
+/* ---- Área imprimible (oculta en pantalla, visible solo al imprimir) ---- */
+#reporte-print { display: none; }
+@media print {
+    body * { visibility: hidden; }
+    .sidebar, .topbar, .sidebar-overlay, .dm-overlay { display: none !important; }
+    .main-content { margin: 0 !important; padding: 0 !important; }
+    #reporte-print, #reporte-print * { visibility: visible; }
+    #reporte-print { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 0 10px; }
+    #reporte-print .rp-head { margin-bottom: 14px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+    #reporte-print .rp-title { font-size: 18px; font-weight: 700; margin: 0; }
+    #reporte-print .rp-sub { font-size: 12px; color: #333; margin: 3px 0 0; }
+    #reporte-print table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    #reporte-print th, #reporte-print td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+    #reporte-print th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #reporte-print .col-num { text-align: right; }
+    #reporte-print tr { page-break-inside: avoid; }
+    @page { margin: 14mm; }
+}
 </style>
 
 <?php $esAdmin = isAdmin(); ?>
@@ -318,7 +352,7 @@ include '../../includes/header.php';
         <div class="d-card-head">
             <h3><i class="fas fa-hourglass-half" style="color:var(--warning)"></i> Productos por vencer</h3>
             <div style="display:flex;align-items:center;gap:16px">
-                <a href="<?= $base_path ?>modules/dashboard/por_vencer.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
+                <a href="#" onclick="event.preventDefault();abrirReporteVencer()" style="font-size:.78rem;color:var(--primary);font-weight:500">
                     <i class="fas fa-print" style="font-size:.72rem"></i> Imprimir reporte
                 </a>
                 <a href="<?= $base_path ?>modules/inventario/index.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
@@ -373,12 +407,72 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<?php if ($esAdmin): ?>
+<!-- Modal: Reporte de Productos por vencer -->
+<div class="dm-overlay" id="pv-overlay" onclick="if(event.target===this)cerrarReporteVencer()">
+    <div class="dm-box pv-box">
+        <div class="dm-head">
+            <h3><i class="fas fa-hourglass-half" style="color:var(--warning)"></i> Productos por vencer</h3>
+            <button class="dm-close" onclick="cerrarReporteVencer()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="pv-toolbar">
+            <div class="pv-field">
+                <label>Categoría</label>
+                <select id="pvCategoria" onchange="pvRender()">
+                    <option value="">Todas las categorías</option>
+                </select>
+            </div>
+            <div class="pv-field">
+                <label>Estado</label>
+                <select id="pvEstado" onchange="pvRender()">
+                    <option value="">Todos</option>
+                    <option value="vencido">Vencidos</option>
+                    <option value="d30">Vencen en 30 días</option>
+                    <option value="d60">En 31 a 60 días</option>
+                    <option value="d90">En 61 a 90 días</option>
+                </select>
+            </div>
+            <div class="pv-spacer"></div>
+            <div class="pv-count" id="pvCount">—</div>
+            <button class="btn btn-primary" onclick="pvImprimir()">
+                <i class="fas fa-print"></i> Imprimir / Guardar PDF
+            </button>
+        </div>
+        <div class="dm-body">
+            <table class="pv-table">
+                <thead>
+                    <tr>
+                        <th class="col-chk"><input type="checkbox" id="pvChkAll" onclick="pvToggleTodos(this.checked)"></th>
+                        <th>Producto</th>
+                        <th>Código</th>
+                        <th>Categoría</th>
+                        <th>Laboratorio</th>
+                        <th>Presentación</th>
+                        <th class="col-num">Stock</th>
+                        <th>Vence</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="pvBody">
+                    <tr><td colspan="9" class="pv-empty">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Área imprimible (se llena al presionar Imprimir) -->
+<div id="reporte-print"></div>
+<?php endif; ?>
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
 const API      = '../../modules/dashboard/api.php';
 const ES_ADMIN = <?= $esAdmin ? 'true' : 'false' ?>;
+const NOMBRE_SISTEMA = <?= json_encode(sesionTenantNombre() ?: 'FarmaSystem') ?>;
+const NOMBRE_SUC     = <?= json_encode(sesionSucursal()) ?>;
 const AUTO_REFRESH_MS = 120000;
 let chartVentas = null;
 let serieActual = [];
@@ -752,6 +846,143 @@ async function loadVencer() {
             }).join('')}</tbody></table></div>`;
     }
     body.innerHTML = html;
+}
+
+// ---- Reporte Productos por vencer (modal flotante) ----
+let _pvTodos = [];               // lista completa del backend
+const _pvSel = new Set();        // ids seleccionados (persisten entre filtros)
+let _pvCargado = false;
+
+const pvFmtFecha = (f) => f ? f.split('-').reverse().join('/') : '—';
+
+function pvEstado(dias) {
+    const d = parseInt(dias, 10);
+    if (d < 0)   return { key: 'vencido', cls: 'badge-danger',  txt: 'Vencido hace ' + Math.abs(d) + ' d' };
+    if (d === 0) return { key: 'd30',     cls: 'badge-warning', txt: 'Vence hoy' };
+    if (d <= 30) return { key: 'd30',     cls: 'badge-warning', txt: 'En ' + d + ' días' };
+    if (d <= 60) return { key: 'd60',     cls: 'badge-info',    txt: 'En ' + d + ' días' };
+    return { key: 'd90', cls: 'badge-info', txt: 'En ' + d + ' días' };
+}
+
+async function abrirReporteVencer() {
+    document.getElementById('pv-overlay').classList.add('show');
+    if (_pvCargado) return;
+    try {
+        const res = await fetch(API + '?action=por_vencer_lista');
+        const data = await res.json();
+        _pvTodos = Array.isArray(data) ? data : [];
+    } catch { _pvTodos = []; }
+    _pvCargado = true;
+
+    // Poblar filtro de categorías con las presentes en los datos
+    const cats = [...new Set(_pvTodos.map(p => p.categoria || 'Sin categoría'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const sel = document.getElementById('pvCategoria');
+    cats.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        sel.appendChild(o);
+    });
+    pvRender();
+}
+
+function cerrarReporteVencer() { document.getElementById('pv-overlay').classList.remove('show'); }
+
+function pvFiltrados() {
+    const cat = document.getElementById('pvCategoria').value;
+    const est = document.getElementById('pvEstado').value;
+    return _pvTodos.filter(p => {
+        if (cat && (p.categoria || 'Sin categoría') !== cat) return false;
+        if (est && pvEstado(p.dias).key !== est) return false;
+        return true;
+    });
+}
+
+function pvRender() {
+    const lista = pvFiltrados();
+    const body = document.getElementById('pvBody');
+
+    if (!lista.length) {
+        body.innerHTML = '<tr><td colspan="9" class="pv-empty"><i class="fas fa-check-circle" style="color:var(--success)"></i> No hay productos por vencer con estos filtros</td></tr>';
+    } else {
+        body.innerHTML = lista.map(p => {
+            const e = pvEstado(p.dias);
+            const chk = _pvSel.has(p.id) ? 'checked' : '';
+            return `<tr>
+                <td class="col-chk"><input type="checkbox" ${chk} onclick="pvToggleUno(${p.id}, this.checked)"></td>
+                <td style="font-weight:500">${esc(p.nombre)}</td>
+                <td style="color:var(--text-muted);font-family:monospace;font-size:.78rem">${esc(p.codigo || '—')}</td>
+                <td>${esc(p.categoria || 'Sin categoría')}</td>
+                <td style="color:var(--text-muted)">${esc(p.laboratorio || '—')}</td>
+                <td style="color:var(--text-muted)">${esc(p.presentacion || '—')}</td>
+                <td class="col-num">${fmtN(p.stock)}</td>
+                <td>${pvFmtFecha(p.fecha_vencimiento)}</td>
+                <td><span class="kpi-badge ${e.cls}">${esc(e.txt)}</span></td>
+            </tr>`;
+        }).join('');
+    }
+
+    const visIds = lista.map(p => p.id);
+    document.getElementById('pvChkAll').checked = visIds.length > 0 && visIds.every(id => _pvSel.has(id));
+
+    const nSel = visIds.filter(id => _pvSel.has(id)).length;
+    document.getElementById('pvCount').textContent =
+        `${lista.length} producto(s)` + (nSel ? ` · ${nSel} seleccionado(s)` : '');
+}
+
+function pvToggleUno(id, checked) {
+    if (checked) _pvSel.add(id); else _pvSel.delete(id);
+    pvRender();
+}
+
+function pvToggleTodos(checked) {
+    pvFiltrados().forEach(p => { if (checked) _pvSel.add(p.id); else _pvSel.delete(p.id); });
+    pvRender();
+}
+
+function pvImprimir() {
+    // Con selección, imprime los seleccionados (visibles según filtro);
+    // sin selección, imprime todos los filtrados.
+    const lista = pvFiltrados();
+    const nSel  = lista.filter(p => _pvSel.has(p.id)).length;
+    const aImprimir = nSel ? lista.filter(p => _pvSel.has(p.id)) : lista;
+
+    if (!aImprimir.length) { alert('No hay productos para imprimir con los filtros actuales.'); return; }
+
+    const cat = document.getElementById('pvCategoria').value || 'Todas';
+    const estTxt = document.getElementById('pvEstado').selectedOptions[0].textContent;
+    const ahora = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' });
+
+    const filas = aImprimir.map(p => {
+        const e = pvEstado(p.dias);
+        return `<tr>
+            <td>${esc(p.nombre)}</td><td>${esc(p.codigo || '')}</td>
+            <td>${esc(p.categoria || 'Sin categoría')}</td><td>${esc(p.laboratorio || '')}</td>
+            <td>${esc(p.presentacion || '')}</td><td class="col-num">${fmtN(p.stock)}</td>
+            <td>${pvFmtFecha(p.fecha_vencimiento)}</td><td>${esc(e.txt)}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('reporte-print').innerHTML = `
+        <div class="rp-head">
+            <p class="rp-title">Productos por vencer</p>
+            <p class="rp-sub">${esc(NOMBRE_SISTEMA)}${NOMBRE_SUC ? ' — ' + esc(NOMBRE_SUC) : ''}</p>
+            <p class="rp-sub">Categoría: ${esc(cat)} · Estado: ${esc(estTxt)} · ${aImprimir.length} producto(s)</p>
+            <p class="rp-sub">Generado: ${esc(ahora)}</p>
+        </div>
+        <table>
+            <thead><tr>
+                <th>Producto</th><th>Código</th><th>Categoría</th><th>Laboratorio</th>
+                <th>Presentación</th><th class="col-num">Stock</th><th>Vence</th><th>Estado</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+        </table>`;
+
+    // El navegador usa el <title> como encabezado al imprimir: lo cambiamos
+    // temporalmente para que lleve el nombre del tenant, y lo restauramos.
+    const _oldTitle = document.title;
+    document.title = 'Productos por vencer — ' + NOMBRE_SISTEMA;
+    window.addEventListener('afterprint', () => { document.title = _oldTitle; }, { once: true });
+    window.print();
 }
 
 // ---- Últimas ventas ----
