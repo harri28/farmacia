@@ -317,9 +317,14 @@ include '../../includes/header.php';
     <div class="d-card">
         <div class="d-card-head">
             <h3><i class="fas fa-hourglass-half" style="color:var(--warning)"></i> Productos por vencer</h3>
-            <a href="<?= $base_path ?>modules/inventario/index.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
-                Ir a inventario <i class="fas fa-arrow-right" style="font-size:.68rem"></i>
-            </a>
+            <div style="display:flex;align-items:center;gap:16px">
+                <a href="<?= $base_path ?>modules/dashboard/por_vencer.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
+                    <i class="fas fa-print" style="font-size:.72rem"></i> Imprimir reporte
+                </a>
+                <a href="<?= $base_path ?>modules/inventario/index.php" style="font-size:.78rem;color:var(--primary);font-weight:500">
+                    Ir a inventario <i class="fas fa-arrow-right" style="font-size:.68rem"></i>
+                </a>
+            </div>
         </div>
         <div id="venc-body"><div class="skel" style="height:120px;margin:20px"></div></div>
     </div>

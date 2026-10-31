@@ -411,6 +411,27 @@ switch ($action) {
         echo json_encode(['conteo' => $cnt, 'lista' => array_slice($rows, 0, 20)]);
         break;
 
+    // ---- GET: Reporte completo de productos por vencer (solo admin/gerente) ----
+    // Misma definicion que 'por_vencer' (stock > 0, vence en <= 90 dias o ya
+    // vencido) pero devuelve la lista completa, con categoria, para la pantalla
+    // de reporte imprimible. No se recorta a 20.
+    case 'por_vencer_lista':
+        requireApiAuth(['admin', 'gerente']);
+        $rows = $db->query("
+            SELECT p.id, p.nombre, p.codigo, p.laboratorio, p.presentacion, p.stock,
+                   p.fecha_vencimiento,
+                   (p.fecha_vencimiento - CURRENT_DATE) AS dias,
+                   COALESCE(c.nombre, 'Sin categoría') AS categoria
+            FROM productos p
+            LEFT JOIN categorias c ON c.id = p.categoria_id
+            WHERE p.activo = TRUE AND p.stock > 0
+              AND p.fecha_vencimiento IS NOT NULL
+              AND p.fecha_vencimiento <= CURRENT_DATE + 90
+            ORDER BY p.fecha_vencimiento ASC, p.nombre ASC
+        ")->fetchAll();
+        echo json_encode($rows);
+        break;
+
     default:
         jsonResponse(['error' => true, 'message' => 'Acción no válida'], 404);
 }
