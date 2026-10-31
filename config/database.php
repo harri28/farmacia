@@ -58,6 +58,20 @@ function jsonResponse(array $data, int $code = 200): void
     exit;
 }
 
+function getSuperadminTemaOscuro(): bool
+{
+    if (!isSuperadmin() || !sesionId()) {
+        return false;
+    }
+    try {
+        $stmt = getDB()->prepare("SELECT tema_oscuro FROM public.superadmins WHERE id = :id");
+        $stmt->execute([':id' => sesionId()]);
+        return in_array($stmt->fetchColumn(), [true, 't', 1, '1'], true);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
 function registrarAuditoria(string $accion, string $modulo = '', string $detalle = ''): void
 {
     try {
