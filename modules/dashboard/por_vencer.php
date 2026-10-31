@@ -13,13 +13,14 @@ $required_roles = ['admin', 'gerente'];
 $base_path      = '../../';
 $current_module = 'dashboard';
 $current_page   = 'inicio';
-$page_title     = 'Productos por vencer — FarmaSystem';
+// El <title> se usa como encabezado al imprimir: debe llevar el nombre
+// del tenant, no "FarmaSystem".
+$nombreSistema  = sesionTenantNombre();
+$nombreSuc      = sesionSucursal();
+$page_title     = 'Productos por vencer — ' . ($nombreSistema ?: 'FarmaSystem');
 $breadcrumb     = '<a href="' . $base_path . 'modules/dashboard/index.php">Dashboard</a> / <strong>Productos por vencer</strong>';
 
 include '../../includes/header.php';
-
-$nombreSistema = sesionTenantNombre();
-$nombreSuc     = sesionSucursal();
 ?>
 
 <style>
