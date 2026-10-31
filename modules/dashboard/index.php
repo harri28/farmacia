@@ -87,6 +87,16 @@ include '../../includes/header.php';
 .d-card-head h3 { font-size: .92rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .d-card-body    { padding: 20px; }
 
+/* ---- Igualar alturas de tarjetas dentro de una misma fila ----
+   Las tarjetas en una fila Bootstrap (.row) se estiran todas al alto de la
+   mas alta, para que "Estado de Caja" ya no deje un hueco blanco al lado del
+   grafico y la fila inferior (Metodos/Top/Alertas) quede pareja. El cuerpo
+   crece para llenar la tarjeta y los estados vacios se centran verticalmente. */
+.row .d-card                 { height: 100%; display: flex; flex-direction: column; }
+.row .d-card .d-card-body    { flex: 1 1 auto; display: flex; flex-direction: column; }
+.row .d-card .d-card-body > p,
+.row .d-card .caja-closed    { margin-top: auto; margin-bottom: auto; }
+
 /* ---- Table ---- */
 .dash-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .dash-table th {
