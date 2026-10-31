@@ -818,9 +818,6 @@ async function cargarSucursales() {
                             <button class="btn-icon btn-edit" title="Editar" onclick="abrirEditSucursal(${s.id})"><i class="fas fa-pen"></i></button>
                             <button class="btn-icon btn-toggle ${s.activo?'':'off'}" title="${s.activo?'Desactivar':'Activar'}"
                                 onclick="toggleSucursal(${s.id}, ${s.activo ? 'true' : 'false'}, '${esc(s.nombre)}')"><i class="fas fa-power-off"></i></button>
-                            <button class="btn-icon" title="Archivar sucursal (optimizar costos)"
-                                style="background:#fef3c7;color:#b45309"
-                                onclick="archivarSucursal(${s.id},'${esc(s.nombre)}')"><i class="fas fa-archive"></i></button>
                         `}
                     </div>
                 </td>
