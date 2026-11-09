@@ -1379,7 +1379,7 @@ function scPeriodo(p) {
     scBuscar();
 }
 
-const SC_PAGE_SIZE = 15;
+const SC_PAGE_SIZE = 10;
 let _scLista = [];
 let _scPage  = 1;
 
