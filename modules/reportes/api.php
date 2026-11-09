@@ -617,6 +617,172 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------------
+    // SESIONES DE CAJA
+    // Una sesion = una caja desde su apertura hasta su cierre. Se filtra
+    // por fecha de APERTURA (una caja que cruzo medianoche aparece en el
+    // dia que abrio). La caja es por usuario; varias pueden estar abiertas
+    // a la vez en la misma sucursal. Todo queda acotado al esquema de la
+    // sucursal activa por el search_path de getDB().
+    // ----------------------------------------------------------------
+    case 'sesiones_listar':
+        $desde = ($_GET['desde'] ?? date('Y-m-d', strtotime('-6 days'))) . ' 00:00:00';
+        $hasta = ($_GET['hasta'] ?? date('Y-m-d')) . ' 23:59:59';
+        $stmt = $db->prepare("
+            SELECT c.id, c.nombre, c.estado, c.apertura_at, c.cierre_at,
+                   c.usuario_apertura, c.saldo_inicial, c.saldo_actual,
+                   COUNT(v.id) FILTER (WHERE v.estado = 'completada')              AS total_ventas,
+                   COUNT(v.id) FILTER (WHERE v.estado = 'anulada')                 AS anuladas,
+                   COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS ingresos
+            FROM cajas c
+            LEFT JOIN ventas v ON v.caja_id = c.id
+            WHERE c.apertura_at BETWEEN :desde AND :hasta
+            GROUP BY c.id
+            ORDER BY c.apertura_at DESC
+        ");
+        $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
+        echo json_encode($stmt->fetchAll());
+        break;
+
+    case 'sesion_detalle':
+        try {
+            $cajaId = intval($_GET['caja_id'] ?? 0);
+            if (!$cajaId) jsonResponse(['error' => true, 'message' => 'caja_id requerido'], 400);
+
+            $cab = $db->prepare("
+                SELECT id, nombre, estado, apertura_at, cierre_at, usuario_apertura,
+                       saldo_inicial, saldo_actual
+                FROM cajas WHERE id = :id
+            ");
+            $cab->execute([':id' => $cajaId]);
+            $caja = $cab->fetch();
+            if (!$caja) jsonResponse(['error' => true, 'message' => 'Sesión de caja no encontrada'], 404);
+
+            $res = $db->prepare("
+                SELECT
+                    COUNT(*) FILTER (WHERE v.estado = 'completada')                  AS n_ventas,
+                    COALESCE(SUM(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS total_ingresos,
+                    COALESCE(SUM(v.igv)   FILTER (WHERE v.estado = 'completada'), 0) AS total_igv,
+                    COALESCE(AVG(v.total) FILTER (WHERE v.estado = 'completada'), 0) AS ticket_promedio,
+                    COUNT(*) FILTER (WHERE v.estado = 'anulada')                     AS n_anuladas,
+                    MIN(v.created_at) FILTER (WHERE v.estado = 'completada')         AS primera_venta,
+                    MAX(v.created_at) FILTER (WHERE v.estado = 'completada')         AS ultima_venta
+                FROM ventas v WHERE v.caja_id = :id
+            ");
+            $res->execute([':id' => $cajaId]);
+            $resumen = $res->fetch();
+
+            // Utilidad y unidades: mismo criterio que el reporte de rentabilidad
+            // (SUM(vd.subtotal - vd.cantidad * p.precio_compra), JOIN productos).
+            $util = $db->prepare("
+                SELECT COALESCE(SUM(vd.subtotal - vd.cantidad * p.precio_compra), 0) AS utilidad,
+                       COALESCE(SUM(vd.cantidad), 0)                                 AS unidades
+                FROM venta_detalles vd
+                JOIN ventas v    ON v.id = vd.venta_id
+                JOIN productos p ON p.id = vd.producto_id
+                WHERE v.caja_id = :id AND v.estado = 'completada'
+            ");
+            $util->execute([':id' => $cajaId]);
+            $utilRow = $util->fetch();
+
+            $comp = $db->prepare("
+                SELECT COALESCE(NULLIF(TRIM(v.tipo_comprobante), ''), 'otro') AS tipo,
+                       COUNT(*) AS n, COALESCE(SUM(v.total), 0) AS total
+                FROM ventas v
+                WHERE v.caja_id = :id AND v.estado = 'completada'
+                GROUP BY COALESCE(NULLIF(TRIM(v.tipo_comprobante), ''), 'otro')
+                ORDER BY total DESC
+            ");
+            $comp->execute([':id' => $cajaId]);
+
+            // Por metodo de pago: se lee del desglose real payment_breakdown
+            // (cubre pagos divididos), no de tipo_pago -- igual que caja/api.php.
+            $met = $db->prepare("
+                SELECT elem->>'method' AS metodo,
+                       COUNT(*) AS n,
+                       COALESCE(SUM((elem->>'amount')::numeric), 0) AS total
+                FROM ventas v
+                CROSS JOIN LATERAL jsonb_array_elements(COALESCE(v.payment_breakdown, '[]'::jsonb)) AS elem
+                WHERE v.caja_id = :id AND v.estado = 'completada'
+                GROUP BY elem->>'method'
+                ORDER BY total DESC
+            ");
+            $met->execute([':id' => $cajaId]);
+
+            $hist = $db->prepare("
+                SELECT v.id, v.numero_venta, v.created_at, v.tipo_comprobante, v.tipo_pago,
+                       v.total, v.estado,
+                       CASE WHEN COALESCE(v.serie,'') <> '' AND COALESCE(v.correlativo,'') <> ''
+                            THEN v.serie || '-' || v.correlativo ELSE NULL END AS comprobante_numero,
+                       COALESCE(NULLIF(TRIM(c.nombre_completo), ''),
+                                NULLIF(TRIM(CONCAT_WS(' ', c.nombres, c.apellidos)), ''),
+                                'Cliente General') AS cliente
+                FROM ventas v
+                LEFT JOIN clientes c ON c.id = v.cliente_id
+                WHERE v.caja_id = :id
+                ORDER BY v.created_at DESC, v.id DESC
+            ");
+            $hist->execute([':id' => $cajaId]);
+
+            jsonResponse([
+                'error'           => false,
+                'caja'            => $caja,
+                'resumen'         => $resumen,
+                'utilidad'        => floatval($utilRow['utilidad']),
+                'unidades'        => floatval($utilRow['unidades']),
+                'por_comprobante' => $comp->fetchAll(),
+                'por_metodo'      => $met->fetchAll(),
+                'historial'       => $hist->fetchAll(),
+            ]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => 'Error al cargar la sesión: ' . $e->getMessage()], 500);
+        }
+        break;
+
+    case 'venta_comprobante':
+        try {
+            $ventaId = intval($_GET['venta_id'] ?? 0);
+            if (!$ventaId) jsonResponse(['error' => true, 'message' => 'venta_id requerido'], 400);
+
+            $cab = $db->prepare("
+                SELECT v.id, v.numero_venta, v.total, v.subtotal, v.descuento, v.igv,
+                       v.tipo_pago, v.tipo_comprobante, v.estado, v.serie, v.correlativo,
+                       v.created_at,
+                       CASE WHEN COALESCE(v.serie,'') <> '' AND COALESCE(v.correlativo,'') <> ''
+                            THEN v.serie || '-' || v.correlativo ELSE NULL END AS comprobante_numero,
+                       COALESCE(NULLIF(TRIM(c.nombre_completo), ''),
+                                NULLIF(TRIM(CONCAT_WS(' ', c.nombres, c.apellidos)), ''),
+                                'Cliente General') AS cliente,
+                       COALESCE(c.numero_documento, '') AS documento
+                FROM ventas v
+                LEFT JOIN clientes c ON c.id = v.cliente_id
+                WHERE v.id = :id
+            ");
+            $cab->execute([':id' => $ventaId]);
+            $venta = $cab->fetch();
+            if (!$venta) jsonResponse(['error' => true, 'message' => 'Venta no encontrada'], 404);
+
+            $items = $db->prepare("
+                SELECT vd.cantidad, vd.precio_unitario, vd.descuento, vd.subtotal,
+                       COALESCE(NULLIF(TRIM(p.nombre), ''), NULLIF(TRIM(vd.descripcion), ''), 'Producto') AS producto_nombre,
+                       COALESCE(p.codigo, '') AS codigo
+                FROM venta_detalles vd
+                LEFT JOIN productos p ON p.id = vd.producto_id
+                WHERE vd.venta_id = :id
+                ORDER BY vd.id
+            ");
+            $items->execute([':id' => $ventaId]);
+
+            jsonResponse([
+                'error' => false,
+                'venta' => $venta,
+                'items' => $items->fetchAll(),
+            ]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => 'Error al cargar el comprobante: ' . $e->getMessage()], 500);
+        }
+        break;
+
+    // ----------------------------------------------------------------
     // VALORIZACION DE INVENTARIO
     // ----------------------------------------------------------------
     case 'inventario_valorizacion':

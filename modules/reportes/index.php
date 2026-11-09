@@ -97,6 +97,9 @@ include '../../includes/header.php';
     <button class="rep-tab" id="rep-tab-btn-ventas" onclick="repSwitchTab('ventas')">
         <i class="fas fa-cash-register"></i> Ventas
     </button>
+    <button class="rep-tab" id="rep-tab-btn-sesiones" onclick="repSwitchTab('sesiones')">
+        <i class="fas fa-clock-rotate-left"></i> Sesiones de caja
+    </button>
     <button class="rep-tab" id="rep-tab-btn-inventario" onclick="repSwitchTab('inventario')">
         <i class="fas fa-boxes"></i> Inventario
     </button>
@@ -265,6 +268,56 @@ include '../../includes/header.php';
     </div>
 
 </div><!-- /rep-pane-ventas -->
+
+
+<!-- ============================================================
+     PANE: SESIONES DE CAJA
+     ============================================================ -->
+<div id="rep-pane-sesiones" class="rep-pane" style="display:none">
+
+    <div class="card" style="margin-bottom:20px">
+        <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Desde</label>
+                <input type="date" id="sc-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-6 days')) ?>">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px">
+                <label class="form-label">Hasta</label>
+                <input type="date" id="sc-hasta" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <button class="btn btn-primary" onclick="scBuscar()" style="margin-bottom:0">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:0">
+                <span style="font-size:.78rem;color:var(--text-muted)">Rápido:</span>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('hoy')">Hoy</button>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('ayer')">Ayer</button>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('anteayer')">Antes de ayer</button>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('semana')">Esta semana</button>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('mes')">Este mes</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Sesiones de caja</div>
+            <span style="font-size:.82rem;color:var(--text-muted);margin-left:auto">Clic en una sesión para ver sus ventas</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>ID de caja</th><th>Caja</th><th>Apertura</th><th>Cierre</th>
+                    <th>Estado</th><th class="text-right">N° ventas</th><th class="text-right">Ingresos</th>
+                </tr></thead>
+                <tbody id="sc-tabla-body">
+                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /rep-pane-sesiones -->
 
 
 <!-- ============================================================
@@ -847,6 +900,87 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- ===================== MODAL: Detalle de sesión de caja ===================== -->
+<div class="modal-overlay" id="modal-sc-sesion">
+    <div class="modal" style="max-width:920px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-clock-rotate-left" style="color:var(--primary);margin-right:8px"></i>
+                <span id="scs-titulo">Sesión de caja</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-sc-sesion')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="scs-cabecera" style="font-size:.85rem;color:var(--text-muted);margin-bottom:14px"></div>
+            <div id="scs-stats" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px"></div>
+
+            <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+                <div style="flex:1;min-width:260px">
+                    <h4 style="font-size:.9rem;margin:0 0 8px">Por comprobante</h4>
+                    <div style="overflow-x:auto">
+                        <table class="table" style="width:100%">
+                            <thead><tr><th>Tipo</th><th class="text-right">N°</th><th class="text-right">Total</th></tr></thead>
+                            <tbody id="scs-comprobante-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:260px">
+                    <h4 style="font-size:.9rem;margin:0 0 8px">Por método de pago</h4>
+                    <div style="overflow-x:auto">
+                        <table class="table" style="width:100%">
+                            <thead><tr><th>Método</th><th class="text-right">N°</th><th class="text-right">Total</th></tr></thead>
+                            <tbody id="scs-metodo-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="font-size:.9rem;margin:0 0 8px">Historial de ventas <span style="font-weight:400;font-size:.8rem;color:var(--text-light)">(clic para ver el comprobante)</span></h4>
+            <div style="overflow-x:auto">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>N° Venta</th><th>Fecha / Hora</th><th>Cliente</th>
+                            <th>Comprobante</th><th>Método</th>
+                            <th class="text-right">Total</th><th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scs-historial-body"></tbody>
+                    <tfoot id="scs-historial-foot"></tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: Comprobante de una venta ===================== -->
+<div class="modal-overlay" id="modal-sc-comprobante">
+    <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="fas fa-receipt" style="color:var(--primary);margin-right:8px"></i>
+                <span id="scc-titulo">Comprobante</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal('modal-sc-comprobante')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="scc-cabecera" style="font-size:.85rem;margin-bottom:14px"></div>
+            <div style="overflow-x:auto">
+                <table class="table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Producto</th><th class="text-right">Cant.</th>
+                            <th class="text-right">P. Unit</th><th class="text-right">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scc-items-body"></tbody>
+                </table>
+            </div>
+            <div id="scc-totales" style="margin-top:14px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:.88rem"></div>
+        </div>
+    </div>
+</div>
+
 <div class="app-toast-container" id="toast-container"></div>
 
 <script>
@@ -867,6 +1001,7 @@ function repSwitchTab(tab) {
         _repTabLoaded[tab] = true;
         if (tab === 'costos')      { ccCargarProveedores(); ccBuscar(); }
         if (tab === 'ventas')      { vtBuscar(); }
+        if (tab === 'sesiones')    { scBuscar(); }
         if (tab === 'inventario')  { invCargarCategorias(); invBuscar(); }
         if (tab === 'caja')        { cjBuscar(); }
         if (tab === 'productos')   { prCargarCategorias(); prBuscar(); }
@@ -1209,6 +1344,215 @@ function vtVerUsuario(vendedor) {
                 : '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-light)">Sin ventas</td></tr>';
         })
         .catch(() => showToast('Error al cargar el resumen del usuario', 'error'));
+}
+
+// ================================================================
+// SESIONES DE CAJA
+// ================================================================
+
+const SC_PAGOS = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', tarjeta:'Visa/Mastercard', transferencia:'Transferencia', credito:'Crédito' };
+function scMetodoLabel(m) { return SC_PAGOS[(m || '').toLowerCase()] || (m ? (m.charAt(0).toUpperCase() + m.slice(1)) : '—'); }
+function scFmtDT(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit' });
+}
+
+function scPeriodo(p) {
+    const hoy = new Date(), fmt = d => d.toISOString().slice(0,10);
+    let desde, hasta;
+    switch (p) {
+        case 'hoy':      desde = hasta = fmt(hoy); break;
+        case 'ayer':     { const a = new Date(hoy); a.setDate(hoy.getDate()-1); desde = hasta = fmt(a); break; }
+        case 'anteayer': { const a = new Date(hoy); a.setDate(hoy.getDate()-2); desde = hasta = fmt(a); break; }
+        case 'semana':   { const l = new Date(hoy); l.setDate(hoy.getDate()-((hoy.getDay()+6)%7)); desde = fmt(l); hasta = fmt(hoy); break; }
+        case 'mes':      desde = fmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); hasta = fmt(hoy); break;
+    }
+    document.getElementById('sc-desde').value = desde;
+    document.getElementById('sc-hasta').value = hasta;
+    scBuscar();
+}
+
+function scBuscar() {
+    const params = new URLSearchParams({
+        desde: document.getElementById('sc-desde').value,
+        hasta: document.getElementById('sc-hasta').value,
+    }).toString();
+
+    document.getElementById('sc-tabla-body').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+
+    fetch(API + '?action=sesiones_listar&' + params)
+        .then(r => r.json())
+        .then(data => {
+            const rows = Array.isArray(data) ? data : [];
+            if (!rows.length) {
+                document.getElementById('sc-tabla-body').innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">Sin sesiones en el rango</td></tr>';
+                return;
+            }
+            document.getElementById('sc-tabla-body').innerHTML = rows.map(c => {
+                const abierta = c.estado === 'abierta';
+                const acento  = abierta ? 'var(--success)' : 'var(--danger)';
+                const badge   = abierta
+                    ? '<span class="badge badge-success">Abierta</span>'
+                    : '<span class="badge badge-danger">Cerrada</span>';
+                const cierre  = abierta
+                    ? '<span style="color:var(--success);font-weight:600">En curso</span>'
+                    : scFmtDT(c.cierre_at);
+                return `<tr onclick="scVerSesion(${c.id})" style="cursor:pointer" title="Ver ventas de esta sesión">
+                    <td style="border-left:4px solid ${acento}"><strong>#${c.id}</strong></td>
+                    <td>${esc(c.usuario_apertura || c.nombre || '—')}</td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${scFmtDT(c.apertura_at)}</td>
+                    <td style="font-size:.82rem;color:var(--text-muted)">${cierre}</td>
+                    <td>${badge}</td>
+                    <td class="text-right">${c.total_ventas ?? 0}</td>
+                    <td class="text-right"><strong>${money(c.ingresos)}</strong> <i class="fas fa-chevron-right" style="font-size:.7rem;color:var(--text-light);margin-left:4px"></i></td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(() => showToast('Error al cargar las sesiones de caja', 'error'));
+}
+
+function scVerSesion(cajaId) {
+    openModal('modal-sc-sesion');
+    document.getElementById('scs-titulo').textContent = 'Sesión de caja';
+    document.getElementById('scs-cabecera').innerHTML = '';
+    document.getElementById('scs-stats').innerHTML =
+        '<div style="padding:16px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
+    document.getElementById('scs-comprobante-body').innerHTML = '';
+    document.getElementById('scs-metodo-body').innerHTML = '';
+    document.getElementById('scs-historial-body').innerHTML = '';
+    document.getElementById('scs-historial-foot').innerHTML = '';
+
+    fetch(API + '?action=sesion_detalle&caja_id=' + cajaId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { showToast(d.message, 'error'); closeModal('modal-sc-sesion'); return; }
+            const caja = d.caja || {};
+            const r = d.resumen || {};
+            const abierta = caja.estado === 'abierta';
+
+            document.getElementById('scs-titulo').textContent =
+                `${esc(caja.usuario_apertura || caja.nombre || 'Caja')} · Caja #${caja.id} · ${abierta ? 'Abierta' : 'Cerrada'}`;
+
+            document.getElementById('scs-cabecera').innerHTML =
+                `<i class="fas fa-door-open" style="color:var(--success)"></i> <strong>Apertura:</strong> ${scFmtDT(caja.apertura_at)}
+                 &nbsp;·&nbsp; <i class="fas fa-door-closed" style="color:var(--danger)"></i> <strong>Cierre:</strong> ${abierta ? 'En curso' : scFmtDT(caja.cierre_at)}
+                 &nbsp;·&nbsp; <strong>Saldo inicial:</strong> ${money(caja.saldo_inicial)}
+                 &nbsp;·&nbsp; <strong>Saldo al cerrar caja:</strong> ${money(caja.saldo_actual)}`;
+
+            const stat = (label, val) =>
+                `<div style="flex:1;min-width:130px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+                    <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em">${label}</div>
+                    <div style="font-size:1.05rem;font-weight:700;margin-top:4px">${val}</div>
+                </div>`;
+            document.getElementById('scs-stats').innerHTML =
+                stat('N° ventas', r.n_ventas ?? 0) +
+                stat('Ingresos', money(r.total_ingresos)) +
+                stat('Utilidad', money(d.utilidad)) +
+                stat('Gasto promedio por persona', money(r.ticket_promedio)) +
+                stat('IGV', money(r.total_igv)) +
+                stat('Anuladas', r.n_anuladas ?? 0) +
+                stat('Unidades vendidas', parseFloat(d.unidades || 0).toLocaleString('es-PE')) +
+                stat('Primera venta', scFmtDT(r.primera_venta)) +
+                stat('Última venta', scFmtDT(r.ultima_venta));
+
+            const comps = Array.isArray(d.por_comprobante) ? d.por_comprobante : [];
+            document.getElementById('scs-comprobante-body').innerHTML = comps.length
+                ? comps.map(c => `<tr>
+                    <td style="text-transform:capitalize">${esc(c.tipo)}</td>
+                    <td class="text-right">${c.n ?? 0}</td>
+                    <td class="text-right">${money(c.total)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--text-light)">Sin datos</td></tr>';
+
+            const mets = Array.isArray(d.por_metodo) ? d.por_metodo : [];
+            document.getElementById('scs-metodo-body').innerHTML = mets.length
+                ? mets.map(m => `<tr>
+                    <td>${esc(scMetodoLabel(m.metodo))}</td>
+                    <td class="text-right">${m.n ?? 0}</td>
+                    <td class="text-right">${money(m.total)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center;padding:14px;color:var(--text-light)">Sin datos</td></tr>';
+
+            const hist = Array.isArray(d.historial) ? d.historial : [];
+            document.getElementById('scs-historial-body').innerHTML = hist.length
+                ? hist.map(h => {
+                    const estadoCls = h.estado === 'anulada' ? 'badge-danger' : 'badge-success';
+                    const comp = h.comprobante_numero
+                        ? `${esc(h.comprobante_numero)}<div style="font-size:.72rem;color:var(--text-light);text-transform:capitalize">${esc(h.tipo_comprobante || '')}</div>`
+                        : `<span style="text-transform:capitalize">${esc(h.tipo_comprobante || '—')}</span>`;
+                    return `<tr onclick="scVerComprobante(${h.id})" style="cursor:pointer" title="Ver comprobante">
+                        <td><strong>${esc(h.numero_venta)}</strong></td>
+                        <td style="font-size:.82rem;color:var(--text-muted)">${scFmtDT(h.created_at)}</td>
+                        <td>${esc(h.cliente)}</td>
+                        <td style="font-size:.82rem">${comp}</td>
+                        <td>${esc(scMetodoLabel(h.tipo_pago))}</td>
+                        <td class="text-right">${money(h.total)}</td>
+                        <td><span class="badge ${estadoCls}" style="text-transform:capitalize">${esc(h.estado)}</span></td>
+                    </tr>`;
+                }).join('')
+                : '<tr><td colspan="7" style="text-align:center;padding:14px;color:var(--text-light)">Sin ventas</td></tr>';
+
+            // Fila de total al pie: suma de la columna Total (solo completadas).
+            document.getElementById('scs-historial-foot').innerHTML = hist.length
+                ? `<tr style="border-top:2px solid var(--border)">
+                    <td colspan="5" class="text-right" style="font-weight:700">Total (${r.n_ventas ?? 0} completadas)</td>
+                    <td class="text-right" style="font-weight:700;color:var(--success)">${money(r.total_ingresos)}</td>
+                    <td></td>
+                </tr>`
+                : '';
+        })
+        .catch(() => { showToast('Error al cargar la sesión', 'error'); closeModal('modal-sc-sesion'); });
+}
+
+function scVerComprobante(ventaId) {
+    openModal('modal-sc-comprobante');
+    document.getElementById('scc-titulo').textContent = 'Comprobante';
+    document.getElementById('scc-cabecera').innerHTML =
+        '<div style="padding:8px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></div>';
+    document.getElementById('scc-items-body').innerHTML = '';
+    document.getElementById('scc-totales').innerHTML = '';
+
+    fetch(API + '?action=venta_comprobante&venta_id=' + ventaId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { showToast(d.message, 'error'); closeModal('modal-sc-comprobante'); return; }
+            const v = d.venta || {};
+            const numero = v.comprobante_numero || v.numero_venta || '';
+            document.getElementById('scc-titulo').textContent = 'Comprobante ' + numero;
+
+            const docTxt = v.documento ? ` · Doc: ${esc(v.documento)}` : '';
+            const anulada = v.estado === 'anulada'
+                ? ' <span class="badge badge-danger" style="text-transform:capitalize">Anulada</span>' : '';
+            document.getElementById('scc-cabecera').innerHTML =
+                `<div><strong style="text-transform:capitalize">${esc(v.tipo_comprobante || 'Comprobante')}</strong> ${esc(numero)}${anulada}</div>
+                 <div style="color:var(--text-muted);font-size:.82rem;margin-top:3px">${scFmtDT(v.created_at)}</div>
+                 <div style="margin-top:4px"><strong>Cliente:</strong> ${esc(v.cliente)}${docTxt}</div>`;
+
+            const items = Array.isArray(d.items) ? d.items : [];
+            document.getElementById('scc-items-body').innerHTML = items.length
+                ? items.map(it => `<tr>
+                    <td>${esc(it.producto_nombre)}${it.codigo ? `<div style="font-size:.72rem;color:var(--text-light)">${esc(it.codigo)}</div>` : ''}</td>
+                    <td class="text-right">${parseFloat(it.cantidad).toLocaleString('es-PE')}</td>
+                    <td class="text-right">${money(it.precio_unitario)}</td>
+                    <td class="text-right">${money(it.subtotal)}</td>
+                </tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text-light)">Sin ítems</td></tr>';
+
+            const linea = (label, val, bold) =>
+                `<div style="display:flex;gap:24px;min-width:220px;justify-content:space-between${bold ? ';font-weight:700;font-size:1rem' : ''}">
+                    <span style="color:var(--text-muted)">${label}</span><span>${val}</span>
+                </div>`;
+            let tot = linea('Subtotal', money(v.subtotal));
+            if (parseFloat(v.descuento || 0) > 0) tot += linea('Descuento', '- ' + money(v.descuento));
+            tot += linea('IGV', money(v.igv));
+            tot += linea('Total', money(v.total), true);
+            tot += linea('Método de pago', scMetodoLabel(v.tipo_pago));
+            document.getElementById('scc-totales').innerHTML = tot;
+        })
+        .catch(() => { showToast('Error al cargar el comprobante', 'error'); closeModal('modal-sc-comprobante'); });
 }
 
 // ================================================================
