@@ -281,7 +281,7 @@ include '../../includes/header.php';
         <div style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
             <div class="form-group" style="margin:0;flex:1;min-width:140px">
                 <label class="form-label">Desde</label>
-                <input type="date" id="sc-desde" class="form-control" value="<?= date('Y-m-d', strtotime('-6 days')) ?>">
+                <input type="date" id="sc-desde" class="form-control" value="2000-01-01">
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:140px">
                 <label class="form-label">Hasta</label>
