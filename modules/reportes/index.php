@@ -51,7 +51,8 @@ include '../../includes/header.php';
 
 /* Paginación (Stock Paralizado) -- mismo patrón que modules/inventario/index.php,
    no es un estilo global compartido. */
-#pz-pagination {
+#pz-pagination,
+#sc-pagination {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -60,6 +61,7 @@ include '../../includes/header.php';
     border-top: 1px solid var(--border);
     flex-wrap: wrap;
 }
+#sc-pagination:empty { display: none; }
 .pg-btn {
     display: inline-flex;
     align-items: center;
@@ -301,7 +303,10 @@ include '../../includes/header.php';
 
     <div class="card">
         <div class="card-header">
-            <div class="card-title">Sesiones de caja</div>
+            <div class="card-title">
+                Sesiones de caja
+                <span id="sc-rango-label" style="font-weight:400;font-size:.82rem;color:var(--text-muted)">— últimos 7 días</span>
+            </div>
             <span style="font-size:.82rem;color:var(--text-muted);margin-left:auto">Clic en una sesión para ver sus ventas</span>
         </div>
         <div class="table-wrap">
@@ -315,6 +320,7 @@ include '../../includes/header.php';
                 </tbody>
             </table>
         </div>
+        <div id="sc-pagination"></div>
     </div>
 
 </div><!-- /rep-pane-sesiones -->
@@ -1373,45 +1379,111 @@ function scPeriodo(p) {
     scBuscar();
 }
 
+const SC_PAGE_SIZE = 15;
+let _scLista = [];
+let _scPage  = 1;
+
+// Etiqueta "— últimos 7 días" / rango de fechas junto al título.
+function scActualizarRangoLabel() {
+    const el = document.getElementById('sc-rango-label');
+    if (!el) return;
+    const desde = document.getElementById('sc-desde').value;
+    const hasta = document.getElementById('sc-hasta').value;
+    const hoy = new Date().toISOString().slice(0,10);
+    const hace6 = (() => { const d = new Date(); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); })();
+    if (desde === hace6 && hasta === hoy) {
+        el.textContent = '— últimos 7 días';
+    } else if (desde && hasta) {
+        const f = s => s.split('-').reverse().join('/');
+        el.textContent = desde === hasta ? `— ${f(desde)}` : `— del ${f(desde)} al ${f(hasta)}`;
+    } else {
+        el.textContent = '';
+    }
+}
+
 function scBuscar() {
+    scActualizarRangoLabel();
     const params = new URLSearchParams({
         desde: document.getElementById('sc-desde').value,
         hasta: document.getElementById('sc-hasta').value,
     }).toString();
 
+    _scLista = [];
+    _scPage  = 1;
+    document.getElementById('sc-pagination').innerHTML = '';
     document.getElementById('sc-tabla-body').innerHTML =
         '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>';
 
     fetch(API + '?action=sesiones_listar&' + params)
         .then(r => r.json())
         .then(data => {
-            const rows = Array.isArray(data) ? data : [];
-            if (!rows.length) {
+            _scLista = Array.isArray(data) ? data : [];
+            if (!_scLista.length) {
                 document.getElementById('sc-tabla-body').innerHTML =
                     '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light)">Sin sesiones en el rango</td></tr>';
                 return;
             }
-            document.getElementById('sc-tabla-body').innerHTML = rows.map(c => {
-                const abierta = c.estado === 'abierta';
-                const acento  = abierta ? 'var(--success)' : 'var(--danger)';
-                const badge   = abierta
-                    ? '<span class="badge badge-success">Abierta</span>'
-                    : '<span class="badge badge-danger">Cerrada</span>';
-                const cierre  = abierta
-                    ? '<span style="color:var(--success);font-weight:600">En curso</span>'
-                    : scFmtDT(c.cierre_at);
-                return `<tr onclick="scVerSesion(${c.id})" style="cursor:pointer" title="Ver ventas de esta sesión">
-                    <td style="border-left:4px solid ${acento}"><strong>#${c.id}</strong></td>
-                    <td>${esc(c.usuario_apertura || c.nombre || '—')}</td>
-                    <td style="font-size:.82rem;color:var(--text-muted)">${scFmtDT(c.apertura_at)}</td>
-                    <td style="font-size:.82rem;color:var(--text-muted)">${cierre}</td>
-                    <td>${badge}</td>
-                    <td class="text-right">${c.total_ventas ?? 0}</td>
-                    <td class="text-right"><strong>${money(c.ingresos)}</strong> <i class="fas fa-chevron-right" style="font-size:.7rem;color:var(--text-light);margin-left:4px"></i></td>
-                </tr>`;
-            }).join('');
+            scRenderPage(1);
         })
         .catch(() => showToast('Error al cargar las sesiones de caja', 'error'));
+}
+
+function scRenderPage(page) {
+    _scPage = page;
+    const start = (page - 1) * SC_PAGE_SIZE;
+    const slice = _scLista.slice(start, start + SC_PAGE_SIZE);
+
+    document.getElementById('sc-tabla-body').innerHTML = slice.map(c => {
+        const abierta = c.estado === 'abierta';
+        const acento  = abierta ? 'var(--success)' : 'var(--danger)';
+        const badge   = abierta
+            ? '<span class="badge badge-success">Abierta</span>'
+            : '<span class="badge badge-danger">Cerrada</span>';
+        const cierre  = abierta
+            ? '<span style="color:var(--success);font-weight:600">En curso</span>'
+            : scFmtDT(c.cierre_at);
+        return `<tr onclick="scVerSesion(${c.id})" style="cursor:pointer" title="Ver ventas de esta sesión">
+            <td style="border-left:4px solid ${acento}"><strong>#${c.id}</strong></td>
+            <td>${esc(c.usuario_apertura || c.nombre || '—')}</td>
+            <td style="font-size:.82rem;color:var(--text-muted)">${scFmtDT(c.apertura_at)}</td>
+            <td style="font-size:.82rem;color:var(--text-muted)">${cierre}</td>
+            <td>${badge}</td>
+            <td class="text-right">${c.total_ventas ?? 0}</td>
+            <td class="text-right"><strong>${money(c.ingresos)}</strong> <i class="fas fa-chevron-right" style="font-size:.7rem;color:var(--text-light);margin-left:4px"></i></td>
+        </tr>`;
+    }).join('');
+
+    scRenderPagination(_scLista.length, page);
+}
+
+function scRenderPagination(total, page) {
+    const pages = Math.ceil(total / SC_PAGE_SIZE);
+    const el = document.getElementById('sc-pagination');
+    if (pages <= 1) { el.innerHTML = ''; return; }
+
+    const shown = new Set([1, pages]);
+    for (let i = Math.max(1, page - 1); i <= Math.min(pages, page + 1); i++) shown.add(i);
+    const sorted = [...shown].sort((a, b) => a - b);
+
+    const items = [];
+    let prev = 0;
+    sorted.forEach(n => {
+        if (n - prev > 1) items.push('...');
+        items.push(n);
+        prev = n;
+    });
+
+    let html = `<button class="pg-btn" onclick="scRenderPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&#8249;</button>`;
+    items.forEach(item => {
+        if (item === '...') {
+            html += `<span class="pg-ellipsis">…</span>`;
+        } else {
+            html += `<button class="pg-btn${item === page ? ' active' : ''}" onclick="scRenderPage(${item})">${item}</button>`;
+        }
+    });
+    html += `<button class="pg-btn" onclick="scRenderPage(${page + 1})" ${page === pages ? 'disabled' : ''}>&#8250;</button>`;
+
+    el.innerHTML = html;
 }
 
 function scVerSesion(cajaId) {
