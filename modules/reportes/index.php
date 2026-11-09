@@ -297,6 +297,7 @@ include '../../includes/header.php';
                 <button class="btn btn-ghost btn-sm" onclick="scPeriodo('anteayer')">Antes de ayer</button>
                 <button class="btn btn-ghost btn-sm" onclick="scPeriodo('semana')">Esta semana</button>
                 <button class="btn btn-ghost btn-sm" onclick="scPeriodo('mes')">Este mes</button>
+                <button class="btn btn-ghost btn-sm" onclick="scPeriodo('todo')">Todas</button>
             </div>
         </div>
     </div>
@@ -1373,6 +1374,7 @@ function scPeriodo(p) {
         case 'anteayer': { const a = new Date(hoy); a.setDate(hoy.getDate()-2); desde = hasta = fmt(a); break; }
         case 'semana':   { const l = new Date(hoy); l.setDate(hoy.getDate()-((hoy.getDay()+6)%7)); desde = fmt(l); hasta = fmt(hoy); break; }
         case 'mes':      desde = fmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); hasta = fmt(hoy); break;
+        case 'todo':     desde = '2000-01-01'; hasta = fmt(hoy); break;
     }
     document.getElementById('sc-desde').value = desde;
     document.getElementById('sc-hasta').value = hasta;
@@ -1391,7 +1393,9 @@ function scActualizarRangoLabel() {
     const hasta = document.getElementById('sc-hasta').value;
     const hoy = new Date().toISOString().slice(0,10);
     const hace6 = (() => { const d = new Date(); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); })();
-    if (desde === hace6 && hasta === hoy) {
+    if (desde === '2000-01-01') {
+        el.textContent = '— todas las sesiones';
+    } else if (desde === hace6 && hasta === hoy) {
         el.textContent = '— últimos 7 días';
     } else if (desde && hasta) {
         const f = s => s.split('-').reverse().join('/');
