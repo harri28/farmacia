@@ -997,10 +997,14 @@ function rnvCargar() {
             const limit = Array.isArray(resp) ? data.length : (resp.limit || 1000);
             document.getElementById('rnv-count').textContent = `(${total})`;
             const tbody = document.querySelector('#rnv-table tbody');
+            // Destruir la DataTable ANTES de reemplazar el HTML: si se destruye
+            // despues, destroy() restaura sus filas cacheadas (viejas, aun
+            // seleccionadas) encima del refresco — por eso la seleccion "quedaba"
+            // y habia que recargar la pagina.
+            if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
+            rnvTable = null;
             if (!data.length) {
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
-                if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
-                rnvTable = null;
                 rnvActualizarBatchBar();
                 return;
             }
@@ -1024,8 +1028,6 @@ function rnvCargar() {
                     <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}</div></td>
                 </tr>`;
             }).join('');
-            if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
-            rnvTable = null;
             rnvTable = $('#rnv-table').DataTable({
                 order: [[2, 'desc']],
                 pageLength: 25,
@@ -1158,6 +1160,11 @@ async function rnvReintentarSync() {
 
 function rnvCerrarProgress() {
     closeModal('modal-rnv-progress');
+    // Limpiar la seleccion de inmediato (el refresco de rnvCargar la reconstruye vacia)
+    const chkAll = document.getElementById('rnv-check-all');
+    if (chkAll) chkAll.checked = false;
+    document.querySelectorAll('.rnv-row-check:checked').forEach(c => { c.checked = false; });
+    rnvActualizarBatchBar();
     rnvCargar();
 }
 
@@ -1246,10 +1253,10 @@ function rchCargar() {
                 else           { rbadge.style.display = 'none'; }
             }
             const tbody = document.querySelector('#rch-table tbody');
+            if ($.fn.dataTable.isDataTable('#rch-table')) { $('#rch-table').DataTable().destroy(); }
+            rchTable = null;
             if (!data.length) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes rechazados.</td></tr>`;
-                if ($.fn.dataTable.isDataTable('#rch-table')) { $('#rch-table').DataTable().destroy(); }
-                rchTable = null;
                 return;
             }
             tbody.innerHTML = data.map(r => {
@@ -1264,8 +1271,6 @@ function rchCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_ultimo_at)}</td>
                 </tr>`;
             }).join('');
-            if ($.fn.dataTable.isDataTable('#rch-table')) { $('#rch-table').DataTable().destroy(); }
-            rchTable = null;
             rchTable = $('#rch-table').DataTable({
                 order: [[1, 'desc']],
                 pageLength: 25,
