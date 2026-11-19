@@ -174,7 +174,7 @@ include '../../includes/header.php';
         <table>
             <thead>
                 <tr>
-                    <th>SKU</th>
+                    <th>Código de barras</th>
                     <th>Nombre</th>
                     <th>Categoría</th>
                     <th class="text-right" style="padding-left:32px;min-width:110px">P. Venta</th>
@@ -1289,6 +1289,19 @@ function loadProductos() {
         });
 }
 
+// Serializa un objeto para incrustarlo con seguridad dentro de un atributo
+// HTML (onclick='...'). Escapa los caracteres que romperian el atributo o el
+// JS; el navegador los decodifica antes de ejecutar, dejando el JSON intacto.
+// Sin esto, un SKU/nombre con comilla simple ' o & rompia la seleccion.
+function jattr(obj) {
+    return JSON.stringify(obj)
+        .replace(/&/g, '&amp;')
+        .replace(/'/g, '&#39;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function renderPage(page) {
     currentPage = page;
     const start = (page - 1) * PAGE_SIZE;
@@ -1306,9 +1319,9 @@ function renderPage(page) {
             ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
 
         return `<tr style="font-size:14px">
-            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_interno || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_barras || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="font-weight:500">
-                <span onclick='verProducto(${JSON.stringify(p)})'
+                <span onclick='verProducto(${jattr(p)})'
                       style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
             </td>
             <td>${p.categoria || '<span style="color:var(--text-light)">—</span>'}</td>
@@ -1316,7 +1329,7 @@ function renderPage(page) {
             <td style="text-align:center;padding-left:32px;min-width:90px">
                 <span style="${stockCls}">${p.stock}</span>
                 ${stockBadge}
-                ${esAdmin ? `<button type="button" onclick='openAjusteModal(${JSON.stringify(p)})' title="Ajustar stock"
+                ${esAdmin ? `<button type="button" onclick='openAjusteModal(${jattr(p)})' title="Ajustar stock"
                     style="background:none;border:none;color:var(--primary);cursor:pointer;padding:2px 4px;margin-left:4px">
                     <i class="fas fa-sliders"></i>
                 </button>` : ''}
