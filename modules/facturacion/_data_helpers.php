@@ -6,6 +6,23 @@
 //              Separados aqui para evitar duplicacion.
 // ============================================================
 
+/**
+ * Devuelve una condicion SQL (sobre la columna estado_sunat indicada) que
+ * identifica los comprobantes RECHAZADOS de forma permanente por SUNAT: no se
+ * arreglan reenviando (boletas fuera de plazo que exigen resumen diario,
+ * documentos ya informados/anulados, o codigos de error 2xxx/3xxx).
+ * Como codigo_respuesta no se persiste, se detecta por el texto de la respuesta.
+ */
+function facturacionCondRechazadoSunat(string $col): string
+{
+    $c = "LOWER(COALESCE($col,''))";
+    return "($c LIKE '%rechaz%'"
+         . " OR $c LIKE '%fuera de fecha%'"
+         . " OR $c LIKE '%resumen diario%'"
+         . " OR $c LIKE '%informado%'"
+         . " OR $c ~ 'error.{0,12}[23][0-9]{3}')";
+}
+
 function facturacionNormalizarAfectacionTipo(?string $tipo, ?string $codigo): string
 {
     $tipo = strtoupper(trim((string) $tipo));

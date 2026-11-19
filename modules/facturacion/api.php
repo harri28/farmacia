@@ -1029,6 +1029,12 @@ switch ($action) {
             if ($fEstado === 'agotado')     { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) >= 20"; }
             if ($fEstado === 'rechazado')   { $where[] = "ce.reenvio_proximo_at IS NULL AND COALESCE(ce.reenvio_intentos,0) > 0 AND COALESCE(ce.reenvio_intentos,0) < 20"; }
 
+            // Vista: "no_enviados" (reintentables, excluye rechazos permanentes)
+            // vs "rechazados" (SUNAT rechazo de forma permanente, por texto).
+            $vista = trim((string) ($_GET['vista'] ?? 'no_enviados'));
+            $condRech = facturacionCondRechazadoSunat('ce.estado_sunat');
+            $where[] = ($vista === 'rechazados') ? $condRech : "NOT $condRech";
+
             $limit    = 1000;
             $whereSql = implode(' AND ', $where);
 
@@ -1300,22 +1306,25 @@ switch ($action) {
     case 'reenvios_stats':
         header('Content-Type: application/json; charset=UTF-8');
         try {
-            // Mismo criterio de "pendiente" que reenvios_pendientes
+            // Rechazados permanentes (por texto) salen del conteo de "no enviados"
+            // y se cuentan aparte (para la pestana Rechazados).
+            $condRechStats = facturacionCondRechazadoSunat('estado_sunat');
             $stmt = $db->query("
                 WITH base AS (
-                    SELECT *
+                    SELECT reenvio_proximo_at, reenvio_intentos,
+                           {$condRechStats} AS es_rechazado
                     FROM comprobantes_electronicos
                     WHERE COALESCE(enlace_del_cdr,'') = ''
                       AND LOWER(COALESCE(estado_sunat,'')) NOT LIKE '%acept%'
                       AND LOWER(COALESCE(estado_sunat,'')) NOT LIKE '%observ%'
                 )
                 SELECT
-                    COUNT(*)                                                                                 AS total_no_enviados,
-                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) = 0)   AS pendientes,
-                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NOT NULL) AS programados,
-                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
-                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) > 0 AND COALESCE(reenvio_intentos,0) < 20) AS rechazados,
-                    MIN(reenvio_proximo_at) FILTER (WHERE reenvio_proximo_at IS NOT NULL) AS proximo_at
+                    COUNT(*) FILTER (WHERE NOT es_rechazado) AS total_no_enviados,
+                    COUNT(*) FILTER (WHERE es_rechazado)     AS rechazados_permanentes,
+                    COUNT(*) FILTER (WHERE NOT es_rechazado AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) = 0)   AS pendientes,
+                    COUNT(*) FILTER (WHERE NOT es_rechazado AND reenvio_proximo_at IS NOT NULL)                                    AS programados,
+                    COUNT(*) FILTER (WHERE NOT es_rechazado AND reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
+                    MIN(reenvio_proximo_at) FILTER (WHERE NOT es_rechazado AND reenvio_proximo_at IS NOT NULL) AS proximo_at
                 FROM base
             ");
             echo json_encode($stmt->fetch());
@@ -1323,6 +1332,59 @@ switch ($action) {
             jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
         }
         break;
+
+    // ---- GET: Exportar a CSV (Excel) la lista de No enviados / Rechazados ----
+    case 'reenvios_exportar':
+        $vista    = trim((string) ($_GET['vista'] ?? 'rechazados'));
+        $condRech = facturacionCondRechazadoSunat('ce.estado_sunat');
+        $where = [
+            "COALESCE(ce.enlace_del_cdr,'') = ''",
+            "LOWER(COALESCE(ce.estado_sunat,'')) NOT LIKE '%acept%'",
+            "LOWER(COALESCE(ce.estado_sunat,'')) NOT LIKE '%observ%'",
+            ($vista === 'rechazados') ? $condRech : "NOT $condRech",
+        ];
+        $whereSql = implode(' AND ', $where);
+
+        $stmt = $db->prepare("
+            SELECT
+                TO_CHAR(v.created_at, 'DD/MM/YYYY')                                         AS \"Fecha\",
+                COALESCE(c.nombre_completo, c.razon_social,
+                         NULLIF(TRIM(COALESCE(c.nombres,'') || ' ' || COALESCE(c.apellidos,'')), ''),
+                         'Cliente General')                                                 AS \"Cliente\",
+                COALESCE(c.numero_documento, c.ruc, c.dni, '')                              AS \"Documento\",
+                ce.numero_completo                                                          AS \"Comprobante\",
+                UPPER(ce.tipo)                                                              AS \"Tipo\",
+                ROUND(COALESCE(v.total,0)::numeric, 2)                                       AS \"Total\",
+                COALESCE(ce.estado_sunat, '')                                                AS \"Motivo SUNAT\",
+                COALESCE(ce.reenvio_intentos, 0)                                             AS \"Intentos\",
+                TO_CHAR(ce.reenvio_ultimo_at, 'DD/MM/YYYY HH24:MI')                          AS \"Ultimo intento\"
+            FROM comprobantes_electronicos ce
+            INNER JOIN ventas v   ON v.id  = ce.venta_id
+            LEFT JOIN  clientes c ON c.id  = v.cliente_id
+            WHERE $whereSql
+            ORDER BY v.created_at DESC
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $filename = ($vista === 'rechazados' ? 'rechazados_' : 'no_enviados_') . date('Ymd') . '.csv';
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+
+        $out = fopen('php://output', 'w');
+        fputs($out, "\xEF\xBB\xBF");
+        if (!empty($rows)) {
+            fputcsv($out, array_keys($rows[0]), ';');
+            foreach ($rows as $row) {
+                fputcsv($out, array_values($row), ';');
+            }
+        } else {
+            fputcsv($out, ['Sin resultados'], ';');
+        }
+        fclose($out);
+        exit;
 
     // ---- GET: Descargar ZIP con XML + CDR de un comprobante ----
     case 'descargar_sunat_zip':

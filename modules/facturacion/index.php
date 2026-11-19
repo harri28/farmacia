@@ -215,18 +215,22 @@ include '../../includes/header.php';
     <button class="fact-tab active" id="fact-tab-btn-reporte" onclick="switchTab('reporte')">
         <i class="fas fa-chart-bar"></i> Reporte de Ventas
     </button>
+    <?php if (isAdmin()): ?>
+    <button class="fact-tab" id="fact-tab-btn-reenvios" onclick="switchTab('reenvios')">
+        <i class="fas fa-triangle-exclamation"></i> No enviados
+        <span class="badge" id="reenvios-badge" style="margin-left:6px;background:#dc2626;color:#fff;display:none">0</span>
+    </button>
+    <button class="fact-tab" id="fact-tab-btn-rechazados" onclick="switchTab('rechazados')">
+        <i class="fas fa-ban"></i> Rechazados
+        <span class="badge" id="rechazados-badge" style="margin-left:6px;background:#991b1b;color:#fff;display:none">0</span>
+    </button>
+    <?php endif; ?>
     <button class="fact-tab" id="fact-tab-btn-notas" onclick="switchTab('notas')">
         <i class="fas fa-receipt"></i> Notas de crédito
     </button>
     <button class="fact-tab" id="fact-tab-btn-rentabilidad" onclick="switchTab('rentabilidad')">
         <i class="fas fa-chart-pie"></i> Rentabilidad
     </button>
-    <?php if (isAdmin()): ?>
-    <button class="fact-tab" id="fact-tab-btn-reenvios" onclick="switchTab('reenvios')">
-        <i class="fas fa-triangle-exclamation"></i> No enviados
-        <span class="badge" id="reenvios-badge" style="margin-left:6px;background:#dc2626;color:#fff;display:none">0</span>
-    </button>
-    <?php endif; ?>
 </div>
 
 
@@ -585,8 +589,8 @@ include '../../includes/header.php';
             </div>
             <div style="flex:1;min-width:160px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px">
                 <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Rechazados</div>
-                <div style="font-size:1.6rem;font-weight:700;color:#dc2626;margin-top:4px" id="rnv-stat-rechazados">0</div>
-                <div style="font-size:.75rem;color:var(--text-muted)">SUNAT devolvió error permanente</div>
+                <div style="font-size:1.6rem;font-weight:700;color:#991b1b;margin-top:4px" id="rnv-stat-rechazados">0</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">Rechazo permanente — ver pestaña Rechazados</div>
             </div>
             <div style="flex:1;min-width:200px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px">
                 <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Próximo intento</div>
@@ -623,7 +627,6 @@ include '../../includes/header.php';
                     <option value="programado">Programado</option>
                     <option value="pendiente">Nunca enviado</option>
                     <option value="agotado">Agotado (20 intentos)</option>
-                    <option value="rechazado">Rechazado por SUNAT</option>
                 </select>
             </div>
             <div style="margin-left:auto;display:flex;gap:8px">
@@ -664,6 +667,37 @@ include '../../includes/header.php';
     </div>
 
 </div><!-- /pane-reenvios -->
+
+<div id="pane-rechazados" class="fact-pane" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div style="font-size:.82rem;color:var(--text-muted);max-width:720px;line-height:1.5">
+                <i class="fas fa-ban" style="color:#991b1b"></i> Comprobantes que SUNAT <strong>rechazó de forma permanente</strong> (fuera de plazo, deben ir por resumen diario, ya informados, o error 2xxx/3xxx). <strong>No se pueden reenviar</strong> — revísalos con tu contador.
+            </div>
+            <button class="btn btn-success btn-sm" onclick="rchExportar()"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+        </div>
+    </div>
+    <div class="card">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+            <h3 style="margin:0;font-size:1rem">Comprobantes rechazados <span id="rch-count" style="color:var(--text-muted);font-weight:500">(0)</span></h3>
+        </div>
+        <div class="table-responsive" style="padding:12px">
+            <table id="rch-table" class="table" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Comprobante</th>
+                        <th>Fecha venta</th>
+                        <th>Cliente</th>
+                        <th class="text-center">Total</th>
+                        <th>Motivo SUNAT</th>
+                        <th>Último intento</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /pane-rechazados -->
 
 <!-- Modal: progreso de reintento sincronico -->
 <div class="modal-overlay" id="modal-rnv-progress">
@@ -840,14 +874,16 @@ const _tabMeta = {
     notas:        { icon: 'receipt',        title: 'Notas de crédito',   subtitle: 'Emite y reenvía notas de crédito electrónicas vinculadas a boletas y facturas' },
     rentabilidad: { icon: 'chart-pie',      title: 'Rentabilidad',       subtitle: 'Análisis de márgenes, ganancia bruta y ROI por período' },
     reenvios:     { icon: 'triangle-exclamation', title: 'No enviados',   subtitle: 'Comprobantes que no llegaron a SUNAT (sin CDR) — reenvíalos manualmente o prográmalos al worker' },
+    rechazados:   { icon: 'ban',            title: 'Rechazados',         subtitle: 'Comprobantes rechazados permanentemente por SUNAT — revisar con el contador (no se reenvían)' },
 };
 const _tabActions = {
     reporte:      `<button class="btn btn-success" onclick="rptExportar()"><i class="fas fa-file-excel"></i> Descargar Excel</button>`,
     notas:        `<button class="btn btn-primary" onclick="ncAbrirModal()"><i class="fas fa-plus"></i> Nueva nota de crédito</button>`,
     rentabilidad: `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#92400e;display:flex;align-items:center;gap:6px"><i class="fas fa-info-circle"></i> Costos calculados con el precio de compra actual</div>`,
     reenvios:     `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#1e40af;display:flex;align-items:center;gap:6px"><i class="fas fa-circle-info"></i> Sin CDR = SUNAT no lo recibió. El worker reintenta cada 5 min (máx. 20 intentos)</div>`,
+    rechazados:   `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#991b1b;display:flex;align-items:center;gap:6px"><i class="fas fa-ban"></i> No recuperables por reenvío</div>`,
 };
-const _tabLoaded = { reporte: false, notas: false, rentabilidad: false, reenvios: false };
+const _tabLoaded = { reporte: false, notas: false, rentabilidad: false, reenvios: false, rechazados: false };
 
 function switchTab(tab) {
     document.querySelectorAll('.fact-tab').forEach(b => b.classList.remove('active'));
@@ -867,10 +903,12 @@ function switchTab(tab) {
         if (tab === 'notas')        { Promise.all([ncCargarMotivos(), ncCargarOrigenes()]).then(() => ncCargarNotas()); }
         if (tab === 'rentabilidad') { rentLoadFiltros(); rentBuscar(); }
         if (tab === 'reenvios')     { rnvCargar(); }
+        if (tab === 'rechazados')   { rchCargar(); }
     } else {
         if (tab === 'reporte' && rptTable)  rptTable.columns.adjust();
         if (tab === 'notas'   && notasTable) notasTable.columns.adjust();
         if (tab === 'reenvios')             { rnvCargar(); }
+        if (tab === 'rechazados')           { rchCargar(); }
     }
 }
 
@@ -931,13 +969,20 @@ function rnvCargar() {
             document.getElementById('rnv-stat-pendientes').textContent  = s.pendientes || 0;
             document.getElementById('rnv-stat-programados').textContent = s.programados || 0;
             document.getElementById('rnv-stat-agotados').textContent    = s.agotados || 0;
-            document.getElementById('rnv-stat-rechazados').textContent  = s.rechazados || 0;
+            document.getElementById('rnv-stat-rechazados').textContent  = s.rechazados_permanentes || 0;
             document.getElementById('rnv-stat-proximo').textContent     = rnvFormatearFecha(s.proximo_at);
             const totalNoEnviados = (parseInt(s.total_no_enviados,10)||0);
             const badge = document.getElementById('reenvios-badge');
             if (badge) {
                 if (totalNoEnviados > 0) { badge.textContent = totalNoEnviados; badge.style.display = ''; }
                 else                     { badge.style.display = 'none'; }
+            }
+            // Badge de la pestaña Rechazados (visible aunque estés en No enviados)
+            const rechCount = (parseInt(s.rechazados_permanentes,10)||0);
+            const rbadge = document.getElementById('rechazados-badge');
+            if (rbadge) {
+                if (rechCount > 0) { rbadge.textContent = rechCount; rbadge.style.display = ''; }
+                else               { rbadge.style.display = 'none'; }
             }
         })
         .catch(() => {});
@@ -1181,6 +1226,57 @@ function rnvDescargarZips() {
         URL.revokeObjectURL(url);
     })
     .catch(err => showToast(err.message || 'Error al descargar','error'));
+}
+
+// ================================================================
+// RECHAZADOS (solo lectura + exportar) — rechazo permanente de SUNAT
+// ================================================================
+let rchTable = null;
+
+function rchCargar() {
+    fetch(BASE + 'modules/facturacion/api.php?action=reenvios_pendientes&vista=rechazados')
+        .then(r => r.json())
+        .then(resp => {
+            const data  = Array.isArray(resp) ? resp : (resp.rows || []);
+            const total = Array.isArray(resp) ? data.length : (resp.total || 0);
+            document.getElementById('rch-count').textContent = `(${total})`;
+            const rbadge = document.getElementById('rechazados-badge');
+            if (rbadge) {
+                if (total > 0) { rbadge.textContent = total; rbadge.style.display = ''; }
+                else           { rbadge.style.display = 'none'; }
+            }
+            const tbody = document.querySelector('#rch-table tbody');
+            if (!data.length) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes rechazados.</td></tr>`;
+                if ($.fn.dataTable.isDataTable('#rch-table')) { $('#rch-table').DataTable().destroy(); }
+                rchTable = null;
+                return;
+            }
+            tbody.innerHTML = data.map(r => {
+                const motivo = (r.estado_sunat || '').toString();
+                const motivoCorto = motivo.length > 90 ? motivo.substring(0, 90) + '…' : motivo;
+                return `<tr>
+                    <td><strong>${esc(r.numero_completo||'')}</strong><br><small style="color:var(--text-muted)">${esc(r.tipo||'')}</small></td>
+                    <td>${rnvFormatearFecha(r.venta_created_at)}<br><small style="color:var(--text-muted)">${esc(r.numero_venta||'')}</small></td>
+                    <td>${esc(r.cliente||'—')}<br><small style="color:var(--text-muted)">${esc(r.documento||'')}</small></td>
+                    <td class="text-center">S/ ${parseFloat(r.total||0).toFixed(2)}</td>
+                    <td title="${esc(motivo)}" style="font-size:.8rem;color:#991b1b;max-width:340px">${esc(motivoCorto)}</td>
+                    <td>${rnvFormatearFecha(r.reenvio_ultimo_at)}</td>
+                </tr>`;
+            }).join('');
+            if ($.fn.dataTable.isDataTable('#rch-table')) { $('#rch-table').DataTable().destroy(); }
+            rchTable = null;
+            rchTable = $('#rch-table').DataTable({
+                order: [[1, 'desc']],
+                pageLength: 25,
+                language: { url: BASE + 'assets/vendor/datatables/es-ES.json' },
+            });
+        })
+        .catch(err => showToast(err.message || 'No se pudo cargar los rechazados','error'));
+}
+
+function rchExportar() {
+    window.location = BASE + 'modules/facturacion/api.php?action=reenvios_exportar&vista=rechazados';
 }
 
 // ================================================================
