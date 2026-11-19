@@ -728,15 +728,18 @@ switch ($action) {
             $comp = facturacionCargarComprobanteVenta($db, $comprobanteId);
             $responseCode = facturacionExtraerResponseCode($comp['nubefact_response'] ?? null);
             $estadoSunat = strtolower(trim((string) ($comp['estado_sunat'] ?? '')));
-            $yaEnviado = !empty($comp['enlace_del_cdr'])
-                || $responseCode !== null
+            // "Ya aceptado" = SUNAT lo acepto de verdad (CDR con codigo 0) o el
+            // texto dice aceptado/observado. Un CDR con codigo != 0 es un RECHAZO
+            // y SI se puede reenviar (p.ej. tras corregir el IGV). Antes se
+            // bloqueaba cualquier CDR, ocultando los rechazos.
+            $yaAceptado = ($responseCode === '0')
                 || strpos($estadoSunat, 'acept') !== false
                 || strpos($estadoSunat, 'observ') !== false;
 
-            if ($yaEnviado) {
+            if ($yaAceptado) {
                 jsonResponse([
                     'error' => true,
-                    'message' => 'Este comprobante ya tiene CDR y no se puede reenviar.',
+                    'message' => 'Este comprobante ya fue aceptado por SUNAT; no se reenvía.',
                 ], 422);
             }
 

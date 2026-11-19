@@ -1412,7 +1412,7 @@ function rptLoadReporte() {
                     ${v.comprobante_id&&v.enlace_cdr&&v.tipo_comprobante!=='ticket' ? actionIconButton('file-circle-plus','Generar nota de crédito',null,`rptAbrirNc(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${v.enlace_pdf ? actionIconButton('file-pdf','Ver PDF',v.enlace_pdf) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
-                    ${parseInt(v.comprobante_id||0,10)>0&&!v.enlace_cdr ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)})`) : ''}
+                    ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)})`) : ''}
                 </div>`;
                 return `<tr>
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
