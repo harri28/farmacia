@@ -877,6 +877,7 @@ function switchTab(tab) {
 // REENVIOS SUNAT (solo admin/gerente)
 // ================================================================
 let rnvTable = null;
+let rnvJumpTimer = null; // temporizador para refrescar la lista tras un reenvio OK
 const RNV_MAX_SYNC = 5;
 
 function rnvEstadoBadge(estado) {
@@ -1032,11 +1033,14 @@ function rnvReenviarUno(comprobanteId, btn) {
     .then(async r => {
         const d = await r.json();
         if (!r.ok || d.error) throw new Error(d.message || 'No se pudo reenviar.');
-        // Estado "enviado": check verde (se mantiene hasta saltar de pestaña)
+        // Estado "enviado": check verde un instante
         if (btn) btn.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981"></i>';
-        showToast(d.message || '¡Comprobante enviado a SUNAT!', 'success');
-        // Tras 2s saltar a la pestaña Enviados (Reporte) y refrescarla
-        setTimeout(() => { switchTab('reporte'); rptBuscar(); }, 2000);
+        showToast(d.message || '¡Comprobante enviado a SUNAT! Ya figura en Enviados.', 'success');
+        // Nos quedamos en "No enviados": mostramos el check y luego refrescamos la
+        // lista (el enviado desaparece y bajan los contadores), sin saltar de
+        // pestana, para poder seguir procesando los demas. No se acumula.
+        clearTimeout(rnvJumpTimer);
+        rnvJumpTimer = setTimeout(() => { rnvJumpTimer = null; rnvCargar(); }, 1200);
     })
     .catch(err => {
         // Fallo: restaurar el boton y quedarse en No enviados
