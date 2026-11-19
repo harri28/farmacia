@@ -972,7 +972,7 @@ function rnvCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
-                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId})`)}${r.estado_reenvio==='programado'?actionIconButton('pause','Pausar programación (quita del worker)',null,`rnvCancelarUno(${compId})`):''}</div></td>
+                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}${r.estado_reenvio==='programado'?actionIconButton('pause','Pausar programación (quita del worker)',null,`rnvCancelarUno(${compId})`):''}</div></td>
                 </tr>`;
             }).join('');
             if (rnvTable) rnvTable.destroy();
@@ -1010,8 +1010,21 @@ function rnvActualizarBatchBar() {
     cnt.textContent = `${ids.length} seleccionado(s)`;
 }
 
-function rnvReenviarUno(comprobanteId) {
+function rnvReenviarUno(comprobanteId, btn) {
     if (!comprobanteId) return;
+    if (btn && btn.dataset.loading === '1') return; // evitar doble clic
+
+    // Estado "cargando" en el icono
+    let original = null;
+    if (btn) {
+        original = btn.innerHTML;
+        btn.dataset.loading = '1';
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    showToast('<i class="fas fa-paper-plane"></i> Enviando a SUNAT…', 'info');
+
     fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ comprobante_id: comprobanteId })
@@ -1019,10 +1032,23 @@ function rnvReenviarUno(comprobanteId) {
     .then(async r => {
         const d = await r.json();
         if (!r.ok || d.error) throw new Error(d.message || 'No se pudo reenviar.');
-        showToast(d.message || 'Reenviado a SUNAT','success');
-        rnvCargar();
+        // Estado "enviado": check verde (se mantiene hasta saltar de pestaña)
+        if (btn) btn.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981"></i>';
+        showToast(d.message || '¡Comprobante enviado a SUNAT!', 'success');
+        // Tras 2s saltar a la pestaña Enviados (Reporte) y refrescarla
+        setTimeout(() => { switchTab('reporte'); rptBuscar(); }, 2000);
     })
-    .catch(err => { showToast(err.message || 'Error al reenviar','error'); rnvCargar(); });
+    .catch(err => {
+        // Fallo: restaurar el boton y quedarse en No enviados
+        if (btn) {
+            btn.innerHTML = original;
+            btn.style.pointerEvents = '';
+            btn.style.opacity = '';
+            delete btn.dataset.loading;
+        }
+        showToast(err.message || 'Error al reenviar', 'error');
+        rnvCargar();
+    });
 }
 
 // --- Batch sincronico con modal de progreso ---
