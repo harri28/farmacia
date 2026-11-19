@@ -160,6 +160,7 @@ include '../../includes/header.php';
 .date-block span, .voucher-block span, .client-doc { font-size: .74rem; color: var(--text-muted); }
 .total-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 110px; padding: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; font-weight: 700; color: var(--text); }
 .icon-action-btn { width: 34px; height: 34px; border-radius: 999px; border: 1px solid #dbeafe; background: #f8fbff; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; transition: .18s ease; }
+.rnv-row-check, #rnv-check-all { width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; margin: 0; }
 .icon-action-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .actions-inline { display: flex; gap: 8px; justify-content: center; }
 .sunat-cell { width: 88px !important; min-width: 88px !important; max-width: 88px !important; white-space: nowrap; text-align: center; padding-left: 8px !important; padding-right: 8px !important; }
@@ -637,8 +638,7 @@ include '../../includes/header.php';
             <h3 style="margin:0;font-size:1rem">Comprobantes no enviados <span id="rnv-count" style="color:var(--text-muted);font-weight:500">(0)</span></h3>
             <div id="rnv-batch-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
                 <span id="rnv-sel-count" style="font-size:.85rem;color:var(--text-muted)">0 seleccionado(s)</span>
-                <button class="btn btn-sm btn-warning" onclick="rnvReintentarSync()" title="Hasta 5 a la vez, con progreso en vivo (puede tardar varios minutos)"><i class="fas fa-bolt"></i> Reintentar ahora</button>
-                <button class="btn btn-sm btn-primary" onclick="rnvProgramarWorker()" title="Delega al worker; se procesan en los próximos minutos sin bloquear el navegador"><i class="fas fa-clock"></i> Programar al worker</button>
+                <button class="btn btn-sm btn-primary" onclick="rnvReintentarSync()" title="Envía los seleccionados en cadena, uno tras otro, con progreso en vivo"><i class="fas fa-paper-plane"></i> Enviar seleccionados</button>
                 <button class="btn btn-sm btn-success" onclick="rnvDescargarZips()" title="Descarga un ZIP maestro con los ZIP firmados listos para subir manualmente al portal SOL de SUNAT"><i class="fas fa-download"></i> Descargar ZIP para SUNAT</button>
             </div>
         </div>
@@ -655,7 +655,6 @@ include '../../includes/header.php';
                         <th>Próximo intento</th>
                         <th>Estado</th>
                         <th>Último error</th>
-                        <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -669,7 +668,7 @@ include '../../includes/header.php';
 <div class="modal-overlay" id="modal-rnv-progress">
     <div class="modal" style="max-width:560px;width:min(560px,calc(100vw - 32px))">
         <div class="modal-header">
-            <h3 class="modal-title"><i class="fas fa-bolt" style="color:#f59e0b;margin-right:8px"></i>Reintentando a SUNAT</h3>
+            <h3 class="modal-title"><i class="fas fa-paper-plane" style="color:var(--primary);margin-right:8px"></i>Enviando a SUNAT</h3>
         </div>
         <div class="modal-body" style="padding:20px 24px">
             <div id="rnv-progress-text" style="font-size:.95rem;margin-bottom:12px">Preparando…</div>
@@ -678,7 +677,8 @@ include '../../includes/header.php';
             </div>
             <div id="rnv-progress-log" style="margin-top:14px;max-height:220px;overflow-y:auto;background:var(--surface-2);border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:.8rem"></div>
         </div>
-        <div class="modal-footer" style="padding:12px 24px;text-align:right">
+        <div class="modal-footer" style="padding:12px 24px;display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-danger" id="rnv-progress-stop" onclick="rnvDetener()" style="display:none"><i class="fas fa-stop"></i> Detener</button>
             <button class="btn btn-outline" id="rnv-progress-close" onclick="rnvCerrarProgress()" disabled>Cerrar</button>
         </div>
     </div>
@@ -878,7 +878,8 @@ function switchTab(tab) {
 // ================================================================
 let rnvTable = null;
 let rnvJumpTimer = null; // temporizador para refrescar la lista tras un reenvio OK
-const RNV_MAX_SYNC = 5;
+let rnvStop = false;     // bandera para detener el envio en cadena
+function rnvDetener() { rnvStop = true; }
 
 function rnvEstadoBadge(estado) {
     const map = {
@@ -951,7 +952,7 @@ function rnvCargar() {
             document.getElementById('rnv-count').textContent = `(${total})`;
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
                 if (rnvTable) { rnvTable.destroy(); rnvTable = null; }
                 rnvActualizarBatchBar();
                 return;
@@ -973,7 +974,6 @@ function rnvCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
-                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}</div></td>
                 </tr>`;
             }).join('');
             if (rnvTable) rnvTable.destroy();
@@ -1055,28 +1055,28 @@ function rnvReenviarUno(comprobanteId, btn) {
     });
 }
 
-// --- Batch sincronico con modal de progreso ---
+// --- Envio en cadena de los seleccionados (uno tras otro), con progreso ---
 async function rnvReintentarSync() {
     const ids = rnvSeleccionados();
     if (!ids.length) return;
-    if (ids.length > RNV_MAX_SYNC) {
-        showToast(`El modo sincrónico acepta máximo ${RNV_MAX_SYNC} comprobantes a la vez. Usa "Programar al worker" para lotes grandes.`, 'error');
-        return;
-    }
 
-    const modal = document.getElementById('modal-rnv-progress');
-    const txt   = document.getElementById('rnv-progress-text');
-    const bar   = document.getElementById('rnv-progress-bar');
-    const log   = document.getElementById('rnv-progress-log');
-    const btn   = document.getElementById('rnv-progress-close');
-    log.innerHTML = ''; bar.style.width = '0%'; btn.disabled = true;
+    const txt     = document.getElementById('rnv-progress-text');
+    const bar     = document.getElementById('rnv-progress-bar');
+    const log     = document.getElementById('rnv-progress-log');
+    const btn     = document.getElementById('rnv-progress-close');
+    const stopBtn = document.getElementById('rnv-progress-stop');
+    log.innerHTML = ''; bar.style.width = '0%';
+    btn.disabled = true;
+    rnvStop = false;
+    if (stopBtn) stopBtn.style.display = '';
     openModal('modal-rnv-progress');
 
-    let ok = 0, fail = 0;
-    for (let i = 0; i < ids.length; i++) {
+    let ok = 0, fail = 0, i = 0;
+    for (i = 0; i < ids.length; i++) {
+        if (rnvStop) { log.innerHTML += `<div style="color:#f59e0b">⏹ Detenido por el usuario.</div>`; break; }
         const id = ids[i];
         txt.textContent = `Enviando ${i + 1} de ${ids.length}…`;
-        log.innerHTML += `<div>[${i + 1}] Enviando ID ${id}…</div>`;
+        log.innerHTML += `<div>[${i + 1}/${ids.length}] Enviando ID ${id}…</div>`;
         log.scrollTop = log.scrollHeight;
         try {
             const r = await fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
@@ -1098,9 +1098,12 @@ async function rnvReintentarSync() {
         bar.style.width = (((i + 1) / ids.length) * 100).toFixed(0) + '%';
         log.scrollTop = log.scrollHeight;
     }
-    txt.innerHTML = `<strong>Terminado:</strong> ${ok} aceptado(s), ${fail} fallido(s).`;
+    const restantes = rnvStop ? (ids.length - i) : 0;
+    txt.innerHTML = `<strong>${rnvStop ? 'Detenido' : 'Terminado'}:</strong> ${ok} enviado(s), ${fail} fallido(s)` +
+                    (restantes ? ` — ${restantes} sin procesar` : '') + '.';
+    if (stopBtn) stopBtn.style.display = 'none';
     btn.disabled = false;
-    // Refrescar la lista de atrás para que los aceptados ya no aparezcan
+    // Refrescar la lista de atrás para que los enviados ya no aparezcan
     rnvCargar();
 }
 
