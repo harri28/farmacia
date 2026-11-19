@@ -655,6 +655,7 @@ include '../../includes/header.php';
                         <th>Próximo intento</th>
                         <th>Estado</th>
                         <th>Último error</th>
+                        <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -952,7 +953,7 @@ function rnvCargar() {
             document.getElementById('rnv-count').textContent = `(${total})`;
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
                 if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
                 rnvTable = null;
                 rnvActualizarBatchBar();
@@ -975,6 +976,7 @@ function rnvCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
+                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}</div></td>
                 </tr>`;
             }).join('');
             if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
@@ -983,7 +985,7 @@ function rnvCargar() {
                 order: [[2, 'desc']],
                 pageLength: 25,
                 language: { url: BASE + 'assets/vendor/datatables/es-ES.json' },
-                columnDefs: [{ orderable: false, targets: [0] }],
+                columnDefs: [{ orderable: false, targets: [0, 9] }],
                 drawCallback: function() {
                     document.getElementById('rnv-check-all').checked = false;
                     rnvActualizarBatchBar();
