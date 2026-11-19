@@ -462,6 +462,12 @@ function sunat_build_invoice_items(array $items): array
             default: $categoriaId = 'S'; $taxSchemeId = '1000'; $taxName = 'IGV'; $taxTypeCode = 'VAT'; break;
         }
 
+        // En lineas no gravadas (EXO/INA/EXP) el IGV DEBE ir en 0.00. Si llega
+        // un monto de IGV distinto de 0 en una linea exonerada, SUNAT rechaza
+        // con codigo 3110. Forzamos 0 aqui sin importar lo que traiga la venta.
+        $esGravado = ($afectacionTipo === 'GRAV');
+        $igvLinea  = $esGravado ? round((float) ($item['igv'] ?? 0), 2) : 0.00;
+
         $result[] = [
             'item' => $index + 1,
             'cantidad' => $cantidad,
@@ -472,11 +478,11 @@ function sunat_build_invoice_items(array $items): array
             'descuento' => round((float) ($item['descuento'] ?? 0), 2),
             'precio_lista' => round((float) ($item['precio_unitario'] ?? $item['precio'] ?? 0), 2),
             'valor_total' => round((float) ($item['valor_total'] ?? 0), 2),
-            'igv' => round((float) ($item['igv'] ?? 0), 2),
+            'igv' => $igvLinea,
             'icbper' => round((float) ($item['icbper'] ?? 0), 2),
             'total_antes_impuestos' => round((float) ($item['valor_total'] ?? 0), 2),
-            'total_impuestos' => round((float) ($item['igv'] ?? 0), 2),
-            'porcentaje_igv' => 18.0,
+            'total_impuestos' => $igvLinea,
+            'porcentaje_igv' => $esGravado ? 18.0 : 0.0,
             'codigos' => [$categoriaId, $afectacionCodigo, $taxSchemeId, $taxName, $taxTypeCode],
         ];
     }
@@ -499,8 +505,8 @@ function sunat_build_totals(array $items): array
             $inafectas += (float) $item['valor_total'];
         } else {
             $gravadas += (float) $item['valor_total'];
+            $igv += (float) $item['igv'];   // solo las lineas gravadas suman IGV
         }
-        $igv += (float) $item['igv'];
     }
 
     $gravadas = round($gravadas, 2);
