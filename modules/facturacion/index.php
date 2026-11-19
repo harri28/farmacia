@@ -973,7 +973,7 @@ function rnvCargar() {
                     <td>${rnvFormatearFecha(r.reenvio_proximo_at)}</td>
                     <td>${rnvEstadoBadge(r.estado_reenvio)}</td>
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
-                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}${r.estado_reenvio==='programado'?actionIconButton('pause','Pausar programación (quita del worker)',null,`rnvCancelarUno(${compId})`):''}</div></td>
+                    <td class="text-center"><div class="actions-inline">${actionIconButton('paper-plane','Reintentar ahora',null,`rnvReenviarUno(${compId}, this)`)}</div></td>
                 </tr>`;
             }).join('');
             if (rnvTable) rnvTable.destroy();
