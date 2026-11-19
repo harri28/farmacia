@@ -367,6 +367,17 @@ input, select, textarea { font-family: var(--font); }
 }
 .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 .form-control::placeholder { color: var(--text-light); }
+
+/* Campos del emisor que viajan/usan en el comprobante electronico (resaltado azul pastel) */
+.form-control.field-emisor { background: var(--primary-light); border-color: var(--primary); }
+.form-control.field-emisor:focus { background: var(--primary-light); }
+.field-emisor-legend {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: var(--primary-light); color: var(--primary);
+    border: 1px solid var(--primary); border-radius: var(--radius-sm);
+    padding: 9px 12px; font-size: .8rem; line-height: 1.5; margin-bottom: 16px;
+}
+.field-emisor-legend i { margin-top: 2px; }
 .input-group { position: relative; }
 .input-group .form-control { padding-left: 36px; }
 .input-group-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-light); font-size: .85rem; }

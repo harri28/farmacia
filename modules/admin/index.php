@@ -325,11 +325,15 @@ include '../../includes/header.php';
             <div style="font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04rem;margin-bottom:14px">
                 Datos principales
             </div>
+            <div class="field-emisor-legend">
+                <i class="fas fa-circle-info"></i>
+                <span>Los campos resaltados en <strong>azul</strong> son los datos de la empresa que aparecen en el comprobante electrónico (boleta/factura).</span>
+            </div>
             <div class="row g-3">
                 <div class="col-12 col-md-6">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Razon social para emitir *</label>
-                        <input type="text" id="cfg-business-name" class="form-control" maxlength="255"
+                        <input type="text" id="cfg-business-name" class="form-control field-emisor" maxlength="255"
                                placeholder="MYTEMS E.I.R.L.">
                         <small style="color:var(--text-muted);font-size:.76rem">
                             Es el nombre legal que saldra en la boleta o factura.
@@ -339,7 +343,7 @@ include '../../includes/header.php';
                 <div class="col-12 col-md-6">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Nombre del negocio</label>
-                        <input type="text" id="cfg-trade-name" class="form-control" maxlength="255"
+                        <input type="text" id="cfg-trade-name" class="form-control field-emisor" maxlength="255"
                                placeholder="Generic Pharma">
                     </div>
                 </div>
@@ -349,7 +353,7 @@ include '../../includes/header.php';
                 <div class="col-12 col-md-4">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">RUC</label>
-                        <input type="text" id="cfg-ruc" class="form-control" inputmode="numeric" maxlength="11"
+                        <input type="text" id="cfg-ruc" class="form-control field-emisor" inputmode="numeric" maxlength="11"
                                placeholder="20610316884">
                     </div>
                 </div>
@@ -373,7 +377,7 @@ include '../../includes/header.php';
                 <div class="col-12 col-md-9">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Direccion principal</label>
-                        <input type="text" id="cfg-direccion" class="form-control"
+                        <input type="text" id="cfg-direccion" class="form-control field-emisor"
                                placeholder="Alonso de Alvarado 209, Tarapoto">
                     </div>
                 </div>
@@ -390,7 +394,7 @@ include '../../includes/header.php';
                 <div class="col-6 col-md-3">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Ubigeo</label>
-                        <input type="text" id="cfg-ubigeo" class="form-control" inputmode="numeric" maxlength="6"
+                        <input type="text" id="cfg-ubigeo" class="form-control field-emisor" inputmode="numeric" maxlength="6"
                                placeholder="220901">
                         <small id="cfg-ubigeo-help" style="color:var(--text-muted);font-size:.76rem">
                             Ejemplo: 220901 corresponde a Tarapoto.
@@ -400,21 +404,21 @@ include '../../includes/header.php';
                 <div class="col-6 col-md-3">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Departamento</label>
-                        <input type="text" id="cfg-departamento" class="form-control" maxlength="100"
+                        <input type="text" id="cfg-departamento" class="form-control field-emisor" maxlength="100"
                                placeholder="San Martin">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Provincia</label>
-                        <input type="text" id="cfg-provincia" class="form-control" maxlength="100"
+                        <input type="text" id="cfg-provincia" class="form-control field-emisor" maxlength="100"
                                placeholder="San Martin">
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="form-group" style="margin:0">
                         <label class="form-label">Distrito</label>
-                        <input type="text" id="cfg-distrito" class="form-control" maxlength="100"
+                        <input type="text" id="cfg-distrito" class="form-control field-emisor" maxlength="100"
                                placeholder="Tarapoto">
                     </div>
                 </div>
@@ -515,17 +519,22 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
+                <div class="field-emisor-legend">
+                    <i class="fas fa-circle-info"></i>
+                    <span>Los campos resaltados en <strong>azul</strong> son necesarios para emitir el comprobante en SUNAT. Si falta alguno, el comprobante no se podrá enviar.</span>
+                </div>
+
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Nombre del negocio</label>
-                            <input type="text" id="cfg-sunat-trade-name" class="form-control" placeholder="Nombre que saldra como referencia comercial" autocomplete="off">
+                            <input type="text" id="cfg-sunat-trade-name" class="form-control field-emisor" placeholder="Nombre que saldra como referencia comercial" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Usuario SOL</label>
-                            <input type="text" id="cfg-sunat-username" class="form-control" placeholder="Usuario secundario SOL" autocomplete="off">
+                            <input type="text" id="cfg-sunat-username" class="form-control field-emisor" placeholder="Usuario secundario SOL" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -534,13 +543,13 @@ include '../../includes/header.php';
                     <div class="col-12 col-md-4">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Clave SOL</label>
-                            <input type="text" id="cfg-sunat-password" class="form-control" placeholder="Clave SOL" autocomplete="off">
+                            <input type="text" id="cfg-sunat-password" class="form-control field-emisor" placeholder="Clave SOL" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-4">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Clave certificado</label>
-                            <input type="text" id="cfg-certificate-password" class="form-control" placeholder="Clave del certificado" autocomplete="off">
+                            <input type="text" id="cfg-certificate-password" class="form-control field-emisor" placeholder="Clave del certificado" autocomplete="off">
                         </div>
                     </div>
                     <div class="col-12 col-md-4">
@@ -567,7 +576,7 @@ include '../../includes/header.php';
                     <div class="col-12 col-md-4">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Certificado digital (.pfx)</label>
-                            <input type="text" id="cfg-certificate-path" class="form-control" placeholder="Ruta del certificado .pfx">
+                            <input type="text" id="cfg-certificate-path" class="form-control field-emisor" placeholder="Ruta del certificado .pfx">
                             <small id="cfg-certificate-current" style="color:var(--text-muted);font-size:.76rem;display:block;margin-top:6px">
                                 Archivo actual: no configurado
                             </small>
@@ -592,7 +601,7 @@ include '../../includes/header.php';
                     <div class="col-12 col-md-6">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Entorno SUNAT</label>
-                            <select id="cfg-sunat-server" class="form-control">
+                            <select id="cfg-sunat-server" class="form-control field-emisor">
                                 <option value="3">Beta / Pruebas</option>
                                 <option value="1">Produccion</option>
                             </select>
