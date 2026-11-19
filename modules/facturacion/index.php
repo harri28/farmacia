@@ -953,7 +953,8 @@ function rnvCargar() {
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
                 tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
-                if (rnvTable) { rnvTable.destroy(); rnvTable = null; }
+                if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
+                rnvTable = null;
                 rnvActualizarBatchBar();
                 return;
             }
@@ -976,12 +977,13 @@ function rnvCargar() {
                     <td title="${esc(errorTxt)}" style="font-size:.78rem;color:var(--text-muted);max-width:260px">${esc(errorCorto)}</td>
                 </tr>`;
             }).join('');
-            if (rnvTable) rnvTable.destroy();
+            if ($.fn.dataTable.isDataTable('#rnv-table')) { $('#rnv-table').DataTable().destroy(); }
+            rnvTable = null;
             rnvTable = $('#rnv-table').DataTable({
                 order: [[2, 'desc']],
                 pageLength: 25,
                 language: { url: BASE + 'assets/vendor/datatables/es-ES.json' },
-                columnDefs: [{ orderable: false, targets: [0, 9] }],
+                columnDefs: [{ orderable: false, targets: [0] }],
                 drawCallback: function() {
                     document.getElementById('rnv-check-all').checked = false;
                     rnvActualizarBatchBar();
