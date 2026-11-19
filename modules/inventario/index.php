@@ -174,7 +174,7 @@ include '../../includes/header.php';
         <table>
             <thead>
                 <tr>
-                    <th>Código de barras</th>
+                    <th>Código</th>
                     <th>Nombre</th>
                     <th>Categoría</th>
                     <th class="text-right" style="padding-left:32px;min-width:110px">P. Venta</th>
@@ -1319,7 +1319,7 @@ function renderPage(page) {
             ? '<i class="fas fa-prescription" style="color:var(--primary);margin-left:4px" title="Requiere receta"></i>' : '';
 
         return `<tr style="font-size:14px">
-            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo_barras || '<span style="color:var(--text-light)">—</span>'}</td>
+            <td style="font-family:monospace;color:var(--text-muted)">${p.codigo || '<span style="color:var(--text-light)">—</span>'}</td>
             <td style="font-weight:500">
                 <span onclick='verProducto(${jattr(p)})'
                       style="color:var(--primary);cursor:pointer">${p.nombre}</span>${favIcon}${recetaIcon}
