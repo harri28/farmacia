@@ -1310,6 +1310,8 @@ switch ($action) {
                       AND LOWER(COALESCE(estado_sunat,'')) NOT LIKE '%observ%'
                 )
                 SELECT
+                    COUNT(*)                                                                                 AS total_no_enviados,
+                    COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) = 0)   AS pendientes,
                     COUNT(*) FILTER (WHERE reenvio_proximo_at IS NOT NULL) AS programados,
                     COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) >= 20) AS agotados,
                     COUNT(*) FILTER (WHERE reenvio_proximo_at IS NULL AND COALESCE(reenvio_intentos,0) > 0 AND COALESCE(reenvio_intentos,0) < 20) AS rechazados,

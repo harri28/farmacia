@@ -222,8 +222,8 @@ include '../../includes/header.php';
     </button>
     <?php if (isAdmin()): ?>
     <button class="fact-tab" id="fact-tab-btn-reenvios" onclick="switchTab('reenvios')">
-        <i class="fas fa-arrows-rotate"></i> Reenvíos SUNAT
-        <span class="badge" id="reenvios-badge" style="margin-left:6px;background:#f59e0b;color:#fff;display:none">0</span>
+        <i class="fas fa-triangle-exclamation"></i> No enviados
+        <span class="badge" id="reenvios-badge" style="margin-left:6px;background:#dc2626;color:#fff;display:none">0</span>
     </button>
     <?php endif; ?>
 </div>
@@ -568,6 +568,11 @@ include '../../includes/header.php';
     <div class="card" style="margin-bottom:20px">
         <div style="padding:16px;display:flex;gap:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:160px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px">
+                <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Nunca enviado</div>
+                <div style="font-size:1.6rem;font-weight:700;color:#dc2626;margin-top:4px" id="rnv-stat-pendientes">0</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">Emitidos que nunca llegaron a SUNAT</div>
+            </div>
+            <div style="flex:1;min-width:160px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px">
                 <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Programados</div>
                 <div style="font-size:1.6rem;font-weight:700;color:#f59e0b;margin-top:4px" id="rnv-stat-programados">0</div>
                 <div style="font-size:.75rem;color:var(--text-muted)">Esperando próximo intento del worker</div>
@@ -629,7 +634,7 @@ include '../../includes/header.php';
 
     <div class="card">
         <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
-            <h3 style="margin:0;font-size:1rem">Comprobantes pendientes <span id="rnv-count" style="color:var(--text-muted);font-weight:500">(0)</span></h3>
+            <h3 style="margin:0;font-size:1rem">Comprobantes no enviados <span id="rnv-count" style="color:var(--text-muted);font-weight:500">(0)</span></h3>
             <div id="rnv-batch-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
                 <span id="rnv-sel-count" style="font-size:.85rem;color:var(--text-muted)">0 seleccionado(s)</span>
                 <button class="btn btn-sm btn-warning" onclick="rnvReintentarSync()" title="Hasta 5 a la vez, con progreso en vivo (puede tardar varios minutos)"><i class="fas fa-bolt"></i> Reintentar ahora</button>
@@ -833,13 +838,13 @@ const _tabMeta = {
     reporte:      { icon: 'chart-bar',      title: 'Reporte de Ventas',  subtitle: 'Consulta, filtra y exporta las ventas del período' },
     notas:        { icon: 'receipt',        title: 'Notas de crédito',   subtitle: 'Emite y reenvía notas de crédito electrónicas vinculadas a boletas y facturas' },
     rentabilidad: { icon: 'chart-pie',      title: 'Rentabilidad',       subtitle: 'Análisis de márgenes, ganancia bruta y ROI por período' },
-    reenvios:     { icon: 'arrows-rotate',  title: 'Reenvíos SUNAT',     subtitle: 'Comprobantes con reintentos automáticos — el worker corre cada 5 minutos' },
+    reenvios:     { icon: 'triangle-exclamation', title: 'No enviados',   subtitle: 'Comprobantes que no llegaron a SUNAT (sin CDR) — reenvíalos manualmente o prográmalos al worker' },
 };
 const _tabActions = {
     reporte:      `<button class="btn btn-success" onclick="rptExportar()"><i class="fas fa-file-excel"></i> Descargar Excel</button>`,
     notas:        `<button class="btn btn-primary" onclick="ncAbrirModal()"><i class="fas fa-plus"></i> Nueva nota de crédito</button>`,
     rentabilidad: `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#92400e;display:flex;align-items:center;gap:6px"><i class="fas fa-info-circle"></i> Costos calculados con el precio de compra actual</div>`,
-    reenvios:     `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#1e40af;display:flex;align-items:center;gap:6px"><i class="fas fa-circle-info"></i> Max 20 intentos por comprobante, cada 5 min</div>`,
+    reenvios:     `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:6px 12px;font-size:.78rem;color:#1e40af;display:flex;align-items:center;gap:6px"><i class="fas fa-circle-info"></i> Sin CDR = SUNAT no lo recibió. El worker reintenta cada 5 min (máx. 20 intentos)</div>`,
 };
 const _tabLoaded = { reporte: false, notas: false, rentabilidad: false, reenvios: false };
 
@@ -920,15 +925,16 @@ function rnvCargar() {
     fetch(BASE + 'modules/facturacion/api.php?action=reenvios_stats')
         .then(r => r.json())
         .then(s => {
+            document.getElementById('rnv-stat-pendientes').textContent  = s.pendientes || 0;
             document.getElementById('rnv-stat-programados').textContent = s.programados || 0;
             document.getElementById('rnv-stat-agotados').textContent    = s.agotados || 0;
             document.getElementById('rnv-stat-rechazados').textContent  = s.rechazados || 0;
             document.getElementById('rnv-stat-proximo').textContent     = rnvFormatearFecha(s.proximo_at);
-            const totalActivos = (parseInt(s.programados,10)||0);
+            const totalNoEnviados = (parseInt(s.total_no_enviados,10)||0);
             const badge = document.getElementById('reenvios-badge');
             if (badge) {
-                if (totalActivos > 0) { badge.textContent = totalActivos; badge.style.display = ''; }
-                else                  { badge.style.display = 'none'; }
+                if (totalNoEnviados > 0) { badge.textContent = totalNoEnviados; badge.style.display = ''; }
+                else                     { badge.style.display = 'none'; }
             }
         })
         .catch(() => {});
@@ -944,7 +950,7 @@ function rnvCargar() {
             document.getElementById('rnv-count').textContent = `(${total})`;
             const tbody = document.querySelector('#rnv-table tbody');
             if (!data.length) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes pendientes con esos filtros.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-circle-check" style="color:#10b981;margin-right:6px"></i>No hay comprobantes no enviados con esos filtros.</td></tr>`;
                 if (rnvTable) { rnvTable.destroy(); rnvTable = null; }
                 rnvActualizarBatchBar();
                 return;
