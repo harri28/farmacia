@@ -336,6 +336,94 @@ switch ($action) {
         }
         break;
 
+    case 'orden_eliminar':
+        // Borrado definitivo: revierte el stock que sumó la compra, elimina
+        // cuentas por pagar, ingreso de almacén y la orden. Solo admin/gerente.
+        // Todas las órdenes suman stock al crearse (también las canceladas,
+        // porque cancelar no revierte stock), así que la reversión aplica siempre.
+        requireApiAuth(['admin', 'gerente']);
+        $d       = json_decode(file_get_contents('php://input'), true);
+        $id      = intval($d['id'] ?? 0);
+        $forzar  = !empty($d['forzar_stock_negativo']);
+        if (!$id) {
+            jsonResponse(['error' => true, 'message' => 'ID no válido'], 400);
+        }
+
+        $db->beginTransaction();
+        try {
+            $s = $db->prepare("SELECT numero_orden FROM ordenes_compra WHERE id = :id FOR UPDATE");
+            $s->execute([':id' => $id]);
+            $oc = $s->fetch();
+            if (!$oc) {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'Orden no encontrada'], 404);
+            }
+
+            // Guarda: no borrar si hay pagos a proveedor registrados
+            $p = $db->prepare("
+                SELECT COUNT(*) FROM pagos_proveedor pp
+                JOIN cuentas_por_pagar cpp ON cpp.id = pp.cuenta_id
+                WHERE cpp.orden_compra_id = :id
+            ");
+            $p->execute([':id' => $id]);
+            if ((int) $p->fetchColumn() > 0) {
+                $db->rollBack();
+                jsonResponse(['error' => true, 'message' => 'La orden tiene pagos a proveedor registrados; no se puede eliminar'], 400);
+            }
+
+            // Productos cuyo stock quedaría negativo al revertir
+            $n = $db->prepare("
+                SELECT p.nombre, p.stock, d.cantidad
+                FROM orden_compra_detalles d
+                JOIN productos p ON p.id = d.producto_id
+                WHERE d.orden_id = :id AND p.stock < d.cantidad
+            ");
+            $n->execute([':id' => $id]);
+            $negativos = $n->fetchAll();
+            if ($negativos && !$forzar) {
+                // No se borra: el usuario debe confirmar explícitamente el stock negativo
+                $db->rollBack();
+                jsonResponse([
+                    'error' => true,
+                    'requiere_confirmacion' => true,
+                    'negativos' => $negativos,
+                    'message' => 'Al revertir la orden, el stock quedaría negativo en algunos productos.',
+                ], 409);
+            }
+
+            // 1) Revertir stock
+            $db->prepare("
+                UPDATE productos p
+                SET stock = p.stock - d.cantidad
+                FROM orden_compra_detalles d
+                WHERE d.orden_id = :id AND d.producto_id = p.id
+            ")->execute([':id' => $id]);
+
+            // 2) Cuentas por pagar y pagos (sin pagos, verificado arriba)
+            $db->prepare("DELETE FROM pagos_proveedor WHERE cuenta_id IN (SELECT id FROM cuentas_por_pagar WHERE orden_compra_id = :id)")->execute([':id' => $id]);
+            $db->prepare("DELETE FROM cuentas_por_pagar WHERE orden_compra_id = :id")->execute([':id' => $id]);
+
+            // 3) Ingreso de almacén vinculado
+            $db->prepare("DELETE FROM ingreso_detalles WHERE ingreso_id IN (SELECT id FROM ingresos WHERE orden_compra_id = :id)")->execute([':id' => $id]);
+            $db->prepare("DELETE FROM ingresos WHERE orden_compra_id = :id")->execute([':id' => $id]);
+
+            // 4) Detalle y orden
+            $db->prepare("DELETE FROM orden_compra_detalles WHERE orden_id = :id")->execute([':id' => $id]);
+            $db->prepare("DELETE FROM ordenes_compra WHERE id = :id")->execute([':id' => $id]);
+
+            $db->commit();
+            $detalle = "Orden {$oc['numero_orden']} eliminada (stock revertido)";
+            if ($negativos) {
+                $detalle .= '. Stock negativo confirmado en: ' . implode(', ', array_column($negativos, 'nombre'));
+            }
+            registrarAuditoria('eliminar_orden_compra', 'compras', $detalle);
+            jsonResponse(['error' => false, 'message' => 'Orden eliminada y stock revertido']);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            jsonResponse(['error' => true, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+        break;
+
     // ----------------------------------------------------------------
     // CUENTAS POR PAGAR
     // ----------------------------------------------------------------

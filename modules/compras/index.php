@@ -820,12 +820,42 @@ async function verOrden(id) {
             btns += `<button class="btn btn-secondary" onclick="editarEnvio(${o.id}, ${parseFloat(o.costo_envio||0)})"><i class="fas fa-truck"></i> Editar envío</button>`;
         }
 
+        // Eliminar definitivamente (solo admin/gerente)
+        if (ROL_PUEDE_EDITAR_ENVIO) {
+            btns += `<button class="btn btn-secondary" style="color:#dc2626" onclick="eliminarOrden(${o.id}, '${esc(o.numero_orden)}')"><i class="fas fa-trash"></i> Eliminar</button>`;
+        }
+
         // PDF + Compartir siempre disponibles
         btns += `<button class="btn btn-primary" style="background:#6366f1" onclick="abrirPDF()"><i class="fas fa-file-pdf"></i> Ver PDF</button>`;
         btns += `<button class="btn btn-primary" style="background:#25d366" onclick="cerrarModal('modalDetalleOverlay');document.getElementById('compartirNumOrden').textContent='${esc(o.numero_orden)}';document.getElementById('modalCompartirOverlay').classList.add('active')"><i class="fas fa-share-alt"></i> Compartir</button>`;
 
         footer.innerHTML = btns;
     } catch { document.getElementById('detalleBody').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px">Error al cargar</p>'; }
+}
+
+async function eliminarOrden(id, numero) {
+    if (!confirm(`¿Eliminar definitivamente la orden ${numero}?\n\nSe revertirá el stock de sus productos y se borrará el ingreso de almacén asociado. Esta acción no se puede deshacer.`)) return;
+    let forzar = false;
+    for (let intento = 0; intento < 2; intento++) {
+        try {
+            const r = await fetch(`${API}?action=orden_eliminar`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({id, forzar_stock_negativo: forzar}),
+            });
+            const d = await r.json();
+            if (d.requiere_confirmacion && !forzar) {
+                const lista = d.negativos.map(n => `• ${n.nombre}: stock ${Number(n.stock)} → ${Number(n.stock) - Number(n.cantidad)}`).join('\n');
+                if (!confirm(`Al revertir esta orden, el stock quedará NEGATIVO en:\n\n${lista}\n\n¿Confirmas de todos modos?`)) return;
+                forzar = true;
+                continue;
+            }
+            if (d.error) { toast(d.message,'err'); return; }
+            toast(d.message);
+            cerrarModal('modalDetalleOverlay');
+            cargarOrdenes(); cargarStats();
+            return;
+        } catch { toast('Error de conexión','err'); return; }
+    }
 }
 
 async function editarEnvio(id, actual) {
