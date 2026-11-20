@@ -18,7 +18,10 @@ function generarNumeroOrden(PDO $db): string {
     // relojes causaba colisiones de numero_orden cuando PHP y Postgres
     // no estan perfectamente sincronizados (confirmado en produccion
     // 2026-08-05: PHP iba 1 hora adelantado de Postgres/sistema).
-    $prefijo = 'OC' . date('Ymd') . '-';
+    // Numeración correlativa global: OC-0001, OC-0002, ... (sin fecha).
+    // Se llama dentro de la transacción de orden_crear, que ya toma
+    // pg_advisory_xact_lock para serializar la generación.
+    $prefijo = 'OC-';
     $stmt = $db->prepare("
         SELECT COALESCE(MAX(CAST(SUBSTRING(numero_orden FROM '[0-9]+$') AS INTEGER)), 0) AS ultimo
         FROM ordenes_compra
