@@ -495,6 +495,24 @@ require_once '../../includes/header.php';
 <!-- ============================================================
      MODAL: Registrar Pago
 ============================================================ -->
+<!-- MODAL: Eliminar orden (confirmación propia, reemplaza confirm() nativo) -->
+<div class="modal-overlay" id="modalEliminarOverlay">
+<div class="modal" style="max-width:460px">
+    <div class="modal-header">
+        <h3 class="modal-title" style="color:#dc2626"><i class="fas fa-trash"></i> Eliminar orden</h3>
+        <button class="modal-close" onclick="cerrarModal('modalEliminarOverlay')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:22px 24px">
+        <p id="elimMensaje" style="font-size:.92rem;line-height:1.5;margin:0"></p>
+        <div id="elimNegativos" style="display:none;margin-top:14px;padding:12px;background:#fef2f2;border-radius:8px;font-size:.85rem;color:#991b1b;line-height:1.6"></div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+        <button class="btn btn-secondary" onclick="cerrarModal('modalEliminarOverlay')">Cancelar</button>
+        <button class="btn btn-primary" id="elimBtnConfirmar" style="background:#dc2626" onclick="confirmarEliminarOrden()"><i class="fas fa-trash"></i> Eliminar</button>
+    </div>
+</div>
+</div>
+
 <div class="modal-overlay" id="modalPagoOverlay">
 <div class="modal modal-md">
     <div class="modal-header">
@@ -833,28 +851,51 @@ async function verOrden(id) {
     } catch { document.getElementById('detalleBody').innerHTML = '<p style="color:#dc2626;text-align:center;padding:20px">Error al cargar</p>'; }
 }
 
-async function eliminarOrden(id, numero) {
-    if (!confirm(`¿Eliminar definitivamente la orden ${numero}?\n\nSe revertirá el stock de sus productos y se borrará el ingreso de almacén asociado. Esta acción no se puede deshacer.`)) return;
-    let forzar = false;
-    for (let intento = 0; intento < 2; intento++) {
-        try {
-            const r = await fetch(`${API}?action=orden_eliminar`, {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({id, forzar_stock_negativo: forzar}),
-            });
-            const d = await r.json();
-            if (d.requiere_confirmacion && !forzar) {
-                const lista = d.negativos.map(n => `• ${n.nombre}: stock ${Number(n.stock)} → ${Number(n.stock) - Number(n.cantidad)}`).join('\n');
-                if (!confirm(`Al revertir esta orden, el stock quedará NEGATIVO en:\n\n${lista}\n\n¿Confirmas de todos modos?`)) return;
-                forzar = true;
-                continue;
-            }
-            if (d.error) { toast(d.message,'err'); return; }
-            toast(d.message);
-            cerrarModal('modalDetalleOverlay');
-            cargarOrdenes(); cargarStats();
+let _elimState = null; // { id, numero, forzar }
+
+function eliminarOrden(id, numero) {
+    _elimState = { id, numero, forzar: false };
+    document.getElementById('elimMensaje').textContent =
+        `Se eliminará definitivamente la orden ${numero}. Se revertirá el stock de sus productos y se borrará el ingreso de almacén asociado. Esta acción no se puede deshacer.`;
+    const neg = document.getElementById('elimNegativos');
+    neg.style.display = 'none';
+    neg.innerHTML = '';
+    const btn = document.getElementById('elimBtnConfirmar');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+    document.getElementById('modalEliminarOverlay').classList.add('active');
+}
+
+async function confirmarEliminarOrden() {
+    if (!_elimState) return;
+    const btn = document.getElementById('elimBtnConfirmar');
+    btn.disabled = true;
+    try {
+        const r = await fetch(`${API}?action=orden_eliminar`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ id: _elimState.id, forzar_stock_negativo: _elimState.forzar }),
+        });
+        const d = await r.json();
+        if (d.requiere_confirmacion && !_elimState.forzar) {
+            // Mostrar en el modal los productos que quedarían negativos y pedir confirmación explícita
+            const neg = document.getElementById('elimNegativos');
+            neg.innerHTML = '<strong>El stock quedará negativo en:</strong><br>' +
+                d.negativos.map(n => `• ${esc(n.nombre)}: ${Number(n.stock)} → ${Number(n.stock) - Number(n.cantidad)}`).join('<br>');
+            neg.style.display = 'block';
+            _elimState.forzar = true;
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Eliminar de todos modos';
+            btn.disabled = false;
             return;
-        } catch { toast('Error de conexión','err'); return; }
+        }
+        if (d.error) { toast(d.message, 'err'); btn.disabled = false; return; }
+        toast(d.message);
+        _elimState = null;
+        cerrarModal('modalEliminarOverlay');
+        cerrarModal('modalDetalleOverlay');
+        cargarOrdenes(); cargarStats();
+    } catch {
+        toast('Error de conexión', 'err');
+        btn.disabled = false;
     }
 }
 
