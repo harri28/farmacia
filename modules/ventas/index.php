@@ -794,17 +794,11 @@ include '../../includes/header.php';
                 <div id="ticket-body"></div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline btn-sm" onclick="printReceipt(document.getElementById('ticket-body').innerHTML)">
-                <i class="fas fa-print"></i> Imprimir
+        <div class="modal-footer" style="display:flex;gap:10px">
+            <button class="btn btn-outline" onclick="enviarWhatsApp()" style="flex:1;border-color:#25d366;color:#25d366">
+                <i class="fab fa-whatsapp"></i> Enviar por WhatsApp
             </button>
-            <button class="btn btn-outline btn-sm" onclick="enviarWhatsApp()" style="border-color:#25d366;color:#25d366">
-                <i class="fab fa-whatsapp"></i> WhatsApp
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="copiarEnlaceComprobante()">
-                <i class="fas fa-link"></i> Copiar enlace de comprobante
-            </button>
-            <button class="btn btn-primary" onclick="closeModal('modal-ticket');resetPOS()">
+            <button class="btn btn-primary" onclick="closeModal('modal-ticket');resetPOS()" style="flex:1">
                 <i class="fas fa-plus"></i> Nueva Venta
             </button>
         </div>
