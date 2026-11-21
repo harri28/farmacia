@@ -97,10 +97,11 @@ include '../../includes/header.php';
 .fact-dt-table thead th { white-space: nowrap; }
 .fact-dt-table tbody td { vertical-align: middle; }
 .fact-dt-table { table-layout: fixed; }
-/* Centrar CDR / Estado / Acciones (SUNAT ya se centra vía .sunat-cell) --
+/* Centrar CDR / SUNAT (header+celdas) / Estado / Programación --
    posiciones de columna difieren entre las dos tablas, se apunta cada una
    por su ID. */
 #rpt-ventas-table th:nth-child(6), #rpt-ventas-table td:nth-child(6),
+#rpt-ventas-table th:nth-child(7), #rpt-ventas-table td:nth-child(7),
 #rpt-ventas-table th:nth-child(8), #rpt-ventas-table td:nth-child(8),
 #rpt-ventas-table th:nth-child(9), #rpt-ventas-table td:nth-child(9) {
     text-align: center;
