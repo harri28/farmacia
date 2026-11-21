@@ -34,6 +34,7 @@ if (PHP_SAPI !== 'cli') {
 date_default_timezone_set('America/Lima');
 
 $MAX_INTENTOS   = 20;
+$DIAS_VENTANA   = 2;   // solo reenviar comprobantes de los ultimos N dias
 $INTERVALO_MIN  = 5;   // minutos entre reintentos
 
 // --- Lock de ejecucion ---
@@ -67,7 +68,7 @@ if ($onlySchema) { _log("Modo pruebas: solo el esquema {$onlySchema}"); }
 
 // --- Iterar sucursales activas ---
 $sucursales = $pdo->query("
-    SELECT id, tenant_id, nombre, schema_name
+    SELECT id, tenant_id, nombre, schema_name, envio_sunat_automatico
     FROM public.sucursales
     WHERE COALESCE(activo, TRUE) = TRUE
     ORDER BY tenant_id, id
@@ -79,6 +80,16 @@ foreach ($sucursales as $suc) {
     $schema = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $suc['schema_name']));
     if ($schema === '') continue;
     if ($onlySchema !== null && $schema !== $onlySchema) continue;
+
+    // Interruptor por sucursal: en modo MANUAL (envio_sunat_automatico=false) el
+    // cron NO auto-envia. Una corrida dirigida con --schema lo ignora, porque es
+    // un disparo manual explicito del usuario.
+    $flagAuto = $suc['envio_sunat_automatico'] ?? true;
+    $autoOff  = ($flagAuto === 'f' || $flagAuto === false || $flagAuto === '0' || $flagAuto === 0);
+    if ($onlySchema === null && $autoOff) {
+        _log("[{$schema}] modo MANUAL: se omite (envio automatico desactivado).");
+        continue;
+    }
 
     // Setear contexto para enviar_sunat (lee $_SESSION['tenant_id'])
     $_SESSION['tenant_id']       = (int) $suc['tenant_id'];
@@ -103,10 +114,14 @@ foreach ($sucursales as $suc) {
               AND ce.reenvio_proximo_at <= NOW()
               AND COALESCE(ce.reenvio_intentos, 0) < :tope
               AND v.estado <> 'anulada'
+              -- Solo comprobantes recientes (del dia / ultimos dias). Evita
+              -- barrer comprobantes viejos que quedaron pendientes hace semanas
+              -- (esos se regularizan aparte, no se reintentan en la ventana).
+              AND ce.created_at >= (CURRENT_DATE - (:dias || ' days')::interval)
             ORDER BY ce.reenvio_proximo_at ASC
             LIMIT 50
         ");
-        $stmt->execute([':tope' => $MAX_INTENTOS]);
+        $stmt->execute([':tope' => $MAX_INTENTOS, ':dias' => (string) $DIAS_VENTANA]);
         $candidatos = $stmt->fetchAll();
     } catch (Throwable $e) {
         _log("[{$schema}] fallo query de candidatos: " . $e->getMessage());

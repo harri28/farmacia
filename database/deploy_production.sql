@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.sucursales (
     direccion   TEXT,
     telefono    VARCHAR(20),
     activo      BOOLEAN   DEFAULT TRUE,
+    envio_sunat_automatico BOOLEAN DEFAULT TRUE,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

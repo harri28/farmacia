@@ -161,6 +161,13 @@ include '../../includes/header.php';
 .total-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 110px; padding: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; font-weight: 700; color: var(--text); }
 .icon-action-btn { width: 34px; height: 34px; border-radius: 999px; border: 1px solid #dbeafe; background: #f8fbff; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; transition: .18s ease; }
 .rnv-row-check, #rnv-check-all { width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; margin: 0; }
+/* Interruptor estilo iOS (envio Automatico/Manual) */
+.ios-switch { position: relative; display: inline-block; width: 42px; height: 24px; vertical-align: middle; }
+.ios-switch input { opacity: 0; width: 0; height: 0; }
+.ios-slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 24px; transition: .25s; }
+.ios-slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .25s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.ios-switch input:checked + .ios-slider { background: #22c55e; }
+.ios-switch input:checked + .ios-slider:before { transform: translateX(18px); }
 .icon-action-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .actions-inline { display: flex; gap: 8px; justify-content: center; }
 .sunat-cell { width: 88px !important; min-width: 88px !important; max-width: 88px !important; white-space: nowrap; text-align: center; padding-left: 8px !important; padding-right: 8px !important; }
@@ -899,7 +906,7 @@ function switchTab(tab) {
 
     if (!_tabLoaded[tab]) {
         _tabLoaded[tab] = true;
-        if (tab === 'reporte')      { rptCargarMotivos(); rptBuscar(); }
+        if (tab === 'reporte')      { rptCargarMotivos(); rptCargarEnvioAuto(); rptBuscar(); }
         if (tab === 'notas')        { Promise.all([ncCargarMotivos(), ncCargarOrigenes()]).then(() => ncCargarNotas()); }
         if (tab === 'rentabilidad') { rentLoadFiltros(); rentBuscar(); }
         if (tab === 'reenvios')     { rnvCargar(); }
@@ -1289,6 +1296,7 @@ function rchExportar() {
 // ================================================================
 
 let rptTable = null;
+let rptEnvioAuto = true;   // interruptor envio automatico a SUNAT (por sucursal)
 let rptCache = [];
 let rptMap   = {};
 let rptNcOrigen  = null;
@@ -1321,8 +1329,55 @@ function rptInitTable() {
         columnDefs: [
             { targets: [6,7,8,9], orderable: false, searchable: false },
             { targets: 3, className: 'dt-body-right' }
-        ]
+        ],
+        initComplete: function() { rptInyectarToggleEnvio(); }
     });
+}
+
+// --- Interruptor Automatico/Manual del envio a SUNAT (por sucursal) ---
+function rptEnvioToggleHTML() {
+    return `<div class="rpt-envio-toggle" style="display:inline-flex;align-items:center;gap:7px;margin-right:18px;white-space:nowrap">
+        <span id="rpt-lbl-auto" style="font-size:.8rem">Automático</span>
+        <label class="ios-switch" title="Automático: el sistema envía las boletas/facturas solo de 1 a 2am. Manual: no se envían solas; tú las envías con el botón de cada fila.">
+            <input type="checkbox" id="rpt-envio-auto-chk" onchange="rptToggleEnvioAuto(this.checked)">
+            <span class="ios-slider"></span>
+        </label>
+        <span id="rpt-lbl-manual" style="font-size:.8rem">Manual</span>
+    </div>`;
+}
+function rptAplicarEnvioAutoUI() {
+    const chk = document.getElementById('rpt-envio-auto-chk');
+    if (chk) chk.checked = !!rptEnvioAuto;
+    const la = document.getElementById('rpt-lbl-auto');
+    const lm = document.getElementById('rpt-lbl-manual');
+    if (la) { la.style.fontWeight = rptEnvioAuto ? '700' : '400'; la.style.color = rptEnvioAuto ? '#16a34a' : 'var(--text-muted)'; }
+    if (lm) { lm.style.fontWeight = rptEnvioAuto ? '400' : '700'; lm.style.color = rptEnvioAuto ? 'var(--text-muted)' : '#b45309'; }
+}
+function rptInyectarToggleEnvio() {
+    const bar = document.querySelector('#rpt-ventas-table_wrapper .dt-toolbar');
+    if (!bar || bar.querySelector('#rpt-envio-auto-chk')) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = rptEnvioToggleHTML().trim();
+    bar.insertBefore(tmp.firstElementChild, bar.firstChild);
+    rptAplicarEnvioAutoUI();
+}
+function rptCargarEnvioAuto() {
+    fetch(BASE + 'modules/facturacion/api.php?action=envio_auto_get')
+        .then(r => r.json())
+        .then(d => { rptEnvioAuto = !!d.automatico; rptAplicarEnvioAutoUI(); })
+        .catch(() => {});
+}
+function rptToggleEnvioAuto(checked) {
+    rptEnvioAuto = !!checked;
+    rptAplicarEnvioAutoUI();
+    fetch(BASE + 'modules/facturacion/api.php?action=envio_auto_set', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ automatico: !!checked })
+    })
+    .then(async r => { const d = await r.json(); if (!r.ok || d.error) throw new Error(d.message||'No se pudo guardar.');
+        showToast(checked ? 'Envío a SUNAT: AUTOMÁTICO (1–2am)' : 'Envío a SUNAT: MANUAL (lo envías tú)', 'success');
+    })
+    .catch(err => { showToast(err.message || 'Error al guardar', 'error'); rptCargarEnvioAuto(); });
 }
 
 function rptSetPeriodo(p) {

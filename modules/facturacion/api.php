@@ -1336,6 +1336,38 @@ switch ($action) {
         }
         break;
 
+    // ---- GET: Estado del interruptor de envio automatico (por sucursal) ----
+    case 'envio_auto_get':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $sid  = sesionSucursalId();
+            $stmt = $db->prepare("SELECT COALESCE(envio_sunat_automatico, TRUE) AS auto FROM public.sucursales WHERE id = :sid");
+            $stmt->execute([':sid' => $sid]);
+            $row  = $stmt->fetch();
+            $auto = $row ? !in_array($row['auto'], ['f', false, '0', 0], true) : true;
+            echo json_encode(['automatico' => $auto]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
+    // ---- POST: Cambiar el interruptor automatico/manual (por sucursal) ----
+    case 'envio_auto_set':
+        header('Content-Type: application/json; charset=UTF-8');
+        try {
+            $raw  = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?: [];
+            $val  = !empty($data['automatico']);   // true = automatico, false = manual
+            $sid  = sesionSucursalId();
+            $db->prepare("UPDATE public.sucursales SET envio_sunat_automatico = (:val)::boolean WHERE id = :sid")
+               ->execute([':val' => $val ? 'true' : 'false', ':sid' => $sid]);
+            registrarAuditoria('Envio SUNAT', 'facturacion', 'Sucursal ' . $sid . ' -> ' . ($val ? 'AUTOMATICO' : 'MANUAL'));
+            echo json_encode(['error' => false, 'automatico' => $val]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+        break;
+
     // ---- GET: Exportar a CSV (Excel) la lista de No enviados / Rechazados ----
     case 'reenvios_exportar':
         $vista    = trim((string) ($_GET['vista'] ?? 'rechazados'));
