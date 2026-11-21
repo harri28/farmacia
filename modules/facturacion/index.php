@@ -1467,7 +1467,7 @@ function rptLoadReporte() {
                     ${v.comprobante_id&&v.enlace_cdr&&v.tipo_comprobante!=='ticket' ? actionIconButton('file-circle-plus','Generar nota de crédito',null,`rptAbrirNc(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${v.enlace_pdf ? actionIconButton('file-pdf','Ver PDF',v.enlace_pdf) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
-                    ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)})`) : ''}
+                    ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)}, this)`) : ''}
                 </div>`;
                 // Columna "Programación": si ya tiene CDR, muestra el estado SUNAT
                 // actual (aceptado/observado, bajo verificacion del CDR); si no, es
@@ -1518,14 +1518,38 @@ function facDescargarSunatZip(comprobanteId) {
     showToast('Descargando XML + CDR...','success');
 }
 
-function rptReenviarSunat(comprobanteId) {
+function rptReenviarSunat(comprobanteId, btn) {
     if (!comprobanteId) return;
+    if (btn && btn.dataset.loading === '1') return; // evitar doble clic
+    let original = null;
+    if (btn) {
+        original = btn.innerHTML;
+        btn.dataset.loading = '1';
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    showToast('<i class="fas fa-paper-plane"></i> Enviando a SUNAT… (puede tardar unos segundos)', 'info');
     fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ comprobante_id: comprobanteId })
     })
-    .then(async r => { const d=await r.json(); if(!r.ok||d.error) throw new Error(d.message||'No se pudo reenviar.'); showToast(d.message||'Reenviado a SUNAT.','success'); rptBuscar(); })
-    .catch(err => showToast(err.message||'Error al reenviar a SUNAT','error'));
+    .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.message||'No se pudo reenviar.');
+        if (btn) btn.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981"></i>';
+        showToast(d.message||'¡Enviado a SUNAT!','success');
+        setTimeout(() => rptBuscar(), 900);
+    })
+    .catch(err => {
+        if (btn) {
+            btn.innerHTML = original;
+            btn.style.pointerEvents = '';
+            btn.style.opacity = '';
+            delete btn.dataset.loading;
+        }
+        showToast(err.message||'Error al reenviar a SUNAT','error');
+    });
 }
 
 function rptBuildTicketHtml(data) {
