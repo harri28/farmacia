@@ -54,6 +54,17 @@ require_once __DIR__ . '/../modules/facturacion/_sunat_resend_helpers.php';
 
 $pdo = getDB();
 
+// Opcional: --schema=<nombre> limita la corrida a UN solo esquema (para
+// pruebas en un tenant sin tocar los demas). Ej:
+//   php reenviar_sunat_pendientes.php --schema=mi_esquema_pruebas
+$onlySchema = null;
+foreach ((array) ($argv ?? []) as $arg) {
+    if (strpos((string) $arg, '--schema=') === 0) {
+        $onlySchema = preg_replace('/[^a-z0-9_]/', '', strtolower(substr((string) $arg, 9)));
+    }
+}
+if ($onlySchema) { _log("Modo pruebas: solo el esquema {$onlySchema}"); }
+
 // --- Iterar sucursales activas ---
 $sucursales = $pdo->query("
     SELECT id, tenant_id, nombre, schema_name
@@ -67,6 +78,7 @@ $totales = ['sucursales' => 0, 'procesados' => 0, 'exitosos' => 0, 'fallidos' =>
 foreach ($sucursales as $suc) {
     $schema = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $suc['schema_name']));
     if ($schema === '') continue;
+    if ($onlySchema !== null && $schema !== $onlySchema) continue;
 
     // Setear contexto para enviar_sunat (lee $_SESSION['tenant_id'])
     $_SESSION['tenant_id']       = (int) $suc['tenant_id'];
