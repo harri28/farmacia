@@ -902,39 +902,20 @@ switch ($action) {
                 }
             }
 
+            // ENVIO DIFERIDO A SUNAT: la venta se genera EXACTAMENTE igual que
+            // siempre, pero las boletas/facturas NO se envian a SUNAT al momento
+            // de vender. Se dejan "pendientes" y programadas; el worker
+            // scripts/reenviar_sunat_pendientes.php (cron 1-2am) las envia en la
+            // madrugada. Asi se pueden anular durante el dia sin que hayan ido a
+            // SUNAT. Los tickets nunca se envian (no entran a este bloque).
             $comprobanteResult = null;
             if ($compData) {
-                require_once '../../config/sunat.php';
-                $itemsSunat = array_values($productosInfo);
-                $ventaInfo = [
-                    'numero_venta' => $numeroVenta,
-                    'tipo_pago' => $tipoPago,
-                    'sunat_forma_pago' => $sunatFormaPago,
-                    'fecha_emision' => date('Y-m-d'),
-                    'hora_emision' => date('H:i:s'),
-                    'moneda' => 'PEN',
-                    'totales' => $resumen,
-                ];
-                $comprobanteResult = enviar_sunat($db, $compData, $clienteInfo, $itemsSunat, $ventaInfo);
-                // Si fallo por error de red/timeout (no hay CDR y no hubo respuesta
-                // de SUNAT), programar el primer reintento para dentro de 5 minutos.
-                // El worker scripts/reenviar_sunat_pendientes.php lo tomara.
-                $falloRed = $comprobanteResult
-                    && !empty($comprobanteResult['error_nubefact'])
-                    && empty($comprobanteResult['enlace_del_cdr'])
-                    && ($comprobanteResult['response_code'] ?? null) === null;
-                if ($falloRed) {
-                    $db->prepare("
-                        UPDATE comprobantes_electronicos
-                        SET reenvio_intentos = 0,
-                            reenvio_proximo_at = NOW() + interval '5 minutes',
-                            reenvio_ultimo_error = :err
-                        WHERE id = :id
-                    ")->execute([
-                        ':err' => (string) ($comprobanteResult['mensaje'] ?? 'Error desconocido'),
-                        ':id'  => (int) $compData['id'],
-                    ]);
-                }
+                $db->prepare("
+                    UPDATE comprobantes_electronicos
+                    SET reenvio_intentos   = 0,
+                        reenvio_proximo_at = NOW()
+                    WHERE id = :id
+                ")->execute([':id' => (int) $compData['id']]);
             }
 
             echo json_encode([
@@ -1114,6 +1095,11 @@ switch ($action) {
 
             $db->prepare("UPDATE ventas SET estado = 'anulada', motivo_anulacion = :motivo WHERE id = :id")
                 ->execute([':motivo' => $motivo, ':id' => $id]);
+
+            // Si la B/F aun no se habia enviado a SUNAT (envio diferido), quitarla
+            // de la cola para que el worker NO la envie en la madrugada.
+            $db->prepare("UPDATE comprobantes_electronicos SET reenvio_proximo_at = NULL WHERE venta_id = :id AND COALESCE(enlace_del_cdr,'') = ''")
+                ->execute([':id' => $id]);
 
             if ($venta['caja_id']) {
                 $db->prepare("UPDATE cajas SET saldo_actual = saldo_actual - :total WHERE id = :cid")

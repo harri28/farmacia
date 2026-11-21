@@ -83,13 +83,15 @@ foreach ($sucursales as $suc) {
     // Candidatos: sin CDR, con reenvio_proximo_at vencido, bajo el tope
     try {
         $stmt = $pdo->prepare("
-            SELECT id, numero_completo, reenvio_intentos
-            FROM comprobantes_electronicos
-            WHERE COALESCE(enlace_del_cdr, '') = ''
-              AND reenvio_proximo_at IS NOT NULL
-              AND reenvio_proximo_at <= NOW()
-              AND COALESCE(reenvio_intentos, 0) < :tope
-            ORDER BY reenvio_proximo_at ASC
+            SELECT ce.id, ce.numero_completo, ce.reenvio_intentos
+            FROM comprobantes_electronicos ce
+            JOIN ventas v ON v.id = ce.venta_id
+            WHERE COALESCE(ce.enlace_del_cdr, '') = ''
+              AND ce.reenvio_proximo_at IS NOT NULL
+              AND ce.reenvio_proximo_at <= NOW()
+              AND COALESCE(ce.reenvio_intentos, 0) < :tope
+              AND v.estado <> 'anulada'
+            ORDER BY ce.reenvio_proximo_at ASC
             LIMIT 50
         ");
         $stmt->execute([':tope' => $MAX_INTENTOS]);

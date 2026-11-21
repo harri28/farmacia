@@ -274,11 +274,11 @@ include '../../includes/header.php';
             </div>
         </div>
         <div class="table-wrap">
-            <table id="rpt-ventas-table" class="display fact-dt-table" style="width:100%;min-width:1180px">
+            <table id="rpt-ventas-table" class="display fact-dt-table" style="width:100%;min-width:1300px">
                 <thead><tr>
                     <th>Fecha</th><th>Cliente</th><th>Comprobante</th>
                     <th class="text-center">Total</th><th>XML</th><th>CDR</th>
-                    <th>SUNAT</th><th>Estado</th><th>Acciones</th>
+                    <th>SUNAT</th><th>Estado</th><th>Programación</th><th>Acciones</th>
                 </tr></thead>
                 <tbody id="rpt-tabla-body">
                     <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
@@ -1319,7 +1319,7 @@ function rptInitTable() {
             paginate: { first:'Primero', last:'Ultimo', next:'Siguiente', previous:'Anterior' }
         },
         columnDefs: [
-            { targets: [6,7,8], orderable: false, searchable: false },
+            { targets: [6,7,8,9], orderable: false, searchable: false },
             { targets: 3, className: 'dt-body-right' }
         ]
     });
@@ -1367,7 +1367,7 @@ function rptShortSunat(rawStatus, responseCode = null) {
 function rptLoadReporte() {
     rptDestroyTable();
     document.getElementById('rpt-tabla-body').innerHTML =
-        '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+        '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
     document.getElementById('rpt-result-count').textContent = '...';
     const foot = document.getElementById('rpt-tabla-foot');
     if (foot) { foot.innerHTML = ''; foot.style.display = 'none'; }
@@ -1378,14 +1378,14 @@ function rptLoadReporte() {
             rptCache = Array.isArray(data) ? data : [];
             if (data.error) {
                 document.getElementById('rpt-tabla-body').innerHTML =
-                    `<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
+                    `<tr><td colspan="10" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
                 document.getElementById('rpt-result-count').textContent = 'Error';
                 rptRenderSummary(0,0); return;
             }
             document.getElementById('rpt-result-count').textContent = `${data.length} resultado(s)`;
             if (!data.length) {
                 document.getElementById('rpt-tabla-body').innerHTML =
-                    '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
+                    '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
                 rptRenderSummary(0,0); return;
             }
             rptMap = {};
@@ -1414,6 +1414,12 @@ function rptLoadReporte() {
                     ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)})`) : ''}
                 </div>`;
+                // Columna "Programación": si ya tiene CDR, muestra el estado SUNAT
+                // actual (aceptado/observado, bajo verificacion del CDR); si no, es
+                // una B/F pendiente del envio nocturno.
+                const programacion = v.enlace_cdr
+                    ? `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>`
+                    : '<span style="color:#b45309;font-size:.8rem;white-space:nowrap"><i class="fas fa-clock"></i> Programado envío 1:00 am</span>';
                 return `<tr>
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
                     <td><div class="client-block"><div class="client-name">${esc(v.cliente)}</div>${clienteDoc?`<div class="client-doc">${esc(clienteDoc)}</div>`:''}</div></td>
@@ -1425,6 +1431,7 @@ function rptLoadReporte() {
                         ${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}
                     </td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
+                    <td>${programacion}</td>
                     <td>${acciones}</td>
                 </tr>`;
             }).join('');
@@ -1434,7 +1441,7 @@ function rptLoadReporte() {
         })
         .catch(() => {
             document.getElementById('rpt-tabla-body').innerHTML =
-                '<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> Error al cargar el reporte</td></tr>';
+                '<tr><td colspan="10" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> Error al cargar el reporte</td></tr>';
             rptRenderSummary(0,0);
         });
 }
