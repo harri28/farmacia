@@ -204,6 +204,36 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         }
         .u-tab.active .u-tab-count { background: #eef2ff; color: #4f46e5; }
 
+        /* Editor con formato (Observaciones) */
+        .rte { border: 1.5px solid var(--sa-border); border-radius: 8px; background: var(--sa-surface); overflow: hidden; transition: border-color .15s; }
+        .rte:focus-within { border-color: #6366f1; }
+        .rte-toolbar {
+            display: flex; align-items: center; gap: 3px; flex-wrap: wrap;
+            padding: 6px 8px; background: var(--sa-surface-2);
+            border-bottom: 1px solid var(--sa-border);
+        }
+        .rte-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border: none; border-radius: 6px;
+            background: none; color: var(--sa-text-secondary); cursor: pointer;
+            font-size: .82rem; transition: background .12s, color .12s;
+        }
+        .rte-btn:hover { background: var(--sa-border); color: var(--sa-text); }
+        .rte-sep { width: 1px; height: 18px; background: var(--sa-border); margin: 0 4px; }
+        .rte-size {
+            height: 30px; border: 1px solid var(--sa-border); border-radius: 6px;
+            background: var(--sa-surface); color: var(--sa-text); font-size: .8rem;
+            padding: 0 6px; cursor: pointer; outline: none;
+        }
+        .rte-editor {
+            min-height: 90px; max-height: 260px; overflow-y: auto;
+            padding: 10px 12px; font-size: .88rem; color: var(--sa-text);
+            line-height: 1.5; outline: none; font-family: inherit;
+        }
+        .rte-editor:empty::before { content: attr(data-placeholder); color: var(--sa-text-light); pointer-events: none; }
+        .rte-editor ul, .rte-editor ol { margin: 4px 0 4px 22px; }
+        .rte-editor p { margin: 0 0 6px; }
+
         /* Empty state */
         .empty { padding: 40px 20px; text-align: center; color: var(--sa-text-light); font-size: .85rem; }
         .empty i { font-size: 2rem; display: block; margin-bottom: 10px; }
@@ -530,9 +560,29 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
                 <div class="form-row">
                     <div class="form-group">
                         <label>Observaciones</label>
-                        <textarea id="uObservaciones" placeholder="Notas sobre el usuario..." rows="2"
-                            style="width:100%;padding:9px 11px;background:var(--sa-surface);border:1.5px solid var(--sa-border);border-radius:8px;font-size:.88rem;color:var(--sa-text);outline:none;resize:vertical;font-family:inherit;transition:border-color .15s"
-                            onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='var(--sa-border)'"></textarea>
+                        <div class="rte">
+                            <div class="rte-toolbar">
+                                <button type="button" class="rte-btn" title="Negrita" onmousedown="rteCmd(event,'bold')"><i class="fas fa-bold"></i></button>
+                                <button type="button" class="rte-btn" title="Cursiva" onmousedown="rteCmd(event,'italic')"><i class="fas fa-italic"></i></button>
+                                <button type="button" class="rte-btn" title="Subrayado" onmousedown="rteCmd(event,'underline')"><i class="fas fa-underline"></i></button>
+                                <span class="rte-sep"></span>
+                                <button type="button" class="rte-btn" title="Lista con viñetas" onmousedown="rteCmd(event,'insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
+                                <button type="button" class="rte-btn" title="Lista numerada" onmousedown="rteCmd(event,'insertOrderedList')"><i class="fas fa-list-ol"></i></button>
+                                <span class="rte-sep"></span>
+                                <select class="rte-size" title="Tamaño de letra" onchange="rteFont(this)">
+                                    <option value="">Tamaño</option>
+                                    <option value="2">Pequeño</option>
+                                    <option value="3">Normal</option>
+                                    <option value="5">Grande</option>
+                                    <option value="6">Muy grande</option>
+                                </select>
+                                <span class="rte-sep"></span>
+                                <button type="button" class="rte-btn" title="Quitar formato" onmousedown="rteCmd(event,'removeFormat')"><i class="fas fa-eraser"></i></button>
+                            </div>
+                            <div id="uObservaciones" class="rte-editor" contenteditable="true"
+                                 data-placeholder="Notas sobre el usuario..."
+                                 onmouseup="rteSaveSel()" onkeyup="rteSaveSel()" onblur="rteSaveSel()"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="form-actions">
@@ -1045,7 +1095,7 @@ function renderUsuarios() {
                 <td style="text-align:right">
                     <div style="display:flex;gap:5px;justify-content:flex-end">
                         <button class="btn-icon btn-edit" title="Editar"
-                            onclick="prepEditUsuario(${u.id},'${esc(u.nombre)}','${esc(u.apellido||'')}','${esc(u.username)}','${esc(u.password_plain||'')}','${esc(u.observaciones||'')}',${primera?.sucursal_id||'null'},'${primera?.rol||'cajero'}')">
+                            onclick="prepEditUsuario(${u.id})">
                             <i class="fas fa-pen"></i>
                         </button>
                         <button class="btn-icon btn-toggle ${activo?'':'off'}" title="${activo?'Desactivar':'Activar'}"
@@ -1089,7 +1139,7 @@ function cerrarFormUsuario() {
     document.getElementById('formUsuario').classList.remove('open');
     document.getElementById('uEditId').value = '';
     ['uNombre','uApellido','uUsername','uPassword'].forEach(id => document.getElementById(id).value='');
-    document.getElementById('uObservaciones').value = '';
+    obsSetHTML('');
     document.getElementById('uSucursal').value = '';
     document.getElementById('uRol').value = 'cajero';
     document.getElementById('formUsuarioTitulo').innerHTML = '<i class="fas fa-user-plus" style="color:#6366f1;margin-right:6px"></i>Nuevo usuario';
@@ -1100,14 +1150,19 @@ function cerrarFormUsuario() {
     document.getElementById('uPassEyeIcon').className = 'fas fa-eye';
 }
 
-function prepEditUsuario(id, nombre, apellido, username, passwordPlain, observaciones, sucursalId, rol) {
-    document.getElementById('uEditId').value         = id;
-    document.getElementById('uNombre').value         = nombre;
-    document.getElementById('uApellido').value       = apellido;
-    document.getElementById('uUsername').value       = username;
-    document.getElementById('uPassword').value       = passwordPlain || '';
-    document.getElementById('uObservaciones').value  = observaciones || '';
-    document.getElementById('uRol').value            = rol || 'cajero';
+function prepEditUsuario(id) {
+    const u = _usuariosData.find(x => String(x.id) === String(id));
+    if (!u) { toast('Usuario no encontrado','err'); return; }
+    const acc = typeof u.accesos === 'string' ? JSON.parse(u.accesos) : (u.accesos || []);
+    const primera = acc[0] ?? null;
+
+    document.getElementById('uEditId').value    = u.id;
+    document.getElementById('uNombre').value    = u.nombre || '';
+    document.getElementById('uApellido').value  = u.apellido || '';
+    document.getElementById('uUsername').value  = u.username || '';
+    document.getElementById('uPassword').value  = u.password_plain || '';
+    obsSetHTML(u.observaciones || '');
+    document.getElementById('uRol').value       = primera?.rol || 'cajero';
     document.getElementById('formUsuarioTitulo').innerHTML = '<i class="fas fa-pen" style="color:#6366f1;margin-right:6px"></i>Editar usuario';
     document.getElementById('uPassLabel').textContent = 'Nueva contraseña';
     document.getElementById('uPassHint').style.display = '';
@@ -1115,8 +1170,50 @@ function prepEditUsuario(id, nombre, apellido, username, passwordPlain, observac
     document.getElementById('uPassEyeIcon').className = 'fas fa-eye';
     const panel = document.getElementById('formUsuario');
     panel.classList.add('open');
-    cargarSucursalesSelect(sucursalId);
+    cargarSucursalesSelect(primera?.sucursal_id || null);
     panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ---- Editor con formato (Observaciones) ----
+let _rteRange = null;
+function rteSaveSel() {
+    const sel = window.getSelection();
+    const ed = document.getElementById('uObservaciones');
+    if (sel && sel.rangeCount && ed.contains(sel.anchorNode)) {
+        _rteRange = sel.getRangeAt(0);
+    }
+}
+function rteRestoreSel() {
+    const ed = document.getElementById('uObservaciones');
+    ed.focus();
+    if (_rteRange) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(_rteRange);
+    }
+}
+function rteCmd(ev, cmd) {
+    ev.preventDefault(); // conserva la selección dentro del editor
+    document.getElementById('uObservaciones').focus();
+    document.execCommand(cmd, false, null);
+    rteSaveSel();
+}
+function rteFont(sel) {
+    const size = sel.value;
+    sel.selectedIndex = 0; // vuelve a "Tamaño"
+    if (!size) return;
+    rteRestoreSel();
+    document.execCommand('fontSize', false, size);
+    rteSaveSel();
+}
+function obsSetHTML(html) {
+    document.getElementById('uObservaciones').innerHTML = html || '';
+}
+function obsGetHTML() {
+    const ed = document.getElementById('uObservaciones');
+    // Si no hay texto ni listas/imágenes, se considera vacío (evita guardar <br> sueltos)
+    if (!ed.textContent.trim() && !ed.querySelector('li, img')) return '';
+    return ed.innerHTML.trim();
 }
 
 async function guardarUsuario() {
@@ -1127,7 +1224,7 @@ async function guardarUsuario() {
     const password      = document.getElementById('uPassword').value;
     const sucId         = document.getElementById('uSucursal').value;
     const rol           = document.getElementById('uRol').value;
-    const observaciones = document.getElementById('uObservaciones').value.trim();
+    const observaciones = obsGetHTML();
     if (!nombre||!username) { toast('Nombre y usuario son requeridos','err'); return; }
     try {
         if (editId) {
