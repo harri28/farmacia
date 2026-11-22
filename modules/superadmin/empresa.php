@@ -220,11 +220,14 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         }
         .rte-btn:hover { background: var(--sa-border); color: var(--sa-text); }
         .rte-sep { width: 1px; height: 18px; background: var(--sa-border); margin: 0 4px; }
-        .rte-size {
-            height: 30px; border: 1px solid var(--sa-border); border-radius: 6px;
-            background: var(--sa-surface); color: var(--sa-text); font-size: .8rem;
-            padding: 0 6px; cursor: pointer; outline: none;
+        .rte-size-wrap { display: inline-flex; align-items: center; gap: 6px; }
+        .rte-size-label { font-size: .8rem; color: var(--sa-text-secondary); }
+        .rte-size-input {
+            width: 52px; height: 30px; border: 1px solid var(--sa-border); border-radius: 6px;
+            background: var(--sa-surface); color: var(--sa-text); font-size: .82rem;
+            padding: 0 6px; outline: none; text-align: center;
         }
+        .rte-size-input:focus { border-color: #6366f1; }
         .rte-editor {
             min-height: 90px; max-height: 260px; overflow-y: auto;
             padding: 10px 12px; font-size: .88rem; color: var(--sa-text);
@@ -569,13 +572,13 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
                                 <button type="button" class="rte-btn" title="Lista con viñetas" onmousedown="rteCmd(event,'insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
                                 <button type="button" class="rte-btn" title="Lista numerada" onmousedown="rteCmd(event,'insertOrderedList')"><i class="fas fa-list-ol"></i></button>
                                 <span class="rte-sep"></span>
-                                <select class="rte-size" title="Tamaño de letra" onchange="rteFont(this)">
-                                    <option value="">Tamaño</option>
-                                    <option value="2">Pequeño</option>
-                                    <option value="3">Normal</option>
-                                    <option value="5">Grande</option>
-                                    <option value="6">Muy grande</option>
-                                </select>
+                                <span class="rte-size-wrap">
+                                    <span class="rte-size-label">Tamaño</span>
+                                    <input type="number" class="rte-size-input" min="8" max="96" step="1" placeholder="n"
+                                           title="Tamaño de letra en px (selecciona el texto y escribe un número)"
+                                           onkeydown="if(event.key==='Enter'){event.preventDefault();rteFontPx(this.value);}"
+                                           onchange="rteFontPx(this.value)">
+                                </span>
                                 <span class="rte-sep"></span>
                                 <button type="button" class="rte-btn" title="Quitar formato" onmousedown="rteCmd(event,'removeFormat')"><i class="fas fa-eraser"></i></button>
                             </div>
@@ -1198,12 +1201,19 @@ function rteCmd(ev, cmd) {
     document.execCommand(cmd, false, null);
     rteSaveSel();
 }
-function rteFont(sel) {
-    const size = sel.value;
-    sel.selectedIndex = 0; // vuelve a "Tamaño"
-    if (!size) return;
+function rteFontPx(px) {
+    px = parseInt(px, 10);
+    if (!px || px < 8 || px > 96) return;
     rteRestoreSel();
-    document.execCommand('fontSize', false, size);
+    const ed = document.getElementById('uObservaciones');
+    // Truco: fontSize=7 crea <font size="7">, luego lo cambiamos al px pedido
+    document.execCommand('fontSize', false, '7');
+    ed.querySelectorAll('font[size="7"]').forEach(f => {
+        const span = document.createElement('span');
+        span.style.fontSize = px + 'px';
+        while (f.firstChild) span.appendChild(f.firstChild);
+        f.parentNode.replaceChild(span, f);
+    });
     rteSaveSel();
 }
 function obsSetHTML(html) {
