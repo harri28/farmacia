@@ -750,6 +750,23 @@ include '../../includes/header.php';
 </div>
 <?php endif; ?>
 
+<!-- Modal: confirmacion del envio manual en lote (Reporte de Ventas) -->
+<div class="modal-overlay" id="modal-rpt-confirm">
+    <div class="modal" style="max-width:420px;width:min(420px,calc(100vw - 32px))">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-paper-plane" style="color:var(--primary);margin-right:8px"></i>Enviar a SUNAT</h3>
+            <button class="modal-close" onclick="closeModal('modal-rpt-confirm')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+            <p id="rpt-confirm-text" style="margin:0;font-size:.95rem">¿Enviar los comprobantes seleccionados a SUNAT ahora?</p>
+        </div>
+        <div class="modal-footer" style="padding:12px 24px;display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-outline" onclick="closeModal('modal-rpt-confirm')">Cancelar</button>
+            <button class="btn btn-primary" onclick="rptConfirmarEnvio()"><i class="fas fa-paper-plane"></i> Enviar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: progreso del envio manual en lote (Reporte de Ventas) -->
 <div class="modal-overlay" id="modal-rpt-progress">
     <div class="modal" style="max-width:560px;width:min(560px,calc(100vw - 32px))">
@@ -1582,11 +1599,24 @@ function rptAplicarSeleccionUI() {
     rptActualizarBatchBar();
 }
 function rptDetenerEnvio() { rptStop = true; }
-// Envio en cadena (uno tras otro) de los seleccionados, con modal de progreso.
-async function rptEnviarSeleccionadosSync() {
+// Paso 1: abre el modal de confirmacion propio del sistema (no el confirm()
+// nativo del navegador).
+function rptEnviarSeleccionadosSync() {
     const ids = Array.from(rptSel);
     if (!ids.length) return;
-    if (!confirm(`Enviar ${ids.length} comprobante(s) a SUNAT ahora. ¿Continuar?`)) return;
+    const t = document.getElementById('rpt-confirm-text');
+    if (t) t.innerHTML = `Se enviarán <strong>${ids.length}</strong> comprobante(s) a SUNAT ahora. ¿Continuar?`;
+    openModal('modal-rpt-confirm');
+}
+// Paso 2: el boton "Enviar" del modal confirma y arranca el envio en cadena.
+function rptConfirmarEnvio() {
+    closeModal('modal-rpt-confirm');
+    rptEjecutarEnvio();
+}
+// Envio en cadena (uno tras otro) de los seleccionados, con modal de progreso.
+async function rptEjecutarEnvio() {
+    const ids = Array.from(rptSel);
+    if (!ids.length) return;
 
     const txt     = document.getElementById('rpt-progress-text');
     const bar     = document.getElementById('rpt-progress-bar');
