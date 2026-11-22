@@ -145,13 +145,10 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
         .stat-label { font-size: .78rem; color: var(--sa-text-muted); margin-top: 3px; }
 
         /* Sections */
-        /* Sucursales a la izquierda: toma solo el ancho que necesita su contenido
-           (max-content), asi nunca le sobra espacio ni aparece scroll horizontal.
-           Usuarios (1fr) se lleva TODO el resto del ancho disponible.
-           minmax(0,1fr) deja que Usuarios ceda primero y pueda hacer scroll interno
-           como red de seguridad en pantallas angostas. */
-        .sections { display: grid; grid-template-columns: minmax(300px, max-content) minmax(0, 1fr); gap: 20px; align-items: start; }
-        @media (max-width: 1024px) { .sections { grid-template-columns: 1fr; } }
+        /* Secciones apiladas a todo el ancho: Sucursales ocupa la fila completa y
+           Usuarios va debajo (y Pagos al final). Asi ninguna tabla queda comprimida
+           ni esconde columnas. */
+        .sections { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
 
         .section-card {
             background: var(--sa-surface); border: 1px solid var(--sa-border);
@@ -183,6 +180,29 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
            hace scroll horizontal — no se parten los nombres ni "Sucursal" en varias lineas. */
         .sec-table th, .sec-table td { white-space: nowrap; }
         .td-name { font-weight: 600; color: var(--sa-text); }
+
+        /* Pestañas (Usuarios activos / inactivos) */
+        .u-tabs {
+            display: flex; gap: 4px; padding: 10px 16px 0;
+            border-bottom: 1px solid var(--sa-bg);
+        }
+        .u-tab {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: none; border: none; cursor: pointer;
+            padding: 9px 14px; font-size: .84rem; font-weight: 600;
+            color: var(--sa-text-muted); border-radius: 8px 8px 0 0;
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+            transition: color .15s, background .15s;
+        }
+        .u-tab:hover { color: var(--sa-text); background: var(--sa-surface-2); }
+        .u-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .u-tab-count {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 20px; height: 20px; padding: 0 6px;
+            border-radius: 20px; font-size: .72rem; font-weight: 700;
+            background: var(--sa-bg); color: var(--sa-text-muted);
+        }
+        .u-tab.active .u-tab-count { background: #eef2ff; color: #4f46e5; }
 
         /* Empty state */
         .empty { padding: 40px 20px; text-align: center; color: var(--sa-text-light); font-size: .85rem; }
@@ -450,6 +470,18 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
                 </div>
                 <button class="btn-primary" onclick="toggleForm('formUsuario')">
                     <i class="fas fa-user-plus"></i> Nuevo
+                </button>
+            </div>
+
+            <!-- Pestañas: activos / inactivos -->
+            <div class="u-tabs">
+                <button class="u-tab active" id="uTabActivos" onclick="setUsuTab('activos')">
+                    <i class="fas fa-circle" style="font-size:.5rem;color:#16a34a"></i> Activos
+                    <span class="u-tab-count" id="uCntActivos">0</span>
+                </button>
+                <button class="u-tab" id="uTabInactivos" onclick="setUsuTab('inactivos')">
+                    <i class="fas fa-circle" style="font-size:.5rem;color:#dc2626"></i> Inactivos
+                    <span class="u-tab-count" id="uCntInactivos">0</span>
                 </button>
             </div>
 
@@ -943,57 +975,86 @@ async function toggleSucursal(id, activaActualmente, nombre) {
 }
 
 // ---- USUARIOS ----
+let _usuariosData = [];
+let _usuTab = 'activos'; // 'activos' | 'inactivos'
+
+// Normaliza el campo activo (PDO/pg puede devolver bool, 't'/'f', 1/0)
+function usuActivo(u) {
+    return u.activo === true || u.activo === 't' || u.activo === 1 || u.activo === '1';
+}
+
 async function cargarUsuarios() {
     try {
         const r = await fetch(`${API}?action=usuarios_listar&tenant_id=${TENANT_ID}`);
         const lista = await r.json();
-        actualizarStats(null, lista.length);
-
-        if (!lista.length) {
-            document.getElementById('listaUsuarios').innerHTML =
-                '<div class="empty"><i class="fas fa-users"></i>No hay usuarios registrados</div>';
-            return;
-        }
-        document.getElementById('listaUsuarios').innerHTML = `
-        <table class="sec-table">
-            <thead><tr><th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th style="text-align:center">Estado</th><th></th></tr></thead>
-            <tbody>${lista.map(u => {
-                const acc = typeof u.accesos === 'string' ? JSON.parse(u.accesos) : (u.accesos||[]);
-                const primera = acc[0] ?? null;
-                const sucText = primera
-                    ? `<div style="display:flex;align-items:center;gap:6px">
-                           <i class="fas fa-store" style="color:#6366f1;font-size:.75rem"></i>
-                           <span style="font-weight:600;color:var(--sa-text);font-size:.85rem">${esc(primera.sucursal)}</span>
-                           ${acc.length > 1 ? `<span style="font-size:.72rem;color:var(--sa-text-light)">+${acc.length-1}</span>` : ''}
-                       </div>`
-                    : '<span style="color:var(--sa-text-light);font-size:.78rem">—</span>';
-                const rolColors = { admin: ['#eef2ff','#4f46e5'], cajero: ['#f0fdf4','#16a34a'] };
-                const [rBg, rColor] = rolColors[primera?.rol] ?? ['var(--sa-bg)','var(--sa-text-muted)'];
-                const rolText = primera
-                    ? `<span style="padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;background:${rBg};color:${rColor}">${primera.rol}</span>`
-                    : '<span style="color:var(--sa-text-light);font-size:.78rem">—</span>';
-                return `
-                <tr id="urow-${u.id}">
-                    <td class="td-name">${esc(u.nombre)} ${esc(u.apellido||'')}</td>
-                    <td style="font-family:monospace;font-size:.82rem">${esc(u.username)}</td>
-                    <td>${sucText}</td>
-                    <td>${rolText}</td>
-                    <td style="text-align:center"><span title="${u.activo?'Activo':'Inactivo'}" style="font-size:.95rem">${u.activo?'🟢':'🔴'}</span></td>
-                    <td style="text-align:right">
-                        <div style="display:flex;gap:5px;justify-content:flex-end">
-                            <button class="btn-icon btn-edit" title="Editar"
-                                onclick="prepEditUsuario(${u.id},'${esc(u.nombre)}','${esc(u.apellido||'')}','${esc(u.username)}','${esc(u.password_plain||'')}','${esc(u.observaciones||'')}',${primera?.sucursal_id||'null'},'${primera?.rol||'cajero'}')">
-                                <i class="fas fa-pen"></i>
-                            </button>
-                            <button class="btn-icon btn-toggle ${u.activo?'':'off'}" title="${u.activo?'Desactivar':'Activar'}"
-                                onclick="toggleUsuario(${u.id})"><i class="fas fa-power-off"></i></button>
-                        </div>
-                    </td>
-                </tr>`;
-            }).join('')}
-            </tbody>
-        </table>`;
+        _usuariosData = Array.isArray(lista) ? lista : [];
+        actualizarStats(null, _usuariosData.length);
+        renderUsuarios();
     } catch { document.getElementById('listaUsuarios').innerHTML = '<div class="empty" style="color:#dc2626">Error al cargar</div>'; }
+}
+
+function setUsuTab(tab) {
+    _usuTab = tab;
+    document.getElementById('uTabActivos').classList.toggle('active', tab === 'activos');
+    document.getElementById('uTabInactivos').classList.toggle('active', tab === 'inactivos');
+    renderUsuarios();
+}
+
+function renderUsuarios() {
+    const activos   = _usuariosData.filter(u => usuActivo(u));
+    const inactivos = _usuariosData.filter(u => !usuActivo(u));
+    document.getElementById('uCntActivos').textContent   = activos.length;
+    document.getElementById('uCntInactivos').textContent = inactivos.length;
+
+    const lista = _usuTab === 'activos' ? activos : inactivos;
+    const box = document.getElementById('listaUsuarios');
+
+    if (!lista.length) {
+        const msg = _usuTab === 'activos' ? 'No hay usuarios activos' : 'No hay usuarios inactivos';
+        box.innerHTML = `<div class="empty"><i class="fas fa-users"></i>${msg}</div>`;
+        return;
+    }
+
+    box.innerHTML = `
+    <table class="sec-table">
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th style="text-align:center">Estado</th><th></th></tr></thead>
+        <tbody>${lista.map(u => {
+            const activo = usuActivo(u);
+            const acc = typeof u.accesos === 'string' ? JSON.parse(u.accesos) : (u.accesos||[]);
+            const primera = acc[0] ?? null;
+            const sucText = primera
+                ? `<div style="display:flex;align-items:center;gap:6px">
+                       <i class="fas fa-store" style="color:#6366f1;font-size:.75rem"></i>
+                       <span style="font-weight:600;color:var(--sa-text);font-size:.85rem">${esc(primera.sucursal)}</span>
+                       ${acc.length > 1 ? `<span style="font-size:.72rem;color:var(--sa-text-light)">+${acc.length-1}</span>` : ''}
+                   </div>`
+                : '<span style="color:var(--sa-text-light);font-size:.78rem">—</span>';
+            const rolColors = { admin: ['#eef2ff','#4f46e5'], cajero: ['#f0fdf4','#16a34a'] };
+            const [rBg, rColor] = rolColors[primera?.rol] ?? ['var(--sa-bg)','var(--sa-text-muted)'];
+            const rolText = primera
+                ? `<span style="padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;background:${rBg};color:${rColor}">${primera.rol}</span>`
+                : '<span style="color:var(--sa-text-light);font-size:.78rem">—</span>';
+            return `
+            <tr id="urow-${u.id}">
+                <td class="td-name">${esc(u.nombre)} ${esc(u.apellido||'')}</td>
+                <td style="font-family:monospace;font-size:.82rem">${esc(u.username)}</td>
+                <td>${sucText}</td>
+                <td>${rolText}</td>
+                <td style="text-align:center"><span title="${activo?'Activo':'Inactivo'}" style="font-size:.95rem">${activo?'🟢':'🔴'}</span></td>
+                <td style="text-align:right">
+                    <div style="display:flex;gap:5px;justify-content:flex-end">
+                        <button class="btn-icon btn-edit" title="Editar"
+                            onclick="prepEditUsuario(${u.id},'${esc(u.nombre)}','${esc(u.apellido||'')}','${esc(u.username)}','${esc(u.password_plain||'')}','${esc(u.observaciones||'')}',${primera?.sucursal_id||'null'},'${primera?.rol||'cajero'}')">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="btn-icon btn-toggle ${activo?'':'off'}" title="${activo?'Desactivar':'Activar'}"
+                            onclick="toggleUsuario(${u.id})"><i class="fas fa-power-off"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
 }
 
 async function cargarSucursalesSelect(preselect = null) {
