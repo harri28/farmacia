@@ -1017,7 +1017,7 @@ function renderUsuarios() {
 
     box.innerHTML = `
     <table class="sec-table">
-        <thead><tr><th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th style="text-align:center">Estado</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Apellido</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th style="text-align:center">Estado</th><th></th></tr></thead>
         <tbody>${lista.map(u => {
             const activo = usuActivo(u);
             const acc = typeof u.accesos === 'string' ? JSON.parse(u.accesos) : (u.accesos||[]);
@@ -1036,7 +1036,8 @@ function renderUsuarios() {
                 : '<span style="color:var(--sa-text-light);font-size:.78rem">—</span>';
             return `
             <tr id="urow-${u.id}">
-                <td class="td-name">${esc(u.nombre)} ${esc(u.apellido||'')}</td>
+                <td class="td-name">${esc(u.nombre)}</td>
+                <td>${u.apellido ? esc(u.apellido) : '<span style="color:var(--sa-text-light)">—</span>'}</td>
                 <td style="font-family:monospace;font-size:.82rem">${esc(u.username)}</td>
                 <td>${sucText}</td>
                 <td>${rolText}</td>
