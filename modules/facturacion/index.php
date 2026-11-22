@@ -171,6 +171,9 @@ include '../../includes/header.php';
 .ios-switch input:checked + .ios-slider:before { transform: translateX(18px); }
 .icon-action-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .actions-inline { display: flex; gap: 8px; justify-content: center; }
+/* Separador de dia estilo WhatsApp (Hoy / Ayer / ...) */
+.rpt-day-sep td { background: transparent !important; border: none !important; padding: 10px 16px 6px !important; text-align: center; }
+.rpt-day-sep span { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); font-size: .72rem; font-weight: 600; padding: 4px 14px; border-radius: 999px; letter-spacing: .02em; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .sunat-cell { width: 88px !important; min-width: 88px !important; max-width: 88px !important; white-space: nowrap; text-align: center; padding-left: 8px !important; padding-right: 8px !important; }
 .sunat-cell .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 76px; max-width: 76px; padding: 6px 10px; font-size: .72rem !important; line-height: 1; }
 
@@ -1309,6 +1312,40 @@ function rptGetParams() {
 function rptBuildQuery(extra = {}) {
     return new URLSearchParams({ ...rptGetParams(), ...extra }).toString();
 }
+// --- Separadores de dia estilo WhatsApp (Hoy / Ayer / Hace dos dias / ...) ---
+function rptDayKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function rptDayLabel(d) {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const dia = new Date(d); dia.setHours(0,0,0,0);
+    const diff = Math.round((hoy - dia) / 86400000);
+    if (diff === 0) return 'Hoy';
+    if (diff === 1) return 'Ayer';
+    if (diff === 2) return 'Hace dos días';
+    if (diff === 3) return 'Hace tres días';
+    return d.toLocaleDateString('es-PE');   // 4+ dias: solo la fecha
+}
+// Inyecta las filas separadoras en la pagina visible. Solo cuando la tabla
+// esta ordenada por Fecha (col 0); con otro orden no tendria sentido agrupar
+// por dia, asi que se omiten.
+function rptInyectarSeparadoresDia(api) {
+    const tbody = jQuery(api.table().body());
+    tbody.find('tr.rpt-day-sep').remove();
+    const ord = api.order();
+    if (!ord.length || ord[0][0] !== 0) return;
+    let last = null;
+    api.rows({ page: 'current' }).every(function() {
+        const node = this.node();
+        const key = node.getAttribute('data-daykey');
+        if (key && key !== last) {
+            last = key;
+            const label = node.getAttribute('data-daylabel') || key;
+            jQuery('<tr class="rpt-day-sep"><td colspan="10"><span>' + esc(label) + '</span></td></tr>').insertBefore(node);
+        }
+    });
+}
+
 function rptDestroyTable() {
     if (rptTable) { rptTable.destroy(); rptTable = null; }
 }
@@ -1331,6 +1368,7 @@ function rptInitTable() {
             { targets: [6,7,8,9], orderable: false, searchable: false },
             { targets: 3, className: 'dt-body-right' }
         ],
+        drawCallback: function() { rptInyectarSeparadoresDia(this.api()); },
         initComplete: function() { rptInyectarToggleEnvio(); }
     });
 }
@@ -1448,6 +1486,7 @@ function rptLoadReporte() {
             document.getElementById('rpt-tabla-body').innerHTML = data.map(v => {
                 rptMap[String(v.id)] = v;
                 const dt = new Date(v.created_at), fechaOrden = dt.getTime();
+                const dayKey = rptDayKey(dt), dayLbl = rptDayLabel(dt);
                 const fecha = dt.toLocaleDateString('es-PE'), hora = dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
                 const total = parseFloat(v.total||0);
                 const clienteDoc = v.ruc||v.dni||'';
@@ -1476,7 +1515,7 @@ function rptLoadReporte() {
                 const programacion = v.enlace_cdr
                     ? `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>`
                     : '<span style="color:#b45309;font-size:.8rem;white-space:nowrap"><i class="fas fa-clock"></i> Programado envío 1:00 am</span>';
-                return `<tr>
+                return `<tr data-daykey="${dayKey}" data-daylabel="${esc(dayLbl)}">
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
                     <td><div class="client-block"><div class="client-name">${esc(v.cliente)}</div>${clienteDoc?`<div class="client-doc">${esc(clienteDoc)}</div>`:''}</div></td>
                     <td>${compHtml}</td>
