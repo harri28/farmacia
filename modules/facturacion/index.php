@@ -176,6 +176,8 @@ include '../../includes/header.php';
 .rpt-day-sep span { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); font-size: .72rem; font-weight: 600; padding: 4px 14px; border-radius: 999px; letter-spacing: .02em; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .sunat-cell { width: 88px !important; min-width: 88px !important; max-width: 88px !important; white-space: nowrap; text-align: center; padding-left: 8px !important; padding-right: 8px !important; }
 .sunat-cell .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 76px; max-width: 76px; padding: 6px 10px; font-size: .72rem !important; line-height: 1; }
+/* Estado "Boleta de venta" (notas de venta, no van a SUNAT) */
+.sunat-cell .badge-nota { display: inline-block; white-space: normal; line-height: 1.12; max-width: 80px; padding: 4px 9px; font-size: .68rem; font-weight: 600; border-radius: 9px; background: #eef2ff; color: #4338ca; border: 1px solid #e0e7ff; }
 
 /* ---- Notas ---- */
 .nota-resumen-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
@@ -1495,6 +1497,8 @@ function rptLoadReporte() {
                     catch(_){return null;}
                 })() : null;
                 const sunat = rptShortSunat(v.estado_sunat, respCode);
+                // Nota de venta: sin comprobante electronico (no va a SUNAT).
+                const esNotaVenta = !String(v.comprobante_numero||'').trim();
                 const estadoLabel = v.estado==='completada'?'Vigente':'Anulado';
                 const estadoClass = v.estado==='completada'?'badge-success':'badge-danger';
                 const compHtml = v.comprobante_numero
@@ -1509,12 +1513,14 @@ function rptLoadReporte() {
                     ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)}, this)`) : ''}
                 </div>`;
-                // Columna "Programación": si ya tiene CDR, muestra el estado SUNAT
-                // actual (aceptado/observado, bajo verificacion del CDR); si no, es
-                // una B/F pendiente del envio nocturno.
-                const programacion = v.enlace_cdr
-                    ? `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>`
-                    : '<span style="color:#b45309;font-size:.8rem;white-space:nowrap"><i class="fas fa-clock"></i> Programado envío 1:00 am</span>';
+                // Columna "Programación": las notas de venta no van a SUNAT; si ya
+                // tiene CDR, muestra el estado SUNAT actual (aceptado/observado, bajo
+                // verificacion del CDR); si no, es una B/F pendiente del envio nocturno.
+                const programacion = esNotaVenta
+                    ? '<span style="color:var(--text-muted);font-size:.8rem;white-space:nowrap">No aplica</span>'
+                    : (v.enlace_cdr
+                        ? `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>`
+                        : '<span style="color:#b45309;font-size:.8rem;white-space:nowrap"><i class="fas fa-clock"></i> Programado envío 1:00 am</span>');
                 return `<tr data-daykey="${dayKey}" data-daylabel="${esc(dayLbl)}">
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
                     <td><div class="client-block"><div class="client-name">${esc(v.cliente)}</div>${clienteDoc?`<div class="client-doc">${esc(clienteDoc)}</div>`:''}</div></td>
@@ -1522,8 +1528,9 @@ function rptLoadReporte() {
                     <td data-order="${total}" class="text-center"><span class="total-pill">S/ ${total.toFixed(2)}</span></td>
                     <td>${xmlBtn}</td><td>${cdrBtn}</td>
                     <td class="sunat-cell">
-                        <span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>
-                        ${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}
+                        ${esNotaVenta
+                            ? '<span class="badge-nota" title="Nota de venta — documento interno del local, no se emite a SUNAT">Nota de venta</span>'
+                            : `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}`}
                     </td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
                     <td>${programacion}</td>
