@@ -305,7 +305,7 @@ include '../../includes/header.php';
         <div class="table-wrap">
             <table id="rpt-ventas-table" class="display fact-dt-table rpt-hide-sel" style="width:100%;min-width:1340px">
                 <thead><tr>
-                    <th class="rpt-sel-col"><input type="checkbox" id="rpt-check-all" title="Seleccionar todos los comprobantes de HOY" onclick="rptToggleAllHoy(this.checked)"></th>
+                    <th class="rpt-sel-col"><input type="checkbox" id="rpt-check-all" title="Seleccionar los comprobantes enviables de los dos últimos días" onclick="rptToggleAllDias(this.checked)"></th>
                     <th>Fecha</th><th>Cliente</th><th>Comprobante</th>
                     <th class="text-center">Total</th><th>XML</th><th>CDR</th>
                     <th>SUNAT</th><th>Estado</th><th>Programación</th><th>Acciones</th>
@@ -1524,12 +1524,20 @@ function rptToggleSel(id, checked) {
     if (checked) rptSel.add(id); else rptSel.delete(id);
     rptActualizarBatchBar();
 }
-// "Seleccionar todos" = solo los comprobantes de HOY (ignora dias anteriores).
-function rptToggleAllHoy(checked) {
-    const hoyKey = rptDayKey(new Date());
+// Devuelve un Set con los N dias (YYYY-MM-DD) mas recientes presentes en el
+// reporte. Las claves son ordenables como texto.
+function rptDiasRecientes(n) {
+    const dias = new Set();
+    (rptCache || []).forEach(v => { dias.add(rptDayKey(new Date(v.created_at))); });
+    return new Set(Array.from(dias).sort().reverse().slice(0, n));
+}
+// "Seleccionar todos" = comprobantes enviables de los DOS ultimos dias que
+// aparecen en el reporte (ignora los dias anteriores).
+function rptToggleAllDias(checked) {
+    const dias = rptDiasRecientes(2);
     (rptCache || []).forEach(v => {
         if (!rptEsEnviable(v)) return;
-        if (rptDayKey(new Date(v.created_at)) !== hoyKey) return;   // solo HOY
+        if (!dias.has(rptDayKey(new Date(v.created_at)))) return;   // solo los 2 dias recientes
         const id = parseInt(v.comprobante_id, 10);
         if (checked) rptSel.add(id); else rptSel.delete(id);
     });
@@ -1552,13 +1560,14 @@ function rptActualizarBatchBar() {
     const manual = !rptEnvioAuto;
     if (bar) bar.style.display = (manual && rptSel.size > 0) ? 'flex' : 'none';
     if (cnt) cnt.textContent = `${rptSel.size} seleccionado(s)`;
-    // La casilla "todos" refleja si todos los de HOY estan seleccionados.
+    // La casilla "todos" refleja si todos los enviables de los dos ultimos
+    // dias estan seleccionados.
     const chkAll = document.getElementById('rpt-check-all');
     if (chkAll) {
-        const hoyKey = rptDayKey(new Date());
-        const hoyEnv = (rptCache || []).filter(v => rptEsEnviable(v) && rptDayKey(new Date(v.created_at)) === hoyKey)
-                                       .map(v => parseInt(v.comprobante_id, 10));
-        chkAll.checked = hoyEnv.length > 0 && hoyEnv.every(id => rptSel.has(id));
+        const dias = rptDiasRecientes(2);
+        const env = (rptCache || []).filter(v => rptEsEnviable(v) && dias.has(rptDayKey(new Date(v.created_at))))
+                                    .map(v => parseInt(v.comprobante_id, 10));
+        chkAll.checked = env.length > 0 && env.every(id => rptSel.has(id));
     }
 }
 // Muestra/oculta la columna de seleccion segun el modo (Manual = visible).
