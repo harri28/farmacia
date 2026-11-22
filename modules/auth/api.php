@@ -167,6 +167,22 @@ switch ($action) {
 
         jsonResponse(['error' => false, 'redirect' => $redirect]);
 
+    // ---- Info de la sesión actual (para apps cliente: móvil, etc.) ----
+    case 'session_info':
+        if (empty($_SESSION['usuario_id'])) {
+            jsonResponse(['error' => true, 'message' => 'Sin sesión activa.'], 401);
+        }
+        jsonResponse([
+            'error'           => false,
+            'usuario_id'      => (int) $_SESSION['usuario_id'],
+            'nombre'          => $_SESSION['nombre'] ?? '',
+            'username'        => $_SESSION['username'] ?? '',
+            'rol'             => $_SESSION['rol'] ?? '',
+            'tenant_nombre'   => $_SESSION['tenant_nombre'] ?? '',
+            'sucursal_id'     => (int) ($_SESSION['sucursal_id'] ?? 0),
+            'sucursal_nombre' => $_SESSION['sucursal_nombre'] ?? '',
+        ]);
+
     default:
         jsonResponse(['error' => true, 'message' => 'Acción no reconocida.'], 400);
 }
