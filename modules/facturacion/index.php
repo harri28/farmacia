@@ -1517,7 +1517,7 @@ function rptLoadReporte() {
                     ${v.comprobante_id&&v.enlace_cdr&&v.tipo_comprobante!=='ticket' ? actionIconButton('file-circle-plus','Generar nota de crédito',null,`rptAbrirNc(${parseInt(v.comprobante_id,10)})`) : ''}
                     ${v.enlace_pdf ? actionIconButton('file-pdf','Ver PDF',v.enlace_pdf) : ''}
                     ${parseInt(v.comprobante_id||0,10)>0&&v.enlace_xml ? actionIconButton('download','Descargar XML + CDR',null,`facDescargarSunatZip(${parseInt(v.comprobante_id,10)})`) : ''}
-                    ${parseInt(v.comprobante_id||0,10)>0&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)}, this)`) : ''}
+                    ${parseInt(v.comprobante_id||0,10)>0&&!esAnulado&&sunat.label!=='Aceptado'&&sunat.label!=='Observado' ? actionIconButton('paper-plane','Reenviar a SUNAT',null,`rptReenviarSunat(${parseInt(v.comprobante_id,10)}, this)`) : ''}
                 </div>`;
                 // Columna "Programación": las notas de venta y los anulados no van a
                 // SUNAT; si ya tiene CDR, muestra el estado SUNAT actual (aceptado/
@@ -1539,7 +1539,9 @@ function rptLoadReporte() {
                     <td class="sunat-cell">
                         ${esNotaVenta
                             ? `<span class="badge-nota" title="${notaLabel} — documento interno del local, no se emite a SUNAT">${notaLabel}</span>`
-                            : `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}`}
+                            : (esAnulado && !v.enlace_cdr
+                                ? '<span style="color:var(--text-muted)" title="Venta anulada — no se envía a SUNAT">—</span>'
+                                : `<span class="badge ${sunat.className}" title="${sunat.title}">${sunat.label}</span>${v.ambiente_sunat === 'beta' ? '<span class="badge" style="background:#f59e0b;color:#fff;margin-left:4px" title="Enviado al ambiente de pruebas de SUNAT, sin validez legal">BETA</span>' : ''}`)}
                     </td>
                     <td><span class="badge ${estadoClass}">${estadoLabel}</span></td>
                     <td>${programacion}</td>
