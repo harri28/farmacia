@@ -226,11 +226,14 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
             width: 52px; height: 30px; border: 1px solid var(--sa-border); border-radius: 6px;
             background: var(--sa-surface); color: var(--sa-text); font-size: .82rem;
             padding: 0 6px; outline: none; text-align: center;
+            -moz-appearance: textfield; appearance: textfield;
         }
+        .rte-size-input::-webkit-outer-spin-button,
+        .rte-size-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .rte-size-input:focus { border-color: #6366f1; }
         .rte-editor {
             min-height: 90px; max-height: 260px; overflow-y: auto;
-            padding: 10px 12px; font-size: .88rem; color: var(--sa-text);
+            padding: 10px 12px; font-size: 14px; color: var(--sa-text);
             line-height: 1.5; outline: none; font-family: inherit;
         }
         .rte-editor:empty::before { content: attr(data-placeholder); color: var(--sa-text-light); pointer-events: none; }
@@ -574,7 +577,7 @@ $_sa_tema_oscuro = getSuperadminTemaOscuro();
                                 <span class="rte-sep"></span>
                                 <span class="rte-size-wrap">
                                     <span class="rte-size-label">Tamaño</span>
-                                    <input type="number" class="rte-size-input" min="8" max="96" step="1" placeholder="n"
+                                    <input type="number" class="rte-size-input" min="8" max="96" step="1" value="14"
                                            title="Tamaño de letra en px (selecciona el texto y escribe un número)"
                                            onkeydown="if(event.key==='Enter'){event.preventDefault();rteFontPx(this.value);}"
                                            onchange="rteFontPx(this.value)">
