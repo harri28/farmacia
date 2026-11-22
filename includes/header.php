@@ -393,7 +393,7 @@ if (!isSuperadmin() && sesionId() > 0) {
 <div style="background:<?= $_plan_bg ?>;border-bottom:2px solid <?= $_plan_border ?>;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:.88rem;color:<?= $_plan_fg ?>;text-align:center">
     <i class="fas fa-circle-exclamation" style="color:<?= $_plan_border ?>"></i>
     <?php if ($_plan_custom !== ''): ?>
-        <span><?= nl2br(htmlspecialchars($_plan_custom)) ?></span>
+        <span><?= htmlspecialchars($_plan_custom) ?></span>
     <?php else: ?>
         <strong><?= htmlspecialchars($_plan_msg) ?></strong>
         <span>Renueva tu suscripción para seguir disfrutando del servicio sin interrupciones.</span>
