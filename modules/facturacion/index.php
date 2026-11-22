@@ -100,12 +100,20 @@ include '../../includes/header.php';
 /* Centrar CDR / SUNAT (header+celdas) / Estado / Programación --
    posiciones de columna difieren entre las dos tablas, se apunta cada una
    por su ID. */
-#rpt-ventas-table th:nth-child(6), #rpt-ventas-table td:nth-child(6),
-#rpt-ventas-table th:nth-child(7), #rpt-ventas-table td:nth-child(7),
-#rpt-ventas-table th:nth-child(8), #rpt-ventas-table td:nth-child(8),
-#rpt-ventas-table th:nth-child(9), #rpt-ventas-table td:nth-child(9) {
+#rpt-ventas-table th:nth-child(1),  #rpt-ventas-table td:nth-child(1),
+#rpt-ventas-table th:nth-child(7),  #rpt-ventas-table td:nth-child(7),
+#rpt-ventas-table th:nth-child(8),  #rpt-ventas-table td:nth-child(8),
+#rpt-ventas-table th:nth-child(9),  #rpt-ventas-table td:nth-child(9),
+#rpt-ventas-table th:nth-child(10), #rpt-ventas-table td:nth-child(10) {
     text-align: center;
 }
+/* Columna de seleccion (solo modo Manual) */
+.rpt-sel-col, .rpt-sel-cell { width: 34px; }
+.rpt-row-check, #rpt-check-all { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; margin: 0; }
+#rpt-ventas-table.rpt-hide-sel .rpt-sel-col,
+#rpt-ventas-table.rpt-hide-sel .rpt-sel-cell { display: none; }
+.rpt-batch-bar { align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 16px; margin: 0 0 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
+.rpt-batch-bar #rpt-sel-count { font-weight: 600; font-size: .85rem; color: #1e40af; }
 #notas-table th:nth-child(8), #notas-table td:nth-child(8),
 #notas-table th:nth-child(10), #notas-table td:nth-child(10),
 #notas-table th:nth-child(11), #notas-table td:nth-child(11) {
@@ -286,15 +294,24 @@ include '../../includes/header.php';
                 </button>
             </div>
         </div>
+        <!-- Barra de envío en lote (solo modo Manual, aparece al seleccionar) -->
+        <div id="rpt-batch-bar" class="rpt-batch-bar" style="display:none">
+            <span id="rpt-sel-count">0 seleccionado(s)</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-outline" onclick="rptLimpiarSel()">Quitar selección</button>
+                <button class="btn btn-sm btn-primary" onclick="rptEnviarSeleccionadosSync()"><i class="fas fa-paper-plane"></i> Enviar a SUNAT</button>
+            </div>
+        </div>
         <div class="table-wrap">
-            <table id="rpt-ventas-table" class="display fact-dt-table" style="width:100%;min-width:1300px">
+            <table id="rpt-ventas-table" class="display fact-dt-table rpt-hide-sel" style="width:100%;min-width:1340px">
                 <thead><tr>
+                    <th class="rpt-sel-col"><input type="checkbox" id="rpt-check-all" title="Seleccionar todos los comprobantes de HOY" onclick="rptToggleAllHoy(this.checked)"></th>
                     <th>Fecha</th><th>Cliente</th><th>Comprobante</th>
                     <th class="text-center">Total</th><th>XML</th><th>CDR</th>
                     <th>SUNAT</th><th>Estado</th><th>Programación</th><th>Acciones</th>
                 </tr></thead>
                 <tbody id="rpt-tabla-body">
-                    <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    <tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i></td></tr>
                 </tbody>
                 <tfoot id="rpt-tabla-foot"></tfoot>
             </table>
@@ -732,6 +749,26 @@ include '../../includes/header.php';
     </div>
 </div>
 <?php endif; ?>
+
+<!-- Modal: progreso del envio manual en lote (Reporte de Ventas) -->
+<div class="modal-overlay" id="modal-rpt-progress">
+    <div class="modal" style="max-width:560px;width:min(560px,calc(100vw - 32px))">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-paper-plane" style="color:var(--primary);margin-right:8px"></i>Enviando a SUNAT</h3>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+            <div id="rpt-progress-text" style="font-size:.95rem;margin-bottom:12px">Preparando…</div>
+            <div style="background:var(--surface-2);border-radius:999px;height:10px;overflow:hidden">
+                <div id="rpt-progress-bar" style="height:100%;background:#f59e0b;width:0%;transition:width .2s"></div>
+            </div>
+            <div id="rpt-progress-log" style="margin-top:14px;max-height:220px;overflow-y:auto;background:var(--surface-2);border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:.8rem"></div>
+        </div>
+        <div class="modal-footer" style="padding:12px 24px;display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-danger" id="rpt-progress-stop" onclick="rptDetenerEnvio()" style="display:none"><i class="fas fa-stop"></i> Detener</button>
+            <button class="btn btn-outline" id="rpt-progress-close" onclick="rptCerrarProgress()" disabled>Cerrar</button>
+        </div>
+    </div>
+</div>
 
 
 <!-- ============================================================
@@ -1305,6 +1342,8 @@ let rptTable = null;
 let rptEnvioAuto = true;   // interruptor envio automatico a SUNAT (por sucursal)
 let rptCache = [];
 let rptMap   = {};
+let rptSel   = new Set();  // comprobante_id seleccionados (envio manual en lote)
+let rptStop  = false;      // bandera para detener el envio en cadena
 let rptNcOrigen  = null;
 let rptNcMotivos = [];
 
@@ -1335,7 +1374,7 @@ function rptInyectarSeparadoresDia(api) {
     const tbody = jQuery(api.table().body());
     tbody.find('tr.rpt-day-sep').remove();
     const ord = api.order();
-    if (!ord.length || ord[0][0] !== 0) return;
+    if (!ord.length || ord[0][0] !== 1) return;   // solo cuando se ordena por Fecha (col 1)
     let last = null;
     api.rows({ page: 'current' }).every(function() {
         const node = this.node();
@@ -1343,7 +1382,7 @@ function rptInyectarSeparadoresDia(api) {
         if (key && key !== last) {
             last = key;
             const label = node.getAttribute('data-daylabel') || key;
-            jQuery('<tr class="rpt-day-sep"><td colspan="10"><span>' + esc(label) + '</span></td></tr>').insertBefore(node);
+            jQuery('<tr class="rpt-day-sep"><td colspan="11"><span>' + esc(label) + '</span></td></tr>').insertBefore(node);
         }
     });
 }
@@ -1356,7 +1395,7 @@ function rptInitTable() {
     if (!table || typeof window.jQuery === 'undefined' || typeof jQuery.fn.DataTable === 'undefined') return;
     rptDestroyTable();
     rptTable = jQuery(table).DataTable({
-        pageLength: 15, lengthMenu: [10,15,25,50,100], order: [[0,'desc']],
+        pageLength: 15, lengthMenu: [10,15,25,50,100], order: [[1,'desc']],
         autoWidth: false, responsive: false, pagingType: 'simple_numbers',
         dom: "<'dt-toolbar'lf>t<'dt-footer'ip>",
         language: {
@@ -1367,11 +1406,11 @@ function rptInitTable() {
             paginate: { first:'Primero', last:'Ultimo', next:'Siguiente', previous:'Anterior' }
         },
         columnDefs: [
-            { targets: [6,7,8,9], orderable: false, searchable: false },
-            { targets: 3, className: 'dt-body-right' }
+            { targets: [0,7,8,9,10], orderable: false, searchable: false },
+            { targets: 4, className: 'dt-body-right' }
         ],
-        drawCallback: function() { rptInyectarSeparadoresDia(this.api()); },
-        initComplete: function() { rptInyectarToggleEnvio(); }
+        drawCallback: function() { rptInyectarSeparadoresDia(this.api()); rptSyncChecksDom(); rptActualizarBatchBar(); },
+        initComplete: function() { rptInyectarToggleEnvio(); rptAplicarSeleccionUI(); }
     });
 }
 
@@ -1393,6 +1432,7 @@ function rptAplicarEnvioAutoUI() {
     const lm = document.getElementById('rpt-lbl-manual');
     if (la) { la.style.fontWeight = rptEnvioAuto ? '700' : '400'; la.style.color = rptEnvioAuto ? '#16a34a' : 'var(--text-muted)'; }
     if (lm) { lm.style.fontWeight = rptEnvioAuto ? '400' : '700'; lm.style.color = rptEnvioAuto ? 'var(--text-muted)' : '#b45309'; }
+    rptAplicarSeleccionUI();   // muestra/oculta la columna de seleccion segun el modo
 }
 function rptInyectarToggleEnvio() {
     const bar = document.querySelector('#rpt-ventas-table_wrapper .dt-toolbar');
@@ -1460,10 +1500,133 @@ function rptShortSunat(rawStatus, responseCode = null) {
     return { label:txt, className:'badge-gray', title:txt };
 }
 
+// Extrae el response_code del CDR desde nubefact_response (string o objeto).
+function rptRespCode(v) {
+    if (!v || !v.nubefact_response) return null;
+    try {
+        const p = typeof v.nubefact_response === 'string' ? JSON.parse(v.nubefact_response) : v.nubefact_response;
+        return (p && p.cdr && (p.cdr.response_code ?? p.cdr.responseCode)) ?? null;
+    } catch (_) { return null; }
+}
+// ¿Se puede enviar a SUNAT? Boleta/factura (con comprobante), vigente, sin CDR
+// y que no esté ya aceptado/observado.
+function rptEsEnviable(v) {
+    if (parseInt(v.comprobante_id||0,10) <= 0) return false;  // nota de venta/ticket
+    if (v.estado !== 'completada') return false;              // anulado
+    if (v.enlace_cdr) return false;                           // ya tiene CDR
+    const s = rptShortSunat(v.estado_sunat, rptRespCode(v));
+    return s.label !== 'Aceptado' && s.label !== 'Observado';
+}
+
+// --- Seleccion para envio manual en lote (solo modo Manual) ---
+function rptToggleSel(id, checked) {
+    id = parseInt(id, 10);
+    if (checked) rptSel.add(id); else rptSel.delete(id);
+    rptActualizarBatchBar();
+}
+// "Seleccionar todos" = solo los comprobantes de HOY (ignora dias anteriores).
+function rptToggleAllHoy(checked) {
+    const hoyKey = rptDayKey(new Date());
+    (rptCache || []).forEach(v => {
+        if (!rptEsEnviable(v)) return;
+        if (rptDayKey(new Date(v.created_at)) !== hoyKey) return;   // solo HOY
+        const id = parseInt(v.comprobante_id, 10);
+        if (checked) rptSel.add(id); else rptSel.delete(id);
+    });
+    rptSyncChecksDom();
+    rptActualizarBatchBar();
+}
+// Refleja el Set en las casillas visibles (al paginar/redibujar).
+function rptSyncChecksDom() {
+    document.querySelectorAll('.rpt-row-check').forEach(c => { c.checked = rptSel.has(parseInt(c.value, 10)); });
+}
+function rptLimpiarSel() {
+    rptSel.clear();
+    rptSyncChecksDom();
+    const a = document.getElementById('rpt-check-all'); if (a) a.checked = false;
+    rptActualizarBatchBar();
+}
+function rptActualizarBatchBar() {
+    const bar = document.getElementById('rpt-batch-bar');
+    const cnt = document.getElementById('rpt-sel-count');
+    const manual = !rptEnvioAuto;
+    if (bar) bar.style.display = (manual && rptSel.size > 0) ? 'flex' : 'none';
+    if (cnt) cnt.textContent = `${rptSel.size} seleccionado(s)`;
+    // La casilla "todos" refleja si todos los de HOY estan seleccionados.
+    const chkAll = document.getElementById('rpt-check-all');
+    if (chkAll) {
+        const hoyKey = rptDayKey(new Date());
+        const hoyEnv = (rptCache || []).filter(v => rptEsEnviable(v) && rptDayKey(new Date(v.created_at)) === hoyKey)
+                                       .map(v => parseInt(v.comprobante_id, 10));
+        chkAll.checked = hoyEnv.length > 0 && hoyEnv.every(id => rptSel.has(id));
+    }
+}
+// Muestra/oculta la columna de seleccion segun el modo (Manual = visible).
+function rptAplicarSeleccionUI() {
+    const tbl = document.getElementById('rpt-ventas-table');
+    if (tbl) tbl.classList.toggle('rpt-hide-sel', rptEnvioAuto);   // oculta en Automatico
+    if (rptEnvioAuto) {
+        rptSel.clear();
+        rptSyncChecksDom();
+        const a = document.getElementById('rpt-check-all'); if (a) a.checked = false;
+    }
+    rptActualizarBatchBar();
+}
+function rptDetenerEnvio() { rptStop = true; }
+// Envio en cadena (uno tras otro) de los seleccionados, con modal de progreso.
+async function rptEnviarSeleccionadosSync() {
+    const ids = Array.from(rptSel);
+    if (!ids.length) return;
+    if (!confirm(`Enviar ${ids.length} comprobante(s) a SUNAT ahora. ¿Continuar?`)) return;
+
+    const txt     = document.getElementById('rpt-progress-text');
+    const bar     = document.getElementById('rpt-progress-bar');
+    const log     = document.getElementById('rpt-progress-log');
+    const closeBtn= document.getElementById('rpt-progress-close');
+    const stopBtn = document.getElementById('rpt-progress-stop');
+    log.innerHTML = ''; bar.style.width = '0%'; closeBtn.disabled = true; rptStop = false;
+    if (stopBtn) stopBtn.style.display = '';
+    openModal('modal-rpt-progress');
+
+    let ok = 0, fail = 0, i = 0;
+    for (i = 0; i < ids.length; i++) {
+        if (rptStop) { log.innerHTML += `<div style="color:#f59e0b">⏹ Detenido por el usuario.</div>`; break; }
+        const id = ids[i];
+        txt.textContent = `Enviando ${i + 1} de ${ids.length}…`;
+        log.innerHTML += `<div>[${i + 1}/${ids.length}] Enviando ID ${id}…</div>`;
+        log.scrollTop = log.scrollHeight;
+        try {
+            const r = await fetch(BASE + 'modules/facturacion/api.php?action=reenviar_sunat', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ comprobante_id: id })
+            });
+            const d = await r.json();
+            if (r.ok && !d.error) { ok++; rptSel.delete(id); log.innerHTML += `<div style="color:#10b981">    ✓ OK</div>`; }
+            else { fail++; log.innerHTML += `<div style="color:#dc2626">    ✗ ${esc(d.message || 'Error')}</div>`; }
+        } catch (e) {
+            fail++; log.innerHTML += `<div style="color:#dc2626">    ✗ ${esc(e.message || 'Error de red')}</div>`;
+        }
+        bar.style.width = (((i + 1) / ids.length) * 100).toFixed(0) + '%';
+        log.scrollTop = log.scrollHeight;
+    }
+    const restantes = rptStop ? (ids.length - i) : 0;
+    txt.innerHTML = `<strong>${rptStop ? 'Detenido' : 'Terminado'}:</strong> ${ok} enviado(s), ${fail} fallido(s)` +
+                    (restantes ? ` — ${restantes} sin procesar` : '') + '.';
+    if (stopBtn) stopBtn.style.display = 'none';
+    closeBtn.disabled = false;
+}
+function rptCerrarProgress() {
+    closeModal('modal-rpt-progress');
+    rptSel.clear();
+    const a = document.getElementById('rpt-check-all'); if (a) a.checked = false;
+    rptBuscar();   // refresca: los enviados pasan a Aceptado / salen de pendiente
+}
+
 function rptLoadReporte() {
     rptDestroyTable();
+    rptSel.clear();   // cada busqueda arranca sin seleccion
     document.getElementById('rpt-tabla-body').innerHTML =
-        '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+        '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
     document.getElementById('rpt-result-count').textContent = '...';
     const foot = document.getElementById('rpt-tabla-foot');
     if (foot) { foot.innerHTML = ''; foot.style.display = 'none'; }
@@ -1474,17 +1637,18 @@ function rptLoadReporte() {
             rptCache = Array.isArray(data) ? data : [];
             if (data.error) {
                 document.getElementById('rpt-tabla-body').innerHTML =
-                    `<tr><td colspan="10" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
+                    `<tr><td colspan="11" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> ${data.message}</td></tr>`;
                 document.getElementById('rpt-result-count').textContent = 'Error';
                 rptRenderSummary(0,0); return;
             }
             document.getElementById('rpt-result-count').textContent = `${data.length} resultado(s)`;
             if (!data.length) {
                 document.getElementById('rpt-tabla-body').innerHTML =
-                    '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
+                    '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text-light)"><i class="fas fa-inbox" style="font-size:1.3rem"></i><br><br>Sin ventas para los filtros aplicados</td></tr>';
                 rptRenderSummary(0,0); return;
             }
             rptMap = {};
+            const hoyKey = rptDayKey(new Date());
             document.getElementById('rpt-tabla-body').innerHTML = data.map(v => {
                 rptMap[String(v.id)] = v;
                 const dt = new Date(v.created_at), fechaOrden = dt.getTime();
@@ -1492,10 +1656,7 @@ function rptLoadReporte() {
                 const fecha = dt.toLocaleDateString('es-PE'), hora = dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
                 const total = parseFloat(v.total||0);
                 const clienteDoc = v.ruc||v.dni||'';
-                const respCode = v.nubefact_response ? (() => {
-                    try { const p=typeof v.nubefact_response==='string'?JSON.parse(v.nubefact_response):v.nubefact_response; return p?.cdr?.response_code??p?.cdr?.responseCode??null; }
-                    catch(_){return null;}
-                })() : null;
+                const respCode = rptRespCode(v);
                 const sunat = rptShortSunat(v.estado_sunat, respCode);
                 // Nota de venta / ticket: sin comprobante electronico (no va a SUNAT).
                 const esNotaVenta = !String(v.comprobante_numero||'').trim();
@@ -1505,6 +1666,9 @@ function rptLoadReporte() {
                 // no-electronico queda como "Nota de venta".
                 const notaLabel = esTicket ? 'Ticket' : 'Nota de venta';
                 const esAnulado = v.estado !== 'completada';
+                const esEnviable = rptEsEnviable(v);   // B/F pendiente, vigente, sin CDR
+                const esHoy = (dayKey === hoyKey);
+                const compIdNum = parseInt(v.comprobante_id||0,10);
                 const estadoLabel = v.estado==='completada'?'Vigente':'Anulado';
                 const estadoClass = v.estado==='completada'?'badge-success':'badge-danger';
                 const compHtml = v.comprobante_numero
@@ -1531,6 +1695,7 @@ function rptLoadReporte() {
                             ? '<span style="color:var(--text-muted);font-size:.8rem;white-space:nowrap" title="Las ventas anuladas no se envían a SUNAT">(anulado 🚫)</span>'
                             : '<span style="color:#b45309;font-size:.8rem;white-space:nowrap"><i class="fas fa-clock"></i> Programado envío 1:00 am</span>'));
                 return `<tr data-daykey="${dayKey}" data-daylabel="${esc(dayLbl)}">
+                    <td class="rpt-sel-cell">${esEnviable ? `<input type="checkbox" class="rpt-row-check" value="${compIdNum}" data-hoy="${esHoy?'1':'0'}" ${rptSel.has(compIdNum)?'checked':''} onclick="rptToggleSel(${compIdNum}, this.checked)">` : ''}</td>
                     <td data-order="${fechaOrden}"><div class="date-block"><strong>${fecha}</strong><span>${hora}</span></div></td>
                     <td><div class="client-block"><div class="client-name">${esc(v.cliente)}</div>${clienteDoc?`<div class="client-doc">${esc(clienteDoc)}</div>`:''}</div></td>
                     <td>${compHtml}</td>
@@ -1554,7 +1719,7 @@ function rptLoadReporte() {
         })
         .catch(() => {
             document.getElementById('rpt-tabla-body').innerHTML =
-                '<tr><td colspan="10" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> Error al cargar el reporte</td></tr>';
+                '<tr><td colspan="11" style="text-align:center;padding:30px;color:#dc2626"><i class="fas fa-exclamation-triangle"></i> Error al cargar el reporte</td></tr>';
             rptRenderSummary(0,0);
         });
 }
